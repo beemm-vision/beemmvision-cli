@@ -3114,6 +3114,8 @@ var AI_PRICING = {
   "nano-banana-2-t2i": { baseCost: 8, calculateCost: (inputs) => inputs.resolution === "4K" || inputs.resolution === "4k" ? 16 : 8 },
   "seedream": { baseCost: 4 },
   "seedream-lite": { baseCost: 3.5 },
+  "seedream-pro": { baseCost: 5 },
+  "seedream-pro-t2i": { baseCost: 5 },
   "kling": { baseCost: 2.8 },
   "kling-o3": { baseCost: 2.8, calculateCost: (inputs) => (inputs.resolution?.toLowerCase() === "4k" ? 5.6 : 2.8) * (parseInt(inputs.imageInputCount) || 1) },
   "reve": { baseCost: 4 },
