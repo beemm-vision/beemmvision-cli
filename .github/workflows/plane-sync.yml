@@ -1,0 +1,60 @@
+# Synchronise les Pull Requests de ce repo avec Plane.
+#
+#   PR ouverte / rouverte      -> In Progress
+#   PR prete pour revue        -> In Review
+#   PR MERGEE                  -> À valider     (jamais Released : la mise en
+#                                                production reste humaine)
+#   PR fermee sans merge       -> Ready
+#
+# Une PR sans identifiant Plane dans sa branche, son titre ou son corps cree
+# automatiquement un work item en In Progress, et l'identifiant est reinjecte
+# dans le corps de la PR.
+#
+# Ce workflow ne peut pas bloquer un merge : l'etape est en continue-on-error
+# et le script sort toujours en 0.
+name: Plane sync
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, review_requested, closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: plane-sync-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Synchroniser le work item Plane
+    runs-on: ubuntu-latest
+    # Les PR issues d'un fork n'ont pas acces aux secrets : inutile de tourner.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      # On lit le script depuis la branche par defaut, pas depuis la PR : le
+      # merge ref n'existe plus apres fermeture, et cela evite qu'une PR
+      # modifie le script qui la synchronise.
+      - name: Recuperer le script
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Synchroniser
+        continue-on-error: true
+        env:
+          PLANE_API_KEY: ${{ secrets.PLANE_API_KEY }}
+          PLANE_WORKSPACE: beemmvision
+          PLANE_PROJECT: BV
+          PLANE_REPO_LABEL: repo:cli
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f .github/scripts/plane_sync.py ]; then
+            echo "[plane-sync] script absent de la branche par defaut "
+            echo "             (normal tant que la PR d'installation n'est pas mergee)."
+            exit 0
+          fi
+          python3 .github/scripts/plane_sync.py
