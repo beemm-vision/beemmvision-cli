@@ -44,7 +44,7 @@ TRANSITIONS = {
     ("reopened", None): "In Progress",
     ("ready_for_review", None): "In Review",
     ("review_requested", None): "In Review",
-    ("closed", True): "À valider",
+    ("closed", True): "Released",
     ("closed", False): "Ready",
 }
 
