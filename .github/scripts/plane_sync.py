@@ -174,6 +174,35 @@ def build_description(pr, repo, files):
     return "".join(parts)
 
 
+HINT_MARK = "<!-- plane-sync-hint -->"
+
+
+def hint_on_pr(repo, pr):
+    """Signale UNE fois qu'aucun work item n'est rattache. Non bloquant, et
+    volontairement discret : le but est d'informer, pas de harceler."""
+    comments = github(f"/repos/{repo}/issues/{pr['number']}/comments?per_page=100")
+    if isinstance(comments, dict) and "__error" in comments:
+        return
+    if any(HINT_MARK in (c.get("body") or "") for c in comments):
+        return
+    body = (
+        f"{HINT_MARK}\n"
+        "Aucun work item Plane rattache a cette PR — elle ne remontera pas dans "
+        f"le board **{PROJECT_KEY}**.\n\n"
+        "Si ce travail merite d'etre suivi, rattache-le a un work item "
+        "existant : mets son identifiant dans le nom de branche "
+        f"(`feat/{PROJECT_KEY}-42-...`), dans le titre de la PR "
+        f"(`[{PROJECT_KEY}-42] ...`), ou ajoute une ligne `Plane: "
+        f"{PROJECT_KEY}-42` ici.\n\n"
+        "Plusieurs PR peuvent pointer le meme work item : c'est la feature qui "
+        "est suivie, pas la PR.")
+    r = github(f"/repos/{repo}/issues/{pr['number']}/comments", "POST",
+               {"body": body})
+    log("[plane-sync] rappel poste sur la PR."
+        if "__error" not in r
+        else f"[plane-sync] rappel impossible : {r['__body'][:120]}")
+
+
 def main():
     for name, val in (("PLANE_API_KEY", KEY), ("PLANE_WORKSPACE", WORKSPACE),
                       ("PLANE_PROJECT", PROJECT_KEY)):
@@ -202,6 +231,19 @@ def main():
 
     # ---- Cas 2 : aucune reference Plane -----------------------------------
     if not match:
+        # Par defaut, une PR sans identifiant ne cree RIEN. Une feature se
+        # developpe souvent en plusieurs PR : creer un work item par PR
+        # transformait le board en journal de commits. Le work item represente
+        # la FEATURE, pas la PR — c'est a l'humain (ou a l'agent) de le creer
+        # et d'y rattacher ses PR via `BV-42`.
+        # Mettre PLANE_AUTOCREATE=true dans le workflow pour revenir au
+        # comportement d'origine.
+        if os.environ.get("PLANE_AUTOCREATE", "false").lower() != "true":
+            log("[plane-sync] aucun identifiant Plane — creation automatique "
+                "desactivee (PLANE_AUTOCREATE), rien a faire.")
+            if action == "opened":
+                hint_on_pr(repo, pr)
+            return
         if action not in ("opened", "reopened"):
             log(f"[plane-sync] aucun identifiant Plane et action={action} — "
                 "rien a faire.")
