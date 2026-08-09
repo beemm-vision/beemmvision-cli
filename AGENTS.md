@@ -37,46 +37,60 @@ Titre : `[BV-101] Ajout du nouveau modèle`
 La description contient : résumé, fichiers touchés, tests, risques, limites,
 captures si pertinent, et les actions de documentation à prévoir.
 
-## Développement spontané, sans work item
+## Un work item = une FEATURE, jamais une PR
 
-**C'est autorisé et ça ne doit pas être ralenti.** À l'ouverture de la PR, le
-workflow `plane-sync` crée automatiquement un work item en `In Progress` avec
-une description factuelle (PR, branche, volume, fichiers groupés par
-répertoire), et réinjecte son identifiant dans le corps de la PR.
+C'est la règle la plus importante de ce fichier.
 
-Ce filet ne fait qu'enregistrer. **Le travail de l'agent est de l'enrichir** :
+Une feature se développe souvent en **plusieurs PR** — quatre pour l'éditeur de
+calques, quatre pour le corpus légal. Un work item par PR transforme le board
+en journal de commits. **Plusieurs PR portent donc le même identifiant**, et
+c'est le cas normal.
 
-- objectif et valeur utilisateur ;
-- critères réellement livrés ;
-- module et niveau d'impact ;
-- risques et limites connues ;
-- besoins de documentation, landing, news ou communication.
+Conséquence : une PR **sans** identifiant Plane **ne crée rien**. Elle reçoit
+un rappel en commentaire, une seule fois. Coder sans ticket reste possible ;
+c'est simplement que ça ne remonte pas au board.
 
-## États, et la seule règle non négociable
+Si le travail mérite d'être suivi, **crée le work item** (via le serveur MCP
+`plane`) et rattache-lui la PR.
+
+## États
 
 ```
-Inbox → À qualifier → Ready → In Progress → In Review → À valider → Released
-                                     ↕
-                              Blocked / Cancelled
+Inbox → À qualifier → Ready → In Progress → In Review → Released
+                                   ↕
+                            Blocked / Cancelled
 ```
-
-Les transitions liées aux PR sont automatiques :
 
 | Événement GitHub | État Plane |
 |---|---|
 | PR ouverte ou rouverte | `In Progress` |
 | PR prête pour revue | `In Review` |
-| **PR mergée** | **`À valider`** |
+| **PR mergée** | **`Released`** |
 | PR fermée sans merge | `Ready` |
 
-> **`merged` ne signifie pas `Released`.** Une PR mergée amène le work item à
-> `À valider`. Le passage à `Released` exige une vérification en production et
-> reste une décision humaine. Aucune automatisation ne produit `Released`.
+> Une feature portée par plusieurs PR passera `Released` dès la première
+> mergée — aucune automatisation ne peut deviner laquelle est la dernière. Si
+> ce n'est pas fini, on rétrograde à la main.
 
-## Labels
+## Catégories et affichage
 
-`type:*` · `origin:*` · `impact:*` · `repo:*` et les labels de communication
-(`doc-required`, `landing-required`, `news-required`, `social-candidate`,
-`changelog-only`, `internal-only`).
+Les *Work item types* de Plane exigent un plan supérieur. Le type est donc
+porté par un **emoji en tête de titre**, et le domaine par le **module**.
 
-Un work item créé automatiquement depuis une PR porte `origin:github`.
+En créant un work item : emoji en tête du titre **et** label correspondant.
+
+| Emoji | Label |
+|---|---|
+| ✨ | `✨ Feature` |
+| 🎨 | `🎨 Design` |
+| 🐛 | `🐛 Bug` |
+| 🧊 | `🧊 Infrastructure` |
+| 🤖 | `🤖 Modèle` |
+| 🔧 | `🔧 Amélioration` |
+| 🔬 | `🔬 Experiment` |
+| 💡 | `💡 Inspiration` |
+| 🔍 | `🔍 Audit` |
+
+Les labels sont **masqués à l'affichage** — ils servent à filtrer les vues, pas
+à décorer les cartes. Garde-les rares : une catégorie, et c'est tout. Pas de
+label `repo:*`, le repo se lit sur la PR.
