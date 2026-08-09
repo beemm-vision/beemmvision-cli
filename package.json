@@ -1,7 +1,7 @@
 {
   "name": "beemmvision-cli",
-  "version": "0.1.5",
-  "description": "Agent-native BEEMM-JAM CLI",
+  "version": "0.2.0",
+  "description": "CLI Beemm Vision pilotable par des agents IA",
   "type": "module",
   "bin": {
     "visionboard": "./index.js",

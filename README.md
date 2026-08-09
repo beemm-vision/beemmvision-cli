@@ -1,7 +1,7 @@
- # VisionBoard CLI Reference
+ # Beemm Vision CLI — Référence
 
-> Command-line interface pour gérer vos workflows BEEMM-JAM de manière programmatique.
-> Note: Les commandes `beemmvision` et `visionboard` sont 100% équivalentes et peuvent être utilisées de manière interchangeable.
+> Interface en ligne de commande pour piloter projets, workflows et templates Beemm Vision, conçue pour être utilisée par des agents IA autant que par des humains.
+> Note : `beemmvision` est le nom canonique. `visionboard` reste un alias 100 % équivalent et continue de fonctionner.
 
 ---
 
@@ -10,16 +10,27 @@
 ### Installation
 
 ```bash
-# Installation globale via npm
-npm install -g @beemm/visionboard-cli
+git clone git@github.com:beemm-vision/beemmvision-cli.git
+cd beemmvision-cli
+./setup.sh          # npm install puis npm link --force
 
-# Ou utilisation locale depuis le repo
-cd cli && npm install
-npm link --force
+beemmvision --version   # doit afficher la version installée
+```
 
-# Si 'beemmvision' n'est pas reconnu après 'npm link', vous pouvez utiliser les exécutables locaux à la racine du projet :
-cd ..
-./visionboard auth login
+Le paquet n'est pas publié sur le registre npm public : l'installation se fait depuis ce dépôt.
+
+Pour mettre à jour une installation existante :
+
+```bash
+cd /chemin/vers/beemmvision-cli
+git pull && npm install && npm link --force
+beemmvision --version
+```
+
+Si plusieurs clones de ce dépôt traînent sur la machine, vérifiez lequel est réellement utilisé — c'est une source classique d'exécution d'une vieille version :
+
+```bash
+readlink -f "$(which beemmvision)"
 ```
 
 ### Authentification
@@ -671,7 +682,7 @@ echo "Dernière image : $artifact_url"
 
 - **Authentification** : Toutes les commandes nécessitent un token Firebase ID valide
 - **Transport** : Les communications sont chiffrées via HTTPS
-- **Token local** : Le token est stocké de manière sécurisée dans `~/.beemm-visionboard/`
+- **Token local** : Le token est stocké dans `~/.config/visionboard/auth.json`, en permissions `0600`. Ce chemin conserve délibérément l'ancien nom : le renommer imposerait un repli en lecture sur l'ancien répertoire, ce qui laisserait `auth logout` vider le nouveau pendant que l'ancien garderait un jeton valide.
 - **Secrets** : Les clés API sont gérées côté serveur via Google Secret Manager
 
 ---
@@ -685,4 +696,4 @@ echo "Dernière image : $artifact_url"
 
 ---
 
-*Documentation générée pour visionboard-cli v1.0.0*
+*Beemm Vision CLI — voir `beemmvision --version` pour la version installée.*

@@ -37,7 +37,7 @@ var require_portableWorkflow = __commonJS({
   "../packages/workflow-contracts/dist/portableWorkflow.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.createMockPortableWorkflowExport = exports.DEFAULT_PORTABLE_WORKFLOW_EXECUTION_STATE = exports.WorkflowImportResultSchema = exports.PortableWorkflowExportSchema = exports.PortableWorkflowDocumentSchema = exports.PortableWorkflowMetaSchema = exports.PortableWorkflowSchema = exports.PortableWorkflowAppConfigSchema = exports.PortableWorkflowEdgeSchema = exports.PortableWorkflowNodeSchema = exports.PortableWorkflowExecutionStateSchema = void 0;
+    exports.createMockPortableWorkflowExport = exports.DEFAULT_PORTABLE_WORKFLOW_EXECUTION_STATE = exports.WorkflowImportResultSchema = exports.PortableWorkflowExportSchema = exports.PortableWorkflowDocumentSchema = exports.PortableWorkflowMetaSchema = exports.PortableWorkflowSchema = exports.PortableWorkflowAppConfigSchema = exports.PortableWorkflowEdgeSchema = exports.PortableWorkflowNodeSchema = exports.PortableWorkflowNodeAppExposureSchema = exports.PortableWorkflowExecutionStateSchema = void 0;
     var zod_1 = __require("zod");
     exports.PortableWorkflowExecutionStateSchema = zod_1.z.object({
       status: zod_1.z.literal("IDLE"),
@@ -45,6 +45,12 @@ var require_portableWorkflow = __commonJS({
       outputUrl: zod_1.z.null(),
       outputMimeType: zod_1.z.null(),
       outputData: zod_1.z.null()
+    });
+    exports.PortableWorkflowNodeAppExposureSchema = zod_1.z.object({
+      role: zod_1.z.enum(["na", "input", "output"]),
+      label: zod_1.z.string().min(1).nullable().optional(),
+      field: zod_1.z.string().min(1).nullable().optional(),
+      dataType: zod_1.z.enum(["text", "number", "boolean", "image", "file", "video", "generic"]).nullable().optional()
     });
     exports.PortableWorkflowNodeSchema = zod_1.z.object({
       id: zod_1.z.string().min(1),
@@ -57,6 +63,8 @@ var require_portableWorkflow = __commonJS({
       parentId: zod_1.z.string().min(1).nullable().optional(),
       extent: zod_1.z.enum(["parent", "viewport"]).nullable().optional(),
       inputs: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()),
+      bypass: zod_1.z.boolean().optional(),
+      appExposure: exports.PortableWorkflowNodeAppExposureSchema.nullable().optional(),
       executionState: exports.PortableWorkflowExecutionStateSchema
     });
     exports.PortableWorkflowEdgeSchema = zod_1.z.object({
@@ -129,6 +137,7 @@ var require_portableWorkflow = __commonJS({
               value: "",
               file: ""
             },
+            appExposure: { role: "input", dataType: "image", field: "value" },
             executionState: exports.DEFAULT_PORTABLE_WORKFLOW_EXECUTION_STATE
           },
           {
@@ -141,6 +150,7 @@ var require_portableWorkflow = __commonJS({
               width: 400,
               height: 220
             },
+            appExposure: { role: "input", dataType: "text", field: "value" },
             executionState: exports.DEFAULT_PORTABLE_WORKFLOW_EXECUTION_STATE
           },
           {
@@ -171,6 +181,7 @@ var require_portableWorkflow = __commonJS({
               randomSeed: true,
               outputFormat: "png"
             },
+            appExposure: { role: "output", dataType: "image" },
             executionState: exports.DEFAULT_PORTABLE_WORKFLOW_EXECUTION_STATE
           }
         ],
@@ -285,13 +296,21 @@ var require_samyWorkflow = __commonJS({
     var zod_1 = __require("zod");
     var portableWorkflow_1 = require_portableWorkflow();
     exports.WorkflowAssistantModeSchema = zod_1.z.enum([
+      "eco",
       "fast",
       "premium",
       "pro",
       "deepseek-v3",
+      "deepseek-v4-flash",
+      "deepseek-v4-pro",
       "qwen3-32b",
       "qwen3-72b",
-      "qwen25-72b"
+      "qwen25-72b",
+      "kimi-k3",
+      "glm-5.2",
+      "gemini-3.5-flash",
+      "gemini-3.6-flash",
+      "minimax-m3"
     ]);
     exports.WorkflowAssistantStylePresetSchema = zod_1.z.enum([
       "default",
@@ -372,7 +391,14 @@ var require_samyWorkflow = __commonJS({
       reasoningSummary: zod_1.z.string().optional(),
       totalCost: zod_1.z.number().optional(),
       trace: zod_1.z.array(zod_1.z.string()).optional(),
-      promptAudit: zod_1.z.array(exports.WorkflowAssistantPromptAuditStepSchema).optional()
+      promptAudit: zod_1.z.array(exports.WorkflowAssistantPromptAuditStepSchema).optional(),
+      /**
+       * Sprint 1 / B.2 — true si le workflow a été retourné en best-effort après
+       * épuisement du repair budget (max attempts ou max coût $0.30).
+       * Le client doit afficher un avertissement et permettre la régénération.
+       */
+      partial: zod_1.z.boolean().optional(),
+      partialReason: zod_1.z.string().optional()
     });
     exports.WorkflowAssistantGenerateResponseSchema = zod_1.z.union([
       exports.WorkflowAssistantQuestionsResponseSchema,
@@ -493,6 +519,24 @@ var createCommandAction = (options) => {
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
+
+// src/core/configPaths.ts
+var CLI_CONFIG_DIRECTORY_NAME = "visionboard";
+
+// src/core/env.ts
+var readCliEnvVar = (env, suffix) => {
+  const canonical = env[`BEEMMVISION_${suffix}`];
+  if (canonical && canonical.trim()) {
+    return canonical;
+  }
+  const legacy = env[`VISIONBOARD_${suffix}`];
+  if (legacy && legacy.trim()) {
+    return legacy;
+  }
+  return void 0;
+};
+
+// src/core/localAuth.ts
 var resolveConfigHome = (env) => {
   if (env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME.trim()) {
     return env.XDG_CONFIG_HOME;
@@ -503,10 +547,11 @@ var resolveConfigHome = (env) => {
   return join(homedir(), ".config");
 };
 var getVisionboardAuthFilePath = (env = process.env) => {
-  if (env.VISIONBOARD_AUTH_FILE && env.VISIONBOARD_AUTH_FILE.trim()) {
-    return env.VISIONBOARD_AUTH_FILE;
+  const authFile = readCliEnvVar(env, "AUTH_FILE");
+  if (authFile) {
+    return authFile;
   }
-  return join(resolveConfigHome(env), "visionboard", "auth.json");
+  return join(resolveConfigHome(env), CLI_CONFIG_DIRECTORY_NAME, "auth.json");
 };
 var loadStoredAuth = (env = process.env) => {
   const authFilePath = getVisionboardAuthFilePath(env);
@@ -547,7 +592,7 @@ var decodeBase64Url = (value) => {
 };
 var EXPECTED_ISSUER_PREFIX = "https://securetoken.google.com/";
 var getExpectedAudience = () => {
-  return process.env.VISIONBOARD_EXPECTED_TOKEN_AUDIENCE;
+  return readCliEnvVar(process.env, "EXPECTED_TOKEN_AUDIENCE");
 };
 var decodeFirebaseIdTokenClaims = (token) => {
   const parts = token.split(".");
@@ -668,12 +713,26 @@ var EXIT_CODES = {
 var CliError = class extends Error {
   type;
   exitCode;
+  /**
+   * True when the SAME call could plausibly succeed if retried: the backend
+   * was unreachable, the request timed out, the server answered 5xx. It says
+   * nothing about the envelope — the type and the exit code are unchanged, a
+   * one-shot command still fails exactly as before.
+   *
+   * It exists for the one command that retries by design, `workflow watch`,
+   * which must survive a network hiccup but must NOT survive a verdict such as
+   * an invalid session. Without this flag the two are indistinguishable,
+   * because an unreachable backend and a rejected token are both reported as
+   * `auth_error` by the callable transport.
+   */
+  transient;
   cause;
   constructor(options) {
     super(options.message);
     this.name = "CliError";
     this.type = options.type;
     this.exitCode = options.exitCode;
+    this.transient = options.transient ?? false;
     this.cause = options.cause;
   }
 };
@@ -861,7 +920,24 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         writeHtml(
           response,
           200,
-          '<!doctype html><html><body style="font-family: sans-serif; padding: 24px;"><h1>VisionBoard CLI login complete</h1><p>You can close this window and return to the terminal.</p></body></html>',
+          // Minuscule et autonome à dessein : cette page n'est vue que si le
+          // navigateur de l'utilisateur atterrit sur le callback loopback du
+          // CLI. Styles inline, aucune police ni ressource distante.
+          [
+            '<!doctype html><html lang="fr"><head><meta charset="utf-8" />',
+            "<title>Beemm Vision \u2014 Connexion CLI</title></head>",
+            '<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;',
+            "background:#0A0A0A;color:#FFFFFF;",
+            `font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">`,
+            '<div style="max-width:420px;padding:32px 36px;border:1px solid #2A2A2A;border-radius:16px;',
+            'background:#161616;text-align:center;">',
+            '<p style="margin:0 0 12px;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;',
+            'color:#10B981;">Beemm Vision</p>',
+            '<h1 style="margin:0 0 8px;font-size:20px;font-weight:600;">Connexion termin\xE9e</h1>',
+            '<p style="margin:0;font-size:14px;color:#CCCCCC;">',
+            "Vous pouvez fermer cette fen\xEAtre et retourner au terminal.</p>",
+            "</div></body></html>"
+          ].join(""),
           baseAppUrl
         );
         if (!deferredToken.settled) {
@@ -896,33 +972,38 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
     authUrl,
     state,
     callbackUrl,
-    waitForToken: async () => {
-      if (pendingError) {
-        throw pendingError;
-      }
-      let pendingErrorWatcher = null;
-      if (!deferredToken.settled) {
-        pendingErrorWatcher = setInterval(() => {
-          if (!pendingError) {
-            return;
-          }
+    waitForToken: () => {
+      const tokenPromise = (async () => {
+        if (pendingError) {
+          throw pendingError;
+        }
+        let pendingErrorWatcher = null;
+        if (!deferredToken.settled) {
+          pendingErrorWatcher = setInterval(() => {
+            if (!pendingError) {
+              return;
+            }
+            if (pendingErrorWatcher) {
+              clearInterval(pendingErrorWatcher);
+              pendingErrorWatcher = null;
+            }
+            if (!deferredToken.settled) {
+              deferredToken.reject(pendingError);
+            }
+          }, 10);
+        }
+        try {
+          return await deferredToken.promise;
+        } finally {
           if (pendingErrorWatcher) {
             clearInterval(pendingErrorWatcher);
-            pendingErrorWatcher = null;
           }
-          if (!deferredToken.settled) {
-            deferredToken.reject(pendingError);
-          }
-        }, 10);
-      }
-      try {
-        return await deferredToken.promise;
-      } finally {
-        if (pendingErrorWatcher) {
-          clearInterval(pendingErrorWatcher);
+          clearTimeout(timeout);
         }
-        clearTimeout(timeout);
-      }
+      })();
+      tokenPromise.catch(() => {
+      });
+      return tokenPromise;
     },
     close: async () => {
       clearTimeout(timeout);
@@ -972,7 +1053,7 @@ var authWhoamiHandler = async (_options, context) => {
   if (!token) {
     throw new CliError({
       type: "auth_error",
-      message: "No Firebase ID token configured. Use `auth login --firebase-id-token <token>` or set VISIONBOARD_FIREBASE_ID_TOKEN.",
+      message: "No Firebase ID token configured. Use `auth login --firebase-id-token <token>` or set BEEMMVISION_FIREBASE_ID_TOKEN.",
       exitCode: EXIT_CODES.AUTH
     });
   }
@@ -1111,10 +1192,11 @@ var resolveConfigHome2 = (env) => {
   return join2(homedir2(), ".config");
 };
 var getVisionboardConfigFilePath = (env = process.env) => {
-  if (env.VISIONBOARD_CONFIG_FILE && env.VISIONBOARD_CONFIG_FILE.trim()) {
-    return env.VISIONBOARD_CONFIG_FILE;
+  const configFile = readCliEnvVar(env, "CONFIG_FILE");
+  if (configFile) {
+    return configFile;
   }
-  return join2(resolveConfigHome2(env), "visionboard", "config.json");
+  return join2(resolveConfigHome2(env), CLI_CONFIG_DIRECTORY_NAME, "config.json");
 };
 var loadVisionboardCliConfig = (env = process.env) => {
   const configFilePath = getVisionboardConfigFilePath(env);
@@ -1152,293 +1234,6 @@ var clearVisionboardCliConfig = (env = process.env) => {
 
 // src/commands/config.ts
 import { readFileSync as readFileSync3 } from "node:fs";
-
-// src/contracts/portableWorkflow.ts
-var import_portableWorkflow = __toESM(require_portableWorkflow(), 1);
-
-// src/contracts/catalog.ts
-var import_catalog = __toESM(require_catalog(), 1);
-
-// src/contracts/samyWorkflow.ts
-var import_samyWorkflow = __toESM(require_samyWorkflow(), 1);
-
-// src/contracts/workflowRun.ts
-var import_workflowRun = __toESM(require_workflowRun(), 1);
-
-// src/transports/mockWorkflowTransport.ts
-var MockWorkflowTransport = class {
-  kind = "mock";
-  async exportWorkflow(input) {
-    const portableWorkflow = (0, import_portableWorkflow.createMockPortableWorkflowExport)({
-      projectId: input.projectId,
-      workflowId: input.workflowId
-    });
-    return import_portableWorkflow.PortableWorkflowExportSchema.parse(portableWorkflow);
-  }
-  async importWorkflow(input) {
-    return import_portableWorkflow.WorkflowImportResultSchema.parse({
-      importMode: input.importMode || "replace",
-      workflowName: input.payload.workflow.name,
-      importedNodeCount: input.payload.nodes.length,
-      importedEdgeCount: input.payload.edges.length
-    });
-  }
-  async generateWorkflow(input) {
-    const portableWorkflow = (0, import_portableWorkflow.createMockPortableWorkflowExport)({
-      projectId: input.projectId,
-      workflowId: input.workflowId
-    });
-    return import_samyWorkflow.WorkflowAssistantGenerateResponseSchema.parse({
-      kind: "workflow",
-      workflowName: input.workflowName || "Mock Samy Workflow",
-      portableWorkflow: {
-        ...portableWorkflow,
-        workflow: {
-          ...portableWorkflow.workflow,
-          name: input.workflowName || "Mock Samy Workflow"
-        }
-      },
-      warnings: [],
-      reasoningSummary: `Mock Samy generation created from prompt: ${input.prompt}`,
-      totalCost: 0,
-      trace: ["Mock Samy transport used."]
-    });
-  }
-  async runWorkflow(input, onProgress) {
-    const progressEvents = [
-      {
-        nodeId: "node_prompt_enhancer_starter",
-        nodeType: "promptEnhancer",
-        label: "Prompt Enhancer",
-        step: "node_start",
-        status: "queued",
-        message: "Node queued for execution.",
-        timestamp: "2026-04-05T10:00:00.000Z"
-      },
-      {
-        nodeId: "node_prompt_enhancer_starter",
-        nodeType: "promptEnhancer",
-        label: "Prompt Enhancer",
-        step: "node_start",
-        status: "running",
-        message: "Node execution started.",
-        timestamp: "2026-04-05T10:00:01.000Z"
-      },
-      {
-        nodeId: "node_prompt_enhancer_starter",
-        nodeType: "promptEnhancer",
-        label: "Prompt Enhancer",
-        step: "node_complete",
-        status: "success",
-        message: "Prompt enhanced with google/gemini-2.5-flash.",
-        completedNodeCount: 1,
-        totalNodeCount: 4,
-        timestamp: "2026-04-05T10:00:02.000Z"
-      },
-      {
-        nodeId: "node_image_model_starter",
-        nodeType: "imageModel",
-        label: "Nano Banana 2",
-        step: "node_start",
-        status: "queued",
-        message: "Node queued for execution.",
-        timestamp: "2026-04-05T10:00:03.000Z"
-      },
-      {
-        nodeId: "node_image_model_starter",
-        nodeType: "imageModel",
-        label: "Nano Banana 2",
-        step: "node_start",
-        status: "running",
-        message: "Node execution started.",
-        timestamp: "2026-04-05T10:00:04.000Z"
-      },
-      {
-        nodeId: "node_image_model_starter",
-        nodeType: "imageModel",
-        label: "Nano Banana 2",
-        step: "node_complete",
-        status: "success",
-        message: "Image generated with nano-banana-2.",
-        completedNodeCount: 2,
-        totalNodeCount: 4,
-        timestamp: "2026-04-05T10:00:05.000Z"
-      }
-    ];
-    for (const event of progressEvents) {
-      onProgress?.(event);
-      await new Promise((r) => setTimeout(r, 150));
-    }
-    return import_workflowRun.WorkflowExecutionResultSchema.parse({
-      run: {
-        runId: `mock-run-${input.projectId}-${input.workflowId}`,
-        workflowName: "Mock Samy Workflow",
-        artifactCount: 2,
-        executedNodeCount: 4,
-        warnings: [],
-        artifacts: [
-          {
-            nodeId: "node_prompt_enhancer_starter",
-            nodeType: "promptEnhancer",
-            label: "Prompt Enhancer",
-            kind: "text",
-            text: "A premium editorial product shot, clean composition, luxury lighting.",
-            modelId: "google/gemini-2.5-flash",
-            prompt: "Enhance the prompt"
-          },
-          {
-            nodeId: "node_image_model_starter",
-            nodeType: "imageModel",
-            label: "Nano Banana 2",
-            kind: "image",
-            url: "https://example.com/mock-generated-image.png",
-            mimeType: "image/png",
-            modelId: "nano-banana-2",
-            prompt: "A premium editorial product shot, clean composition, luxury lighting.",
-            data: {
-              outputFormat: "png",
-              resolution: "1K"
-            }
-          }
-        ]
-      },
-      progressEvents,
-      summary: {
-        executedNodeCount: 4,
-        artifactCount: 2,
-        warningCount: 0
-      }
-    });
-  }
-  async listWorkflows(input) {
-    return import_catalog.WorkflowListResultSchema.parse({
-      projectId: input.projectId,
-      workflowCount: 2,
-      workflows: [
-        {
-          workflowId: "default",
-          name: "Main Workflow",
-          updatedAt: "2026-04-04T10:00:00.000Z",
-          lastExecutedAt: "2026-04-04T09:45:00.000Z",
-          appConfigEnabled: true
-        },
-        {
-          workflowId: "editorial-variant",
-          name: "Editorial Variant",
-          updatedAt: "2026-04-03T18:30:00.000Z",
-          lastExecutedAt: null,
-          appConfigEnabled: false
-        }
-      ]
-    });
-  }
-  async listTemplates() {
-    return import_catalog.TemplateListResultSchema.parse({
-      templateCount: 2,
-      templates: [
-        {
-          templateId: "template-editorial-premium",
-          title: "Premium Editorial Template",
-          description: "Editorial pipeline with prompt enhancer and image model.",
-          thumbnailUrl: "https://example.com/template-editorial-premium.png",
-          creatorName: "BEEMM Team",
-          creatorPhotoUrl: null,
-          status: "approved",
-          includesGeneratedData: false,
-          createdAt: "2026-04-01T09:00:00.000Z",
-          updatedAt: "2026-04-02T12:00:00.000Z"
-        },
-        {
-          templateId: "template-product-campaign",
-          title: "Product Campaign Template",
-          description: "Product visual generation flow for campaign variants.",
-          thumbnailUrl: "https://example.com/template-product-campaign.png",
-          creatorName: "BEEMM Team",
-          creatorPhotoUrl: null,
-          status: "approved",
-          includesGeneratedData: false,
-          createdAt: "2026-03-29T14:00:00.000Z",
-          updatedAt: "2026-04-01T11:00:00.000Z"
-        }
-      ]
-    });
-  }
-  async getTemplate(input) {
-    const portableWorkflow = (0, import_portableWorkflow.createMockPortableWorkflowExport)({
-      projectId: "template-catalog",
-      workflowId: input.templateId
-    });
-    return import_catalog.TemplateGetResultSchema.parse({
-      template: {
-        templateId: input.templateId,
-        title: "Premium Editorial Template",
-        description: "Editorial pipeline with prompt enhancer and image model.",
-        thumbnailUrl: "https://example.com/template-editorial-premium.png",
-        creatorName: "BEEMM Team",
-        creatorPhotoUrl: null,
-        status: "approved",
-        includesGeneratedData: false,
-        createdAt: "2026-04-01T09:00:00.000Z",
-        updatedAt: "2026-04-02T12:00:00.000Z"
-      },
-      portableWorkflow: {
-        ...portableWorkflow,
-        workflow: {
-          ...portableWorkflow.workflow,
-          name: "Premium Editorial Template"
-        }
-      }
-    });
-  }
-  async duplicateTemplate(input) {
-    return import_catalog.TemplateDuplicateResultSchema.parse({
-      templateId: input.templateId,
-      projectId: "mock-duplicated-project",
-      workflowId: "default",
-      projectName: "Copy of Premium Editorial Template",
-      workflowName: "Main Workflow"
-    });
-  }
-  async listProjects(input) {
-    const allProjects = [
-      {
-        projectId: "mock-workflow-project",
-        name: "Premium Editorial Project",
-        type: "workflow",
-        ownerId: "mock-user",
-        ownerName: "Mock User",
-        updatedAt: "2026-04-05T10:00:00.000Z",
-        lastOpenedAt: "2026-04-05T09:45:00.000Z"
-      },
-      {
-        projectId: "mock-board-project",
-        name: "Campaign Board",
-        type: "board",
-        ownerId: "mock-user",
-        ownerName: "Mock User",
-        updatedAt: "2026-04-04T18:00:00.000Z",
-        lastOpenedAt: "2026-04-04T17:30:00.000Z"
-      }
-    ];
-    const filteredProjects = input.type ? allProjects.filter((project) => project.type === input.type) : allProjects;
-    return import_catalog.ProjectListResultSchema.parse({
-      projectCount: filteredProjects.length,
-      projects: filteredProjects
-    });
-  }
-  async getCredits() {
-    return 1e3;
-  }
-  async renameWorkflow(input) {
-    return { ok: true };
-  }
-  async createProject(input) {
-    const projectId = `mock-project-${Date.now()}`;
-    return { projectId, name: input.name };
-  }
-};
-
-// src/commands/config.ts
 var ConfigRawOptionsSchema = z2.object({
   functionsBaseUrl: z2.string().optional(),
   appBaseUrl: z2.string().optional(),
@@ -1513,7 +1308,6 @@ var registerConfigCommands = (program, context) => {
   );
   configCommand.command("set").description("Persist app/functions URLs for deployed usage").option("--functions-base-url <url>", "Callable Functions base URL").option("--app-base-url <url>", "App base URL used by browser auth").action(async (rawOptions) => {
     context.commandName = "config.set";
-    context.transport = new MockWorkflowTransport();
     const raw = ConfigRawOptionsSchema.parse({
       ...rawOptions,
       functionsBaseUrl: readLongOptionValue(process.argv, "functions-base-url") ?? rawOptions.functionsBaseUrl,
@@ -1565,6 +1359,7 @@ var detectJava = async () => {
 };
 var doctorHandler = async (options, context) => {
   const java = await detectJava();
+  const transportTarget = context.describeTransport();
   const tokenAudience = context.runtimeConfig.firebaseIdToken ? getFirebaseTokenAudience(context.runtimeConfig.firebaseIdToken) : void 0;
   const tokenInspection = (() => {
     const token = context.runtimeConfig.firebaseIdToken;
@@ -1595,8 +1390,8 @@ var doctorHandler = async (options, context) => {
   const checks = [
     {
       id: "transport-resolution",
-      ok: true,
-      message: `Resolved transport: ${context.transport.kind}`
+      ok: transportTarget !== "not_configured",
+      message: transportTarget === "not_configured" ? "No transport configured: server commands will fail until you run `auth login` (or pass --transport mock)." : `Transport that would be used: ${transportTarget}`
     },
     {
       id: "functions-base-url",
@@ -1643,7 +1438,7 @@ var doctorHandler = async (options, context) => {
   const fixesApplied = [];
   if (options.fix) {
     if (!context.runtimeConfig.appBaseUrl || context.runtimeConfig.appBaseUrlSource === "default") {
-      const defaultAppUrl = "https://beemm-vision.netlify.app";
+      const defaultAppUrl = "https://app.beemmvision.com";
       writeVisionboardCliConfig({ appBaseUrl: defaultAppUrl }, context.env);
       fixesApplied.push(`Set default app-base-url to ${defaultAppUrl}`);
       console.log(`[doctor.fix] Set default app-base-url to ${defaultAppUrl}`);
@@ -1665,7 +1460,7 @@ var doctorHandler = async (options, context) => {
     console.log(`[doctor] ${fixesApplied.length} fix(es) applied.`);
   }
   return {
-    transport: context.transport.kind,
+    transport: transportTarget,
     callableConfigured,
     checks,
     fixesApplied
@@ -1685,6 +1480,9 @@ var registerDoctorCommand = (program, context) => {
 // src/commands/project.ts
 import { z as z5 } from "zod";
 
+// src/contracts/catalog.ts
+var import_catalog = __toESM(require_catalog(), 1);
+
 // src/core/localProject.ts
 import { existsSync as existsSync3, mkdirSync as mkdirSync3, readFileSync as readFileSync4, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
 import { dirname as dirname3, join as join3 } from "node:path";
@@ -1699,10 +1497,11 @@ var resolveConfigHome3 = (env) => {
   return join3(homedir3(), ".config");
 };
 var getVisionboardProjectFilePath = (env = process.env) => {
-  if (env.VISIONBOARD_PROJECT_FILE && env.VISIONBOARD_PROJECT_FILE.trim()) {
-    return env.VISIONBOARD_PROJECT_FILE;
+  const projectFile = readCliEnvVar(env, "PROJECT_FILE");
+  if (projectFile) {
+    return projectFile;
   }
-  return join3(resolveConfigHome3(env), "visionboard", "project.json");
+  return join3(resolveConfigHome3(env), CLI_CONFIG_DIRECTORY_NAME, "project.json");
 };
 var loadStoredProjectId = (env = process.env) => {
   const projectFilePath = getVisionboardProjectFilePath(env);
@@ -1986,6 +1785,11 @@ var registerWorkflowDuplicateCommand = (workflowCommand, context) => {
 import { dirname as dirname4, resolve } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { z as z8 } from "zod";
+
+// src/contracts/portableWorkflow.ts
+var import_portableWorkflow = __toESM(require_portableWorkflow(), 1);
+
+// src/commands/workflow/export.ts
 var WorkflowExportOptionsSchema = z8.object({
   projectId: z8.string().min(1).optional(),
   workflowId: z8.string().min(1, "workflowId is required"),
@@ -2023,7 +1827,7 @@ var workflowExportHandler = async (options, context) => {
   };
 };
 var registerWorkflowExportCommand = (workflowCommand, context) => {
-  workflowCommand.command("export").description("Export a BEEMM-JAM portable workflow document").option("--project-id <projectId>", "Target project identifier").requiredOption("--workflow-id <workflowId>", "Target workflow identifier").option("--output <path>", "Write the portable workflow JSON to a file").action(
+  workflowCommand.command("export").description("Export a Beemm Vision portable workflow document").option("--project-id <projectId>", "Target project identifier").requiredOption("--workflow-id <workflowId>", "Target workflow identifier").option("--output <path>", "Write the portable workflow JSON to a file").action(
     createCommandAction({
       context,
       commandName: "workflow.export",
@@ -2037,6 +1841,11 @@ var registerWorkflowExportCommand = (workflowCommand, context) => {
 import { mkdir as mkdir2, writeFile as writeFile2 } from "node:fs/promises";
 import { dirname as dirname5, resolve as resolve2 } from "node:path";
 import { z as z9 } from "zod";
+
+// src/contracts/samyWorkflow.ts
+var import_samyWorkflow = __toESM(require_samyWorkflow(), 1);
+
+// src/commands/workflow/generateImportRun.ts
 var WorkflowGenerateImportRunOptionsSchema = z9.object({
   projectId: z9.string().min(1).optional(),
   workflowId: z9.string().min(1, "workflowId is required"),
@@ -2451,7 +2260,7 @@ var workflowImportHandler = async (options, context) => {
   };
 };
 var registerWorkflowImportCommand = (workflowCommand, context) => {
-  workflowCommand.command("import").description("Import a BEEMM-JAM portable workflow document").option("--project-id <projectId>", "Target project identifier").option("--workflow-id <workflowId>", "Target workflow identifier (omit to create new)").option("--name <name>", "Override the imported workflow name").option("--mode <mode>", "Import mode: replace or append", "replace").option("--append", "(Deprecated) Use --mode append instead").option("--force", "Skip confirmation when replacing an existing workflow").requiredOption("--input <path>", "Portable workflow JSON file").action(
+  workflowCommand.command("import").description("Import a Beemm Vision portable workflow document").option("--project-id <projectId>", "Target project identifier").option("--workflow-id <workflowId>", "Target workflow identifier (omit to create new)").option("--name <name>", "Override the imported workflow name").option("--mode <mode>", "Import mode: replace or append", "replace").option("--append", "(Deprecated) Use --mode append instead").option("--force", "Skip confirmation when replacing an existing workflow").requiredOption("--input <path>", "Portable workflow JSON file").action(
     createCommandAction({
       context,
       commandName: "workflow.import",
@@ -2535,591 +2344,73 @@ var registerWorkflowRenameCommand = (workflowCommand, context) => {
 import * as readline from "readline";
 import { z as z14 } from "zod";
 
-// src/transports/callableWorkflowTransport.ts
-var isCallableErrorResponse = (payload) => {
-  return Boolean(payload) && typeof payload === "object" && Object.prototype.hasOwnProperty.call(payload, "error");
-};
-var createFunctionsUrl = (baseUrl, functionName) => {
-  const trimmedBaseUrl = baseUrl.replace(/\/+$/, "");
-  if (/cloudfunctions\.net$/i.test(trimmedBaseUrl)) {
-    return `${trimmedBaseUrl}/${functionName}`;
-  }
-  return `${trimmedBaseUrl}/${functionName}`;
-};
-var mapFunctionsErrorToCliError = (status, payload) => {
-  const code = payload?.error?.code || "internal";
-  const message = payload?.error?.message || `Functions transport failed with status ${status}.`;
-  if (code === "unauthenticated" || code === "permission-denied") {
-    return new CliError({
-      type: "auth_error",
-      message,
-      exitCode: EXIT_CODES.AUTH,
-      cause: payload
-    });
-  }
-  if (code === "invalid-argument") {
-    return new CliError({
-      type: "validation_error",
-      message,
-      exitCode: EXIT_CODES.VALIDATION,
-      cause: payload
-    });
-  }
-  return new CliError({
-    type: "api_error",
-    message,
-    exitCode: EXIT_CODES.API,
-    cause: payload
-  });
-};
-var mapCallableErrorToCliError = (status, payload) => {
-  const code = payload?.error?.status || "INTERNAL";
-  const message = payload?.error?.message || `Callable transport failed with status ${status}.`;
-  if (code === "UNAUTHENTICATED" || code === "PERMISSION_DENIED") {
-    return new CliError({
-      type: "auth_error",
-      message,
-      exitCode: EXIT_CODES.AUTH,
-      cause: payload
-    });
-  }
-  if (code === "INVALID_ARGUMENT") {
-    return new CliError({
-      type: "validation_error",
-      message,
-      exitCode: EXIT_CODES.VALIDATION,
-      cause: payload
-    });
-  }
-  return new CliError({
-    type: "api_error",
-    message,
-    exitCode: EXIT_CODES.API,
-    cause: payload
-  });
-};
-var CallableWorkflowTransport = class {
-  constructor(baseUrl, firebaseIdToken, fetchImpl = fetch) {
-    this.baseUrl = baseUrl;
-    this.firebaseIdToken = firebaseIdToken;
-    this.fetchImpl = fetchImpl;
-  }
-  baseUrl;
-  firebaseIdToken;
-  fetchImpl;
-  kind = "callable";
-  async exportWorkflow(input) {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "exportPortableWorkflow"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify(input)
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload?.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
-    }
-    return import_portableWorkflow.PortableWorkflowExportSchema.parse(payload.portableWorkflow);
-  }
-  async importWorkflow(input) {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "importPortableWorkflow"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify(input)
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload?.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
-    }
-    return import_portableWorkflow.WorkflowImportResultSchema.parse({
-      importMode: payload.importMode,
-      workflowName: payload.workflowName,
-      importedNodeCount: payload.importedNodeCount,
-      importedEdgeCount: payload.importedEdgeCount
-    });
-  }
-  async generateWorkflow(input) {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "generateWorkflowWithSamy"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify({ data: input })
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload || isCallableErrorResponse(payload)) {
-      throw mapCallableErrorToCliError(response.status, payload);
-    }
-    return import_samyWorkflow.WorkflowAssistantGenerateResponseSchema.parse(payload.result);
-  }
-  async runWorkflow(input, onProgress) {
-    if (onProgress) {
-      const response2 = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "executeWorkflowPortable"), {
-        method: "POST",
-        headers: {
-          Accept: "application/x-ndjson",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify({ ...input, stream: true, executionId: `cli-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })
-      });
-      if (!response2.ok) {
-        throw new CliError({
-          type: "api_error",
-          message: `Stream request failed with status ${response2.status}`,
-          exitCode: EXIT_CODES.API
-        });
-      }
-      if (!response2.body) {
-        throw new CliError({
-          type: "api_error",
-          message: "Response body is empty",
-          exitCode: EXIT_CODES.API
-        });
-      }
-      const reader = response2.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const data = JSON.parse(line);
-            if (data.type === "progress") {
-              onProgress(data.event);
-            } else if (data.type === "result") {
-              return import_workflowRun.WorkflowExecutionResultSchema.parse(data.data);
-            } else if (data.type === "error") {
-              throw new CliError({
-                type: "api_error",
-                message: data.error || "Unknown error during execution stream",
-                exitCode: EXIT_CODES.API
-              });
-            }
-          } catch (e) {
-            if (e instanceof CliError) throw e;
-          }
-        }
-      }
-      throw new CliError({
-        type: "api_error",
-        message: "Stream ended without a final result",
-        exitCode: EXIT_CODES.API
-      });
-    }
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "executeWorkflowPortable"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify(input)
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
-    }
-    return import_workflowRun.WorkflowExecutionResultSchema.parse({
-      run: payload.run,
-      progressEvents: payload.progressEvents,
-      summary: payload.summary
-    });
-  }
-  async listWorkflows(input) {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "listProjectWorkflows"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify(input)
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
-    }
-    return import_catalog.WorkflowListResultSchema.parse(payload);
-  }
-  async listTemplates() {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "listCommunityTemplates"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify({})
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
-    }
-    return import_catalog.TemplateListResultSchema.parse(payload);
-  }
-  async getTemplate(input) {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "getCommunityTemplate"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify(input)
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
-    }
-    return import_catalog.TemplateGetResultSchema.parse(payload);
-  }
-  async duplicateTemplate(input) {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "duplicateCommunityTemplate"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify(input)
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
-    }
-    return import_catalog.TemplateDuplicateResultSchema.parse(payload);
-  }
-  async listProjects(input) {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "listUserProjects"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify(input)
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
-    }
-    return import_catalog.ProjectListResultSchema.parse(payload);
-  }
-  async getCredits() {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "getUserCredits"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify({})
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    try {
-      const text = await response.text();
-      const payload = JSON.parse(text);
-      return payload?.credits ?? 0;
-    } catch {
-      return 0;
-    }
-  }
-  async renameWorkflow(input) {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "renameWorkflow"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify(input)
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload?.ok) {
-      throw new CliError({
-        type: "api_error",
-        message: payload?.error?.message || `Failed to rename workflow: ${response.statusText}`,
-        exitCode: EXIT_CODES.API,
-        cause: payload
-      });
-    }
-    return { ok: true };
-  }
-  async createProject(input) {
-    let response;
-    try {
-      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "createProject"), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
-        body: JSON.stringify(input)
-      });
-    } catch (error) {
-      throw new CliError({
-        type: "auth_error",
-        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
-        exitCode: EXIT_CODES.AUTH,
-        cause: error
-      });
-    }
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
-    }
-    if (!response.ok || !payload?.ok || !payload?.projectId) {
-      throw new CliError({
-        type: "api_error",
-        message: payload?.error?.message || `Failed to create project: ${response.statusText}`,
-        exitCode: EXIT_CODES.API,
-        cause: payload
-      });
-    }
-    return { projectId: payload.projectId, name: payload.name || input.name };
-  }
-};
-
-// src/transports/resolveWorkflowTransport.ts
-var resolveWorkflowTransport = (runtimeConfig, commandName) => {
-  if (runtimeConfig.transportMode === "mock") {
-    return new MockWorkflowTransport();
-  }
-  const hasCallableConfig = Boolean(runtimeConfig.functionsBaseUrl && runtimeConfig.firebaseIdToken);
-  if (runtimeConfig.transportMode === "callable") {
-    if (!runtimeConfig.functionsBaseUrl) {
-      throw new CliError({
-        type: "validation_error",
-        message: "Callable transport requires --functions-base-url or VISIONBOARD_FUNCTIONS_BASE_URL.",
-        exitCode: EXIT_CODES.VALIDATION
-      });
-    }
-    if (!runtimeConfig.firebaseIdToken) {
-      throw new CliError({
-        type: "auth_error",
-        message: "Callable transport requires --firebase-id-token or VISIONBOARD_FIREBASE_ID_TOKEN.",
-        exitCode: EXIT_CODES.AUTH
-      });
-    }
-    return new CallableWorkflowTransport(runtimeConfig.functionsBaseUrl, runtimeConfig.firebaseIdToken);
-  }
-  if (hasCallableConfig) {
-    return new CallableWorkflowTransport(runtimeConfig.functionsBaseUrl, runtimeConfig.firebaseIdToken);
-  }
-  const isAuthCommand = commandName && commandName.startsWith("auth");
-  if (isAuthCommand) {
-    return new MockWorkflowTransport();
-  }
-  if (!runtimeConfig.functionsBaseUrl) {
-    throw new CliError({
-      type: "validation_error",
-      message: "Missing functions base URL. Please ensure your configuration is correct.",
-      exitCode: EXIT_CODES.VALIDATION
-    });
-  }
-  if (!runtimeConfig.firebaseIdToken) {
-    throw new CliError({
-      type: "auth_error",
-      message: "You must be logged in to use this command. Please run `auth login` or set VISIONBOARD_FIREBASE_ID_TOKEN.",
-      exitCode: EXIT_CODES.AUTH
-    });
-  }
-  return new CallableWorkflowTransport(runtimeConfig.functionsBaseUrl, runtimeConfig.firebaseIdToken);
-};
+// src/contracts/workflowRun.ts
+var import_workflowRun = __toESM(require_workflowRun(), 1);
 
 // src/core/pricing.ts
 var roundCostUpToHundredth = (cost) => Math.ceil(cost * 100) / 100;
+var SEEDANCE_IMAGE_TIER_TO_P = {
+  "0.5k": "1080p",
+  "1k": "1080p",
+  "2k": "1440p",
+  "4k": "2160p"
+};
+var normalizeSeedanceResolution = (raw, supported) => {
+  if (raw === void 0 || raw === null || raw === "") {
+    return supported[0];
+  }
+  const r = String(raw).toLowerCase();
+  if (supported.includes(r)) return r;
+  const mapped = SEEDANCE_IMAGE_TIER_TO_P[r];
+  if (mapped && supported.includes(mapped)) return mapped;
+  return supported[0];
+};
+var seedance2VideoCost = (inputs, usdPerThousandTokens) => {
+  const resolution = normalizeSeedanceResolution(inputs.resolution, ["480p", "720p"]);
+  const parsed = Number(inputs.duration);
+  const duration = Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
+  const dims = {
+    "480p": { width: 854, height: 480 },
+    "720p": { width: 1280, height: 720 }
+  };
+  const { width, height } = dims[resolution] || dims["720p"];
+  const tokensPerSec = width * height * 24 / 1024;
+  const usdPerSec = tokensPerSec * usdPerThousandTokens / 1e3;
+  const hasVideoInput = Boolean(inputs.video_url || inputs.video_urls);
+  const multiplier = hasVideoInput ? 0.6 : 1;
+  return roundCostUpToHundredth(usdPerSec * duration * multiplier * 100);
+};
 var AI_PRICING = {
   "nano-banana": { baseCost: 15, calculateCost: (inputs) => inputs.resolution === "4K" || inputs.resolution === "4k" ? 30 : 15 },
   "nano-banana-2": { baseCost: 8, calculateCost: (inputs) => inputs.resolution === "4K" || inputs.resolution === "4k" ? 16 : 8 },
   "nano-banana-pro": { baseCost: 15, calculateCost: (inputs) => inputs.resolution === "4K" || inputs.resolution === "4k" ? 30 : 15 },
   "nano-banana-pro-t2i": { baseCost: 15, calculateCost: (inputs) => inputs.resolution === "4K" || inputs.resolution === "4k" ? 30 : 15 },
   "nano-banana-2-t2i": { baseCost: 8, calculateCost: (inputs) => inputs.resolution === "4K" || inputs.resolution === "4k" ? 16 : 8 },
+  "nano-banana-lite": { baseCost: 5 },
+  "nano-banana-lite-t2i": { baseCost: 5 },
+  "nano-banana-2-lite": { baseCost: 5 },
+  "nano-banana-2-lite-t2i": { baseCost: 5 },
   "seedream": { baseCost: 4 },
+  "seedream-t2i": { baseCost: 4 },
+  "seedream-lite-t2i": { baseCost: 3.5 },
+  "seedream-pro-t2i": { baseCost: 5 },
+  "kling-t2i": { baseCost: 2.8 },
+  "kling-o3-t2i": { baseCost: 2.8, calculateCost: (inputs) => (inputs.resolution?.toLowerCase() === "4k" ? 5.6 : 2.8) * (parseInt(inputs.imageInputCount) || 1) },
+  "hunyuan-t2i": { baseCost: 9, calculateCost: (inputs) => {
+    const r = inputs.resolution?.toLowerCase();
+    return r === "4k" ? 144 : r === "2k" ? 36 : 9;
+  } },
+  "qwen-max-t2i": { baseCost: 7.5 },
+  "flux-2-pro-edit": { baseCost: 6 },
+  "qwen-image-2-edit": { baseCost: 3.5 },
   "seedream-lite": { baseCost: 3.5 },
   "seedream-pro": { baseCost: 5 },
-  "seedream-pro-t2i": { baseCost: 5 },
+  // Plancher (2 calques en auto_1K). Le coût réel est calculé par calque dans
+  // layerizePricing.ts — cette entrée évite un « Modèle inconnu » sur les
+  // chemins qui interrogent AI_PRICING.
+  "seedream-pro-layerize": { baseCost: 6.75 },
   "kling": { baseCost: 2.8 },
   "kling-o3": { baseCost: 2.8, calculateCost: (inputs) => (inputs.resolution?.toLowerCase() === "4k" ? 5.6 : 2.8) * (parseInt(inputs.imageInputCount) || 1) },
-  "reve": { baseCost: 4 },
-  "reve-text": { baseCost: 4 },
   "qwen-max": { baseCost: 7.5 },
   "qwen-image-2": { baseCost: 3.5 },
   "qwen-image-2-pro": { baseCost: 7.5 },
@@ -3132,22 +2423,108 @@ var AI_PRICING = {
   } },
   "gpt-image-1-5": { baseCost: 2 },
   "gpt-image-1-5-edit": { baseCost: 2 },
+  "gpt-image-2": {
+    baseCost: 2,
+    calculateCost: (inputs) => {
+      const q = inputs.quality || "medium";
+      const ar = inputs.aspectRatio || "1:1";
+      const table = {
+        "1:1": [0.01, 0.06, 0.22],
+        auto: [0.01, 0.06, 0.22],
+        "16:9": [0.01, 0.04, 0.16],
+        "9:16": [0.01, 0.05, 0.17],
+        "4:3": [0.01, 0.04, 0.15],
+        "3:4": [0.01, 0.05, 0.17],
+        "3:2": [0.01, 0.04, 0.16],
+        "2:3": [0.01, 0.05, 0.17],
+        "21:9": [0.02, 0.11, 0.41]
+      };
+      const row = table[ar] || table["1:1"];
+      const usd = q === "low" ? row[0] : q === "medium" ? row[1] : row[2];
+      return roundCostUpToHundredth(usd * 100);
+    }
+  },
+  "gpt-image-2-edit": {
+    baseCost: 2,
+    calculateCost: (inputs) => {
+      const q = inputs.quality || "medium";
+      const ar = inputs.aspectRatio || "1:1";
+      const table = {
+        "1:1": [0.01, 0.06, 0.22],
+        auto: [0.01, 0.06, 0.22],
+        "16:9": [0.01, 0.04, 0.16],
+        "9:16": [0.01, 0.05, 0.17],
+        "4:3": [0.01, 0.04, 0.15],
+        "3:4": [0.01, 0.05, 0.17],
+        "3:2": [0.01, 0.04, 0.16],
+        "2:3": [0.01, 0.05, 0.17],
+        "21:9": [0.02, 0.11, 0.41]
+      };
+      const row = table[ar] || table["1:1"];
+      const usd = q === "low" ? row[0] : q === "medium" ? row[1] : row[2];
+      return roundCostUpToHundredth(usd * 100);
+    }
+  },
   "flux-2-pro": { baseCost: 6 },
   "recraft-v4-vector": { baseCost: 8 },
-  "ideogram-v3": { baseCost: 6, calculateCost: (inputs) => {
+  "recraft-v4.1-pro": { baseCost: 25 },
+  "recraft-v4.1-pro-vector": { baseCost: 30 },
+  "ideogram-v4": { baseCost: 6, calculateCost: (inputs) => {
     const s = inputs.rendering_speed?.toUpperCase();
-    return s === "TURBO" ? 3 : s === "QUALITY" ? 9 : 6;
+    return s === "TURBO" ? 3 : s === "QUALITY" ? 10 : 6;
   } },
-  "ideogram-v3-t2i": { baseCost: 6, calculateCost: (inputs) => {
+  "ideogram-v4-t2i": { baseCost: 6, calculateCost: (inputs) => {
     const s = inputs.rendering_speed?.toUpperCase();
-    return s === "TURBO" ? 3 : s === "QUALITY" ? 9 : 6;
+    return s === "TURBO" ? 3 : s === "QUALITY" ? 10 : 6;
   } },
+  "reve-2-1": { baseCost: 25 },
+  "reve-2-1-t2i": { baseCost: 25 },
+  "luma-uni-1-t2i": { baseCost: 5 },
+  "luma-uni-1": { baseCost: 5 },
+  "luma-uni-1-max-t2i": { baseCost: 11 },
+  "luma-uni-1-max": { baseCost: 11 },
   "ltx-video": { baseCost: 36 },
   "ltx-video-fast": { baseCost: 24 },
   "wan-video-flash": { baseCost: 25 },
   "grok-video": { baseCost: 42 },
   "bytedance-seedance-1.5-pro": { baseCost: 26 },
+  "bytedance-seedance-2-ref-to-video": {
+    baseCost: 31,
+    calculateCost: (inputs) => {
+      const resolution = normalizeSeedanceResolution(inputs.resolution, ["480p", "720p", "1080p"]);
+      const parsedDuration = Number(inputs.duration);
+      const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 5;
+      const dims = {
+        "480p": { width: 854, height: 480 },
+        "720p": { width: 1280, height: 720 },
+        "1080p": { width: 1920, height: 1080 }
+      };
+      const { width, height } = dims[resolution] || dims["720p"];
+      const tokensPerSec = width * height * 24 / 1024;
+      const usdPerSec = tokensPerSec * 0.014 / 1e3;
+      const hasVideoInput = Boolean(inputs.video_url || inputs.video_urls);
+      const multiplier = hasVideoInput ? 0.6 : 1;
+      return roundCostUpToHundredth(usdPerSec * duration * multiplier * 100);
+    }
+  },
+  "bytedance-seedance-2-fast": {
+    baseCost: 121,
+    calculateCost: (inputs) => seedance2VideoCost(inputs, 0.0112)
+  },
+  "bytedance-seedance-2-mini": {
+    baseCost: 76,
+    calculateCost: (inputs) => seedance2VideoCost(inputs, 7e-3)
+  },
   "veo-3.1-fast": { baseCost: 120 },
+  "gemini-omni-flash": {
+    baseCost: 104,
+    calculateCost: (inputs) => {
+      const hasVideo = Boolean(
+        inputs.video_url || (Array.isArray(inputs.video_urls) ? inputs.video_urls.length : inputs.video_urls) || inputs.video
+      );
+      return hasVideo ? 104 : 13 * (Number(inputs.duration) || 8);
+    }
+  },
   "google/gemini-2.5-flash": { baseCost: 2 },
   "anthropic/claude-sonnet-4.6": { baseCost: 4 },
   "anthropic/claude-sonnet-4.5": { baseCost: 4 },
@@ -3196,6 +2573,7 @@ var promptConfirmation = async (question) => {
 var estimateWorkflowCost = (workflow) => {
   let total = 0;
   for (const node of workflow.nodes) {
+    if (node.bypass === true) continue;
     if (node.type === "imageModel") {
       const modelId = String(node.inputs?.modelId || "seedream");
       total += calculateGenerationCost(modelId, node.inputs || {});
@@ -3284,9 +2662,9 @@ var renderFinalResults = (execution, metadata) => {
 };
 var workflowRunHandler = async (options, context) => {
   const projectId = resolveProjectIdOrThrow(options.projectId, context.runtimeConfig.currentProjectId);
-  const appBaseUrl = context.runtimeConfig.appBaseUrl || "https://beemm-vision.netlify.app";
+  const appBaseUrl = context.runtimeConfig.appBaseUrl || "https://app.beemmvision.com";
   const workflowUrl = `${appBaseUrl}/#/project/${projectId}/workflow/${options.workflowId}`;
-  const transport = resolveWorkflowTransport(context.runtimeConfig);
+  const transport = context.transport;
   const credits = await transport.getCredits();
   if (!context.json) {
     context.output.writeHuman(`
@@ -3501,7 +2879,7 @@ var workflowSamyGenerateHandler = async (options, context) => {
   };
 };
 var registerWorkflowSamyGenerateCommand = (workflowCommand, context) => {
-  workflowCommand.command("samy-generate").description("Generate a portable workflow through Samy").option("--project-id <projectId>", "Target project identifier").requiredOption("--workflow-id <workflowId>", "Target workflow identifier").requiredOption("--prompt <prompt>", "Prompt to send to Samy").option("--output <path>", "Write the generated workflow JSON to a file").option("--workflow-name <name>", "Optional workflow name override").option("--assistant-mode <mode>", "Assistant mode: fast, premium, pro, deepseek-v3, qwen3-32b, qwen3-72b, qwen25-72b").option("--style-preset <preset>", "Style preset: default, editorial, graphic, cinematic").option("--generation-strategy <strategy>", "Generation strategy: standard or dashboard_bootstrap").option("--prior-question-rounds <count>", "Number of prior clarification rounds", (value) => Number(value)).option("--answers-json <json>", "JSON object of Samy clarification answers").action(
+  workflowCommand.command("samy-generate").description("Generate a portable workflow through Samy").option("--project-id <projectId>", "Target project identifier").requiredOption("--workflow-id <workflowId>", "Target workflow identifier").requiredOption("--prompt <prompt>", "Prompt to send to Samy").option("--output <path>", "Write the generated workflow JSON to a file").option("--workflow-name <name>", "Optional workflow name override").option("--assistant-mode <mode>", "Assistant mode: eco, fast, premium, pro, deepseek-v3/v4-flash/v4-pro, qwen3-32b/72b, qwen25-72b, kimi-k3, glm-5.2, gemini-3.5-flash, gemini-3.6-flash, minimax-m3").option("--style-preset <preset>", "Style preset: default, editorial, graphic, cinematic").option("--generation-strategy <strategy>", "Generation strategy: standard or dashboard_bootstrap").option("--prior-question-rounds <count>", "Number of prior clarification rounds", (value) => Number(value)).option("--answers-json <json>", "JSON object of Samy clarification answers").action(
     createCommandAction({
       context,
       commandName: "workflow.samy-generate",
@@ -3513,6 +2891,7 @@ var registerWorkflowSamyGenerateCommand = (workflowCommand, context) => {
 
 // src/commands/workflow/watch.ts
 import { z as z16 } from "zod";
+var isDefinitiveWatchError = (error) => error instanceof CliError && !error.transient && (error.type === "auth_error" || error.type === "validation_error");
 var WorkflowWatchOptionsSchema = z16.object({
   projectId: z16.string().min(1).optional(),
   workflowId: z16.string().min(1, "workflowId is required"),
@@ -3521,7 +2900,7 @@ var WorkflowWatchOptionsSchema = z16.object({
 var workflowWatchHandler = async (options, context) => {
   const projectId = resolveProjectIdOrThrow(options.projectId, context.runtimeConfig.currentProjectId);
   const pollInterval = options.interval || 5;
-  const appBaseUrl = context.runtimeConfig.appBaseUrl || "https://beemm-vision.netlify.app";
+  const appBaseUrl = context.runtimeConfig.appBaseUrl || "https://app.beemmvision.com";
   const workflowUrl = `${appBaseUrl}/#/project/${projectId}/workflow/${options.workflowId}`;
   let previousSnapshot = null;
   let isRunning = true;
@@ -3552,7 +2931,11 @@ var workflowWatchHandler = async (options, context) => {
     const workflows = await context.transport.listWorkflows({ projectId });
     const workflow = workflows.workflows.find((w) => w.workflowId === options.workflowId);
     if (!workflow) {
-      throw new Error(`Workflow "${options.workflowId}" not found in project "${projectId}"`);
+      throw new CliError({
+        type: "validation_error",
+        message: `Workflow "${options.workflowId}" not found in project "${projectId}"`,
+        exitCode: EXIT_CODES.VALIDATION
+      });
     }
     const exportedWorkflow = await context.transport.exportWorkflow({ projectId, workflowId: options.workflowId });
     return {
@@ -3608,33 +2991,42 @@ var workflowWatchHandler = async (options, context) => {
     }
     lines.forEach((line) => context.output.writeHuman(line + "\n"));
   };
-  while (isRunning) {
-    try {
-      const currentSnapshot = await pollWorkflow();
-      if (context.json) {
-        context.output.writeHuman(`${JSON.stringify({ ok: true, command: "workflow.watch", data: { snapshot: currentSnapshot }, logs: [] })}
+  try {
+    while (isRunning) {
+      try {
+        const currentSnapshot = await pollWorkflow();
+        if (context.json) {
+          context.output.writeHuman(`${JSON.stringify({ ok: true, command: "workflow.watch", data: { snapshot: currentSnapshot }, logs: [] })}
 `);
-      } else {
-        if (previousSnapshot) {
-          const changes = formatChange(previousSnapshot, currentSnapshot);
-          if (changes.length > 0) {
-            context.output.writeHuman(`
+        } else {
+          if (previousSnapshot) {
+            const changes = formatChange(previousSnapshot, currentSnapshot);
+            if (changes.length > 0) {
+              context.output.writeHuman(`
 \u{1F504} Changes detected:
 `);
-            changes.forEach((change) => context.output.writeHuman(`${change}
+              changes.forEach((change) => context.output.writeHuman(`${change}
 `));
+            }
           }
+          renderDashboard2(currentSnapshot);
         }
-        renderDashboard2(currentSnapshot);
+        previousSnapshot = currentSnapshot;
+      } catch (error) {
+        if (isDefinitiveWatchError(error)) {
+          throw error;
+        }
+        context.output.writeHuman(
+          `\u274C Error: ${error instanceof Error ? error.message : String(error)}
+`,
+          "stderr"
+        );
       }
-      previousSnapshot = currentSnapshot;
-    } catch (error) {
-      if (!context.json) {
-        context.output.writeHuman(`\u274C Error: ${error instanceof Error ? error.message : String(error)}
-`, "stderr");
-      }
+      await new Promise((resolve6) => setTimeout(resolve6, pollInterval * 1e3));
     }
-    await new Promise((resolve6) => setTimeout(resolve6, pollInterval * 1e3));
+  } finally {
+    process.off("SIGINT", handleShutdown);
+    process.off("SIGTERM", handleShutdown);
   }
   return {
     projectId,
@@ -3655,7 +3047,7 @@ var registerWorkflowWatchCommand = (workflowCommand, context) => {
 
 // src/commands/workflow/index.ts
 var registerWorkflowCommands = (program, context) => {
-  const workflowCommand = program.command("workflow").description("Portable workflow operations for BEEMM-JAM");
+  const workflowCommand = program.command("workflow").description("Portable workflow operations for Beemm Vision");
   registerWorkflowExportCommand(workflowCommand, context);
   registerWorkflowImportCommand(workflowCommand, context);
   registerWorkflowDuplicateCommand(workflowCommand, context);
@@ -3674,8 +3066,7 @@ var CreditsOptionsSchema = z17.object({
   json: z17.boolean().default(false)
 });
 var creditsHandler = async (options, context) => {
-  const transport = resolveWorkflowTransport(context.runtimeConfig);
-  const credits = await transport.getCredits();
+  const credits = await context.transport.getCredits();
   if (context.json) {
     return { ok: true, command: "credits", data: { credits }, logs: [] };
   }
@@ -3894,18 +3285,18 @@ var readCliOption = (argv, optionName) => {
 var parseRuntimeConfig = async (argv, env = process.env) => {
   const storedConfig = loadVisionboardCliConfig(env);
   const transportMode = normalizeTransportMode(
-    readCliOption(argv, "transport") || env.VISIONBOARD_CLI_TRANSPORT
+    readCliOption(argv, "transport") || readCliEnvVar(env, "CLI_TRANSPORT")
   );
   const cliFunctionsBaseUrl = readCliOption(argv, "functions-base-url");
-  const envFunctionsBaseUrl = env.VISIONBOARD_FUNCTIONS_BASE_URL || void 0;
+  const envFunctionsBaseUrl = readCliEnvVar(env, "FUNCTIONS_BASE_URL");
   const functionsBaseUrl = cliFunctionsBaseUrl || envFunctionsBaseUrl || storedConfig.functionsBaseUrl || "https://us-central1-beemm-vision.cloudfunctions.net";
   const functionsBaseUrlSource = cliFunctionsBaseUrl ? "cli" : envFunctionsBaseUrl ? "env" : storedConfig.functionsBaseUrl ? "config" : "default";
   const cliFirebaseIdToken = readCliOption(argv, "firebase-id-token");
-  const envFirebaseIdToken = env.VISIONBOARD_FIREBASE_ID_TOKEN || void 0;
+  const envFirebaseIdToken = readCliEnvVar(env, "FIREBASE_ID_TOKEN");
   const storedFirebaseIdToken = await getValidFirebaseIdToken(env);
   const cliAppBaseUrl = readCliOption(argv, "app-base-url");
-  const envAppBaseUrl = env.VISIONBOARD_APP_BASE_URL || void 0;
-  const appBaseUrl = cliAppBaseUrl || envAppBaseUrl || storedConfig.appBaseUrl || "https://beemm-vision.netlify.app";
+  const envAppBaseUrl = readCliEnvVar(env, "APP_BASE_URL");
+  const appBaseUrl = cliAppBaseUrl || envAppBaseUrl || storedConfig.appBaseUrl || "https://app.beemmvision.com";
   const appBaseUrlSource = cliAppBaseUrl ? "cli" : envAppBaseUrl ? "env" : storedConfig.appBaseUrl ? "config" : "default";
   const firebaseIdToken = cliFirebaseIdToken || envFirebaseIdToken || storedFirebaseIdToken || void 0;
   const firebaseIdTokenSource = cliFirebaseIdToken ? "cli" : envFirebaseIdToken ? "env" : storedFirebaseIdToken ? "stored" : "missing";
@@ -3921,28 +3312,950 @@ var parseRuntimeConfig = async (argv, env = process.env) => {
   };
 };
 
+// src/transports/callableWorkflowTransport.ts
+var isCallableErrorResponse = (payload) => {
+  return Boolean(payload) && typeof payload === "object" && Object.prototype.hasOwnProperty.call(payload, "error");
+};
+var createFunctionsUrl = (baseUrl, functionName) => {
+  const trimmedBaseUrl = baseUrl.replace(/\/+$/, "");
+  if (/cloudfunctions\.net$/i.test(trimmedBaseUrl)) {
+    return `${trimmedBaseUrl}/${functionName}`;
+  }
+  return `${trimmedBaseUrl}/${functionName}`;
+};
+var mapFunctionsErrorToCliError = (status, payload) => {
+  const code = payload?.error?.code || "internal";
+  const message = payload?.error?.message || `Functions transport failed with status ${status}.`;
+  if (code === "unauthenticated" || code === "permission-denied") {
+    return new CliError({
+      type: "auth_error",
+      message,
+      exitCode: EXIT_CODES.AUTH,
+      cause: payload
+    });
+  }
+  if (code === "invalid-argument") {
+    return new CliError({
+      type: "validation_error",
+      message,
+      exitCode: EXIT_CODES.VALIDATION,
+      cause: payload
+    });
+  }
+  return new CliError({
+    type: "api_error",
+    message,
+    exitCode: EXIT_CODES.API,
+    cause: payload
+  });
+};
+var mapCallableErrorToCliError = (status, payload) => {
+  const code = payload?.error?.status || "INTERNAL";
+  const message = payload?.error?.message || `Callable transport failed with status ${status}.`;
+  if (code === "UNAUTHENTICATED" || code === "PERMISSION_DENIED") {
+    return new CliError({
+      type: "auth_error",
+      message,
+      exitCode: EXIT_CODES.AUTH,
+      cause: payload
+    });
+  }
+  if (code === "INVALID_ARGUMENT") {
+    return new CliError({
+      type: "validation_error",
+      message,
+      exitCode: EXIT_CODES.VALIDATION,
+      cause: payload
+    });
+  }
+  return new CliError({
+    type: "api_error",
+    message,
+    exitCode: EXIT_CODES.API,
+    cause: payload
+  });
+};
+var CallableWorkflowTransport = class {
+  constructor(baseUrl, firebaseIdToken, fetchImpl = fetch) {
+    this.baseUrl = baseUrl;
+    this.firebaseIdToken = firebaseIdToken;
+    this.fetchImpl = fetchImpl;
+  }
+  baseUrl;
+  firebaseIdToken;
+  fetchImpl;
+  kind = "callable";
+  async exportWorkflow(input) {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "exportPortableWorkflow"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify(input)
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload?.ok) {
+      throw mapFunctionsErrorToCliError(response.status, payload);
+    }
+    return import_portableWorkflow.PortableWorkflowExportSchema.parse(payload.portableWorkflow);
+  }
+  async importWorkflow(input) {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "importPortableWorkflow"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify(input)
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload?.ok) {
+      throw mapFunctionsErrorToCliError(response.status, payload);
+    }
+    return import_portableWorkflow.WorkflowImportResultSchema.parse({
+      importMode: payload.importMode,
+      workflowName: payload.workflowName,
+      importedNodeCount: payload.importedNodeCount,
+      importedEdgeCount: payload.importedEdgeCount
+    });
+  }
+  async generateWorkflow(input) {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "generateWorkflowWithSamy"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify({ data: input })
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload || isCallableErrorResponse(payload)) {
+      throw mapCallableErrorToCliError(response.status, payload);
+    }
+    return import_samyWorkflow.WorkflowAssistantGenerateResponseSchema.parse(payload.result);
+  }
+  async runWorkflow(input, onProgress) {
+    if (onProgress) {
+      const response2 = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "executeWorkflowPortable"), {
+        method: "POST",
+        headers: {
+          Accept: "application/x-ndjson",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify({ ...input, stream: true, executionId: `cli-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })
+      });
+      if (!response2.ok) {
+        throw new CliError({
+          type: "api_error",
+          message: `Stream request failed with status ${response2.status}`,
+          exitCode: EXIT_CODES.API
+        });
+      }
+      if (!response2.body) {
+        throw new CliError({
+          type: "api_error",
+          message: "Response body is empty",
+          exitCode: EXIT_CODES.API
+        });
+      }
+      const reader = response2.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.type === "progress") {
+              onProgress(data.event);
+            } else if (data.type === "result") {
+              return import_workflowRun.WorkflowExecutionResultSchema.parse(data.data);
+            } else if (data.type === "error") {
+              throw new CliError({
+                type: "api_error",
+                message: data.error || "Unknown error during execution stream",
+                exitCode: EXIT_CODES.API
+              });
+            }
+          } catch (e) {
+            if (e instanceof CliError) throw e;
+          }
+        }
+      }
+      throw new CliError({
+        type: "api_error",
+        message: "Stream ended without a final result",
+        exitCode: EXIT_CODES.API
+      });
+    }
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "executeWorkflowPortable"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify(input)
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
+      throw mapFunctionsErrorToCliError(response.status, payload);
+    }
+    return import_workflowRun.WorkflowExecutionResultSchema.parse({
+      run: payload.run,
+      progressEvents: payload.progressEvents,
+      summary: payload.summary
+    });
+  }
+  async listWorkflows(input) {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "listProjectWorkflows"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify(input)
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
+      throw mapFunctionsErrorToCliError(response.status, payload);
+    }
+    return import_catalog.WorkflowListResultSchema.parse(payload);
+  }
+  async listTemplates() {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "listCommunityTemplates"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify({})
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
+      throw mapFunctionsErrorToCliError(response.status, payload);
+    }
+    return import_catalog.TemplateListResultSchema.parse(payload);
+  }
+  async getTemplate(input) {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "getCommunityTemplate"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify(input)
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
+      throw mapFunctionsErrorToCliError(response.status, payload);
+    }
+    return import_catalog.TemplateGetResultSchema.parse(payload);
+  }
+  async duplicateTemplate(input) {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "duplicateCommunityTemplate"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify(input)
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
+      throw mapFunctionsErrorToCliError(response.status, payload);
+    }
+    return import_catalog.TemplateDuplicateResultSchema.parse(payload);
+  }
+  async listProjects(input) {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "listUserProjects"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify(input)
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
+      throw mapFunctionsErrorToCliError(response.status, payload);
+    }
+    return import_catalog.ProjectListResultSchema.parse(payload);
+  }
+  async getCredits() {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "getUserCredits"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify({})
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    try {
+      const text = await response.text();
+      const payload = JSON.parse(text);
+      return payload?.credits ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+  async renameWorkflow(input) {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "renameWorkflow"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify(input)
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload?.ok) {
+      throw new CliError({
+        type: "api_error",
+        message: payload?.error?.message || `Failed to rename workflow: ${response.statusText}`,
+        exitCode: EXIT_CODES.API,
+        cause: payload
+      });
+    }
+    return { ok: true };
+  }
+  async createProject(input) {
+    let response;
+    try {
+      response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "createProject"), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.firebaseIdToken}`
+        },
+        body: JSON.stringify(input)
+      });
+    } catch (error) {
+      throw new CliError({
+        type: "auth_error",
+        message: `Callable transport requires a reachable Functions backend and a valid Firebase ID token. Network error: ${error instanceof Error ? error.message : String(error)}`,
+        exitCode: EXIT_CODES.AUTH,
+        transient: true,
+        cause: error
+      });
+    }
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok || !payload?.ok || !payload?.projectId) {
+      throw new CliError({
+        type: "api_error",
+        message: payload?.error?.message || `Failed to create project: ${response.statusText}`,
+        exitCode: EXIT_CODES.API,
+        cause: payload
+      });
+    }
+    return { projectId: payload.projectId, name: payload.name || input.name };
+  }
+};
+
+// src/transports/mockWorkflowTransport.ts
+var MockWorkflowTransport = class {
+  kind = "mock";
+  async exportWorkflow(input) {
+    const portableWorkflow = (0, import_portableWorkflow.createMockPortableWorkflowExport)({
+      projectId: input.projectId,
+      workflowId: input.workflowId
+    });
+    return import_portableWorkflow.PortableWorkflowExportSchema.parse(portableWorkflow);
+  }
+  async importWorkflow(input) {
+    return import_portableWorkflow.WorkflowImportResultSchema.parse({
+      importMode: input.importMode || "replace",
+      workflowName: input.payload.workflow.name,
+      importedNodeCount: input.payload.nodes.length,
+      importedEdgeCount: input.payload.edges.length
+    });
+  }
+  async generateWorkflow(input) {
+    const portableWorkflow = (0, import_portableWorkflow.createMockPortableWorkflowExport)({
+      projectId: input.projectId,
+      workflowId: input.workflowId
+    });
+    return import_samyWorkflow.WorkflowAssistantGenerateResponseSchema.parse({
+      kind: "workflow",
+      workflowName: input.workflowName || "Mock Samy Workflow",
+      portableWorkflow: {
+        ...portableWorkflow,
+        workflow: {
+          ...portableWorkflow.workflow,
+          name: input.workflowName || "Mock Samy Workflow"
+        }
+      },
+      warnings: [],
+      reasoningSummary: `Mock Samy generation created from prompt: ${input.prompt}`,
+      totalCost: 0,
+      trace: ["Mock Samy transport used."]
+    });
+  }
+  async runWorkflow(input, onProgress) {
+    const progressEvents = [
+      {
+        nodeId: "node_prompt_enhancer_starter",
+        nodeType: "promptEnhancer",
+        label: "Prompt Enhancer",
+        step: "node_start",
+        status: "queued",
+        message: "Node queued for execution.",
+        timestamp: "2026-04-05T10:00:00.000Z"
+      },
+      {
+        nodeId: "node_prompt_enhancer_starter",
+        nodeType: "promptEnhancer",
+        label: "Prompt Enhancer",
+        step: "node_start",
+        status: "running",
+        message: "Node execution started.",
+        timestamp: "2026-04-05T10:00:01.000Z"
+      },
+      {
+        nodeId: "node_prompt_enhancer_starter",
+        nodeType: "promptEnhancer",
+        label: "Prompt Enhancer",
+        step: "node_complete",
+        status: "success",
+        message: "Prompt enhanced with google/gemini-2.5-flash.",
+        completedNodeCount: 1,
+        totalNodeCount: 4,
+        timestamp: "2026-04-05T10:00:02.000Z"
+      },
+      {
+        nodeId: "node_image_model_starter",
+        nodeType: "imageModel",
+        label: "Nano Banana 2",
+        step: "node_start",
+        status: "queued",
+        message: "Node queued for execution.",
+        timestamp: "2026-04-05T10:00:03.000Z"
+      },
+      {
+        nodeId: "node_image_model_starter",
+        nodeType: "imageModel",
+        label: "Nano Banana 2",
+        step: "node_start",
+        status: "running",
+        message: "Node execution started.",
+        timestamp: "2026-04-05T10:00:04.000Z"
+      },
+      {
+        nodeId: "node_image_model_starter",
+        nodeType: "imageModel",
+        label: "Nano Banana 2",
+        step: "node_complete",
+        status: "success",
+        message: "Image generated with nano-banana-2.",
+        completedNodeCount: 2,
+        totalNodeCount: 4,
+        timestamp: "2026-04-05T10:00:05.000Z"
+      }
+    ];
+    for (const event of progressEvents) {
+      onProgress?.(event);
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    return import_workflowRun.WorkflowExecutionResultSchema.parse({
+      run: {
+        runId: `mock-run-${input.projectId}-${input.workflowId}`,
+        workflowName: "Mock Samy Workflow",
+        artifactCount: 2,
+        executedNodeCount: 4,
+        warnings: [],
+        artifacts: [
+          {
+            nodeId: "node_prompt_enhancer_starter",
+            nodeType: "promptEnhancer",
+            label: "Prompt Enhancer",
+            kind: "text",
+            text: "A premium editorial product shot, clean composition, luxury lighting.",
+            modelId: "google/gemini-2.5-flash",
+            prompt: "Enhance the prompt"
+          },
+          {
+            nodeId: "node_image_model_starter",
+            nodeType: "imageModel",
+            label: "Nano Banana 2",
+            kind: "image",
+            url: "https://example.com/mock-generated-image.png",
+            mimeType: "image/png",
+            modelId: "nano-banana-2",
+            prompt: "A premium editorial product shot, clean composition, luxury lighting.",
+            data: {
+              outputFormat: "png",
+              resolution: "1K"
+            }
+          }
+        ]
+      },
+      progressEvents,
+      summary: {
+        executedNodeCount: 4,
+        artifactCount: 2,
+        warningCount: 0
+      }
+    });
+  }
+  async listWorkflows(input) {
+    return import_catalog.WorkflowListResultSchema.parse({
+      projectId: input.projectId,
+      workflowCount: 2,
+      workflows: [
+        {
+          workflowId: "default",
+          name: "Main Workflow",
+          updatedAt: "2026-04-04T10:00:00.000Z",
+          lastExecutedAt: "2026-04-04T09:45:00.000Z",
+          appConfigEnabled: true
+        },
+        {
+          workflowId: "editorial-variant",
+          name: "Editorial Variant",
+          updatedAt: "2026-04-03T18:30:00.000Z",
+          lastExecutedAt: null,
+          appConfigEnabled: false
+        }
+      ]
+    });
+  }
+  async listTemplates() {
+    return import_catalog.TemplateListResultSchema.parse({
+      templateCount: 2,
+      templates: [
+        {
+          templateId: "template-editorial-premium",
+          title: "Premium Editorial Template",
+          description: "Editorial pipeline with prompt enhancer and image model.",
+          thumbnailUrl: "https://example.com/template-editorial-premium.png",
+          creatorName: "BEEMM Team",
+          creatorPhotoUrl: null,
+          status: "approved",
+          includesGeneratedData: false,
+          createdAt: "2026-04-01T09:00:00.000Z",
+          updatedAt: "2026-04-02T12:00:00.000Z"
+        },
+        {
+          templateId: "template-product-campaign",
+          title: "Product Campaign Template",
+          description: "Product visual generation flow for campaign variants.",
+          thumbnailUrl: "https://example.com/template-product-campaign.png",
+          creatorName: "BEEMM Team",
+          creatorPhotoUrl: null,
+          status: "approved",
+          includesGeneratedData: false,
+          createdAt: "2026-03-29T14:00:00.000Z",
+          updatedAt: "2026-04-01T11:00:00.000Z"
+        }
+      ]
+    });
+  }
+  async getTemplate(input) {
+    const portableWorkflow = (0, import_portableWorkflow.createMockPortableWorkflowExport)({
+      projectId: "template-catalog",
+      workflowId: input.templateId
+    });
+    return import_catalog.TemplateGetResultSchema.parse({
+      template: {
+        templateId: input.templateId,
+        title: "Premium Editorial Template",
+        description: "Editorial pipeline with prompt enhancer and image model.",
+        thumbnailUrl: "https://example.com/template-editorial-premium.png",
+        creatorName: "BEEMM Team",
+        creatorPhotoUrl: null,
+        status: "approved",
+        includesGeneratedData: false,
+        createdAt: "2026-04-01T09:00:00.000Z",
+        updatedAt: "2026-04-02T12:00:00.000Z"
+      },
+      portableWorkflow: {
+        ...portableWorkflow,
+        workflow: {
+          ...portableWorkflow.workflow,
+          name: "Premium Editorial Template"
+        }
+      }
+    });
+  }
+  async duplicateTemplate(input) {
+    return import_catalog.TemplateDuplicateResultSchema.parse({
+      templateId: input.templateId,
+      projectId: "mock-duplicated-project",
+      workflowId: "default",
+      projectName: "Copy of Premium Editorial Template",
+      workflowName: "Main Workflow"
+    });
+  }
+  async listProjects(input) {
+    const allProjects = [
+      {
+        projectId: "mock-workflow-project",
+        name: "Premium Editorial Project",
+        type: "workflow",
+        ownerId: "mock-user",
+        ownerName: "Mock User",
+        updatedAt: "2026-04-05T10:00:00.000Z",
+        lastOpenedAt: "2026-04-05T09:45:00.000Z"
+      },
+      {
+        projectId: "mock-board-project",
+        name: "Campaign Board",
+        type: "board",
+        ownerId: "mock-user",
+        ownerName: "Mock User",
+        updatedAt: "2026-04-04T18:00:00.000Z",
+        lastOpenedAt: "2026-04-04T17:30:00.000Z"
+      }
+    ];
+    const filteredProjects = input.type ? allProjects.filter((project) => project.type === input.type) : allProjects;
+    return import_catalog.ProjectListResultSchema.parse({
+      projectCount: filteredProjects.length,
+      projects: filteredProjects
+    });
+  }
+  async getCredits() {
+    return 1e3;
+  }
+  async renameWorkflow(input) {
+    return { ok: true };
+  }
+  async createProject(input) {
+    const projectId = `mock-project-${Date.now()}`;
+    return { projectId, name: input.name };
+  }
+};
+
+// src/transports/resolveWorkflowTransport.ts
+var describeTransportTarget = (runtimeConfig) => {
+  if (runtimeConfig.transportMode === "mock") {
+    return "mock";
+  }
+  if (runtimeConfig.functionsBaseUrl && runtimeConfig.firebaseIdToken) {
+    return "callable";
+  }
+  return "not_configured";
+};
+var resolveWorkflowTransport = (runtimeConfig) => {
+  if (runtimeConfig.transportMode === "mock") {
+    return new MockWorkflowTransport();
+  }
+  const hasCallableConfig = Boolean(runtimeConfig.functionsBaseUrl && runtimeConfig.firebaseIdToken);
+  if (runtimeConfig.transportMode === "callable") {
+    if (!runtimeConfig.functionsBaseUrl) {
+      throw new CliError({
+        type: "validation_error",
+        message: "Callable transport requires --functions-base-url or BEEMMVISION_FUNCTIONS_BASE_URL.",
+        exitCode: EXIT_CODES.VALIDATION
+      });
+    }
+    if (!runtimeConfig.firebaseIdToken) {
+      throw new CliError({
+        type: "auth_error",
+        message: "Callable transport requires --firebase-id-token or BEEMMVISION_FIREBASE_ID_TOKEN.",
+        exitCode: EXIT_CODES.AUTH
+      });
+    }
+    return new CallableWorkflowTransport(runtimeConfig.functionsBaseUrl, runtimeConfig.firebaseIdToken);
+  }
+  if (hasCallableConfig) {
+    return new CallableWorkflowTransport(runtimeConfig.functionsBaseUrl, runtimeConfig.firebaseIdToken);
+  }
+  if (!runtimeConfig.functionsBaseUrl) {
+    throw new CliError({
+      type: "validation_error",
+      message: "Missing functions base URL. Please ensure your configuration is correct.",
+      exitCode: EXIT_CODES.VALIDATION
+    });
+  }
+  throw new CliError({
+    type: "auth_error",
+    message: "You must be logged in to use this command. Please run `auth login` or set BEEMMVISION_FIREBASE_ID_TOKEN.",
+    exitCode: EXIT_CODES.AUTH
+  });
+};
+
+// src/transports/lazyWorkflowTransport.ts
+var createLazyWorkflowTransport = (options) => {
+  let resolved = null;
+  const ensure = () => {
+    if (!resolved) {
+      resolved = options.resolve();
+    }
+    return resolved;
+  };
+  return {
+    get kind() {
+      return ensure().kind;
+    },
+    describe: () => resolved ? resolved.kind : options.describe(),
+    isResolved: () => resolved !== null,
+    // Every forwarder is `async` on purpose: a resolution failure must surface
+    // as a rejected promise, exactly like a network failure would, never as a
+    // synchronous throw from a method whose signature promises a Promise.
+    exportWorkflow: async (input) => ensure().exportWorkflow(input),
+    importWorkflow: async (input) => ensure().importWorkflow(input),
+    generateWorkflow: async (input) => ensure().generateWorkflow(input),
+    runWorkflow: async (input, onProgress) => ensure().runWorkflow(input, onProgress),
+    listWorkflows: async (input) => ensure().listWorkflows(input),
+    listTemplates: async () => ensure().listTemplates(),
+    getTemplate: async (input) => ensure().getTemplate(input),
+    duplicateTemplate: async (input) => ensure().duplicateTemplate(input),
+    listProjects: async (input) => ensure().listProjects(input),
+    getCredits: async () => ensure().getCredits(),
+    renameWorkflow: async (input) => ensure().renameWorkflow(input),
+    createProject: async (input) => ensure().createProject(input)
+  };
+};
+
 // src/core/runner.ts
 var detectJsonFlag = (argv) => argv.includes("--json");
-var inferCommandNameFromArgv = (argv, parsedCommandName) => {
-  if (parsedCommandName) {
-    return parsedCommandName;
-  }
-  const tokens = argv.slice(2).filter((token) => token && !token.startsWith("-"));
-  const commandTokens = tokens.filter((t) => !["auto", "mock", "callable"].includes(t));
-  if (commandTokens.length >= 2) {
-    if (["doctor", "credits"].includes(commandTokens[0])) {
-      return commandTokens[0];
+var GLOBAL_OPTIONS_TAKING_A_VALUE = /* @__PURE__ */ new Set([
+  "--transport",
+  "--functions-base-url",
+  "--firebase-id-token",
+  "--app-base-url"
+]);
+var LEAF_COMMANDS = /* @__PURE__ */ new Set(["doctor", "credits"]);
+var labelCommandFromArgv = (argv) => {
+  const positionals = [];
+  for (let index = 2; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (!token) {
+      continue;
     }
-    return `${commandTokens[0]}.${commandTokens[1]}`;
+    if (token.startsWith("-")) {
+      if (GLOBAL_OPTIONS_TAKING_A_VALUE.has(token)) {
+        index += 1;
+      }
+      continue;
+    }
+    positionals.push(token);
+    if (positionals.length === 2) {
+      break;
+    }
   }
-  if (commandTokens.length === 1) {
-    return commandTokens[0];
+  if (positionals.length === 0) {
+    return "beemmvision";
   }
-  return "visionboard";
+  if (positionals.length === 1 || LEAF_COMMANDS.has(positionals[0])) {
+    return positionals[0];
+  }
+  return `${positionals[0]}.${positionals[1]}`;
 };
-var createProgram = (context) => {
+var HELP_COMMANDER_CODES = /* @__PURE__ */ new Set(["commander.helpDisplayed", "commander.help"]);
+var VERSION_COMMANDER_CODE = "commander.version";
+var createProgram = (context, captureCommanderOutput) => {
   const program = new Command();
-  program.name("visionboard").version("0.1.5").description("Agent-native BEEMM-JAM CLI").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput(context.output.configureCommanderOutput()).exitOverride();
+  const commanderSinks = context.output.configureCommanderOutput();
+  program.name("beemmvision").version("0.2.0").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
+    // Both streams are tapped, because Commander picks the stream itself:
+    // `--help` writes to stdout, while a bare command group and `help
+    // <unknown>` write the very same help to stderr. The capture is only
+    // ever READ for a help/version outcome, so error text never reaches the
+    // payload. Subcommands inherit this configuration.
+    writeOut: (str) => {
+      captureCommanderOutput(str);
+      commanderSinks.writeOut(str);
+    },
+    writeErr: (str) => {
+      captureCommanderOutput(str);
+      commanderSinks.writeErr(str);
+    }
+  }).exitOverride();
   registerWorkflowCommands(program, context);
   registerAuthCommands(program, context);
   registerConfigCommands(program, context);
@@ -3964,70 +4277,42 @@ var runCli = async (argv, options) => {
     stdoutSink: options?.stdoutSink,
     stderrSink: options?.stderrSink
   });
+  const lazyTransport = createLazyWorkflowTransport({
+    resolve: () => resolveWorkflowTransport(runtimeConfig),
+    describe: () => describeTransportTarget(runtimeConfig)
+  });
+  const transportOverride = options?.transportOverride;
   const context = {
     json: jsonMode,
     env: options?.env ?? process.env,
     runtimeConfig,
-    transport: options?.transportOverride ?? {
-      kind: "mock",
-      exportWorkflow: async () => {
-        throw new Error("Transport not initialized");
-      },
-      importWorkflow: async () => {
-        throw new Error("Transport not initialized");
-      },
-      generateWorkflow: async () => {
-        throw new Error("Transport not initialized");
-      },
-      runWorkflow: async () => {
-        throw new Error("Transport not initialized");
-      },
-      listWorkflows: async () => {
-        throw new Error("Transport not initialized");
-      },
-      listTemplates: async () => {
-        throw new Error("Transport not initialized");
-      },
-      getTemplate: async () => {
-        throw new Error("Transport not initialized");
-      },
-      duplicateTemplate: async () => {
-        throw new Error("Transport not initialized");
-      },
-      listProjects: async () => {
-        throw new Error("Transport not initialized");
-      },
-      getCredits: async () => {
-        throw new Error("Transport not initialized");
-      },
-      renameWorkflow: async () => {
-        throw new Error("Transport not initialized");
-      },
-      createProject: async () => {
-        throw new Error("Transport not initialized");
-      }
-    },
+    transport: transportOverride ?? lazyTransport,
+    describeTransport: () => transportOverride ? transportOverride.kind : lazyTransport.describe(),
     output,
     commandName: null,
     response: null
   };
   const restoreConsole = output.captureConsole();
   let exitCode = EXIT_CODES.SUCCESS;
+  const resolveResponseCommandName = () => context.commandName ?? labelCommandFromArgv(argv);
+  const commanderOutput = createOutputBuffer();
   try {
-    const commandName = inferCommandNameFromArgv(argv, context.commandName);
-    context.transport = options?.transportOverride ?? resolveWorkflowTransport(runtimeConfig, commandName);
-    const program = createProgram(context);
+    const program = createProgram(context, (chunk) => commanderOutput.write(chunk));
     await program.parseAsync(argv);
   } catch (error) {
-    if (error instanceof CommanderError2 && (error.code === "commander.helpDisplayed" || error.code === "commander.version")) {
+    if (error instanceof CommanderError2 && (HELP_COMMANDER_CODES.has(error.code) || error.code === VERSION_COMMANDER_CODE)) {
       exitCode = EXIT_CODES.SUCCESS;
+      context.response = error.code === VERSION_COMMANDER_CODE ? createSuccessResponse(
+        "version",
+        { version: error.message.trim() || commanderOutput.value.trim() },
+        []
+      ) : createSuccessResponse("help", { help: commanderOutput.value.trimEnd() }, []);
     } else {
       const cliError = error instanceof CommanderError2 ? commanderErrorToCliError(error) : normalizeError(error);
       exitCode = cliError.exitCode;
-      const commandName = inferCommandNameFromArgv(argv, context.commandName);
       if (jsonMode) {
         context.response = createErrorResponse(
-          commandName,
+          resolveResponseCommandName(),
           {
             type: cliError.type,
             message: cliError.message
@@ -4045,7 +4330,7 @@ var runCli = async (argv, options) => {
   if (jsonMode) {
     if (!context.response) {
       context.response = createErrorResponse(
-        inferCommandNameFromArgv(argv, context.commandName),
+        resolveResponseCommandName(),
         {
           type: "validation_error",
           message: "No command was executed"
