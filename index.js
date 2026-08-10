@@ -569,15 +569,22 @@ var loadStoredFirebaseIdToken = (env = process.env) => {
   const parsed = loadStoredAuth(env);
   return parsed && typeof parsed.firebaseIdToken === "string" && parsed.firebaseIdToken.trim() ? parsed.firebaseIdToken.trim() : void 0;
 };
-var storeFirebaseIdToken = (token, refreshToken, apiKey, env = process.env) => {
+var storeAuthSession = (input, env = process.env) => {
   const authFilePath = getVisionboardAuthFilePath(env);
   mkdirSync(dirname(authFilePath), { recursive: true, mode: 448 });
-  writeFileSync(
-    authFilePath,
-    `${JSON.stringify({ firebaseIdToken: token, refreshToken, apiKey, updatedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, 2)}
-`,
-    { encoding: "utf8", mode: 384 }
-  );
+  const document = {
+    firebaseIdToken: input.firebaseIdToken,
+    refreshToken: input.refreshToken,
+    apiKey: input.apiKey,
+    appCheckToken: input.appCheckToken,
+    appCheckTokenExpiresAt: input.appCheckTokenExpiresAt ?? (input.appCheckToken ? readAppCheckTokenExpiry(input.appCheckToken) : void 0),
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  writeFileSync(authFilePath, `${JSON.stringify(document, null, 2)}
+`, {
+    encoding: "utf8",
+    mode: 384
+  });
   return authFilePath;
 };
 var clearStoredFirebaseIdToken = (env = process.env) => {
@@ -589,6 +596,39 @@ var decodeBase64Url = (value) => {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
   return Buffer.from(padded, "base64").toString("utf8");
+};
+var readAppCheckTokenExpiry = (token) => {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return void 0;
+  }
+  try {
+    const payload = JSON.parse(decodeBase64Url(parts[1]));
+    if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp)) {
+      return void 0;
+    }
+    return new Date(payload.exp * 1e3).toISOString();
+  } catch {
+    return void 0;
+  }
+};
+var readStoredAppCheckCredential = (env = process.env, nowMs = Date.now()) => {
+  const stored = loadStoredAuth(env);
+  const token = typeof stored?.appCheckToken === "string" && stored.appCheckToken.trim() ? stored.appCheckToken.trim() : void 0;
+  if (!token) {
+    return { present: false, expired: false };
+  }
+  const storedExpiry = typeof stored?.appCheckTokenExpiresAt === "string" && stored.appCheckTokenExpiresAt.trim() ? stored.appCheckTokenExpiresAt.trim() : void 0;
+  const expiresAtRaw = storedExpiry ?? readAppCheckTokenExpiry(token);
+  const expiryMs = expiresAtRaw ? Date.parse(expiresAtRaw) : Number.NaN;
+  const hasExpiry = Number.isFinite(expiryMs);
+  return {
+    present: true,
+    token,
+    expiresAt: hasExpiry ? new Date(expiryMs).toISOString() : void 0,
+    expiresInSeconds: hasExpiry ? Math.floor((expiryMs - nowMs) / 1e3) : void 0,
+    expired: hasExpiry ? expiryMs <= nowMs : false
+  };
 };
 var EXPECTED_ISSUER_PREFIX = "https://securetoken.google.com/";
 var getExpectedAudience = () => {
@@ -674,7 +714,16 @@ var refreshFirebaseIdToken = async (env = process.env) => {
     }
     const data = await response.json();
     if (data.id_token) {
-      storeFirebaseIdToken(data.id_token, data.refresh_token || authData.refreshToken, authData.apiKey, env);
+      storeAuthSession(
+        {
+          firebaseIdToken: data.id_token,
+          refreshToken: data.refresh_token || authData.refreshToken,
+          apiKey: authData.apiKey,
+          appCheckToken: authData.appCheckToken,
+          appCheckTokenExpiresAt: authData.appCheckTokenExpiresAt
+        },
+        env
+      );
       return data.id_token;
     }
   } catch {
@@ -894,6 +943,7 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         const firebaseIdToken = typeof body.firebaseIdToken === "string" ? body.firebaseIdToken : "";
         const refreshToken = typeof body.refreshToken === "string" ? body.refreshToken : void 0;
         const apiKey = typeof body.apiKey === "string" ? body.apiKey : void 0;
+        const appCheckToken = typeof body.appCheckToken === "string" && body.appCheckToken.trim() ? body.appCheckToken.trim() : void 0;
         if (receivedState !== state) {
           writeJson(response, 400, { ok: false, error: "Invalid state" }, baseAppUrl);
           if (!deferredToken.settled) {
@@ -941,7 +991,7 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
           baseAppUrl
         );
         if (!deferredToken.settled) {
-          deferredToken.resolve({ firebaseIdToken, refreshToken, apiKey });
+          deferredToken.resolve({ firebaseIdToken, refreshToken, apiKey, appCheckToken });
         }
         return;
       }
@@ -1025,7 +1075,13 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
 var AuthLoginOptionsSchema = z.object({
   firebaseIdToken: z.string().min(1, "firebaseIdToken is required"),
   refreshToken: z.string().optional(),
-  apiKey: z.string().optional()
+  apiKey: z.string().optional(),
+  /**
+   * Attestation App Check obtenue dans le navigateur. Absente d'un login par
+   * `--firebase-id-token`, et absente aussi d'un login navigateur ou App Check
+   * n'etait pas actif : dans les deux cas le login reussit, en mode degrade.
+   */
+  appCheckToken: z.string().optional()
 });
 var AuthWhoamiOptionsSchema = z.object({}).passthrough();
 var AuthLogoutOptionsSchema = z.object({}).passthrough();
@@ -1036,16 +1092,44 @@ var AuthLoginBrowserOptionsSchema = z.object({
   force: z.boolean().default(false)
 });
 var buildAuthSource = (context) => context.runtimeConfig.firebaseIdTokenSource;
+var APP_CHECK_RECONNECT_ADVICE = "Run `beemmvision auth login` to attest this CLI: the page that opens solves a real Turnstile in your browser and hands the App Check token to the CLI. It lasts one hour, like the session.";
+var describeAppCheck = (credential) => ({
+  present: credential.present,
+  expired: credential.expired,
+  expiresAt: credential.expiresAt ?? null,
+  expiresInSeconds: credential.expiresInSeconds ?? null,
+  advice: credential.present && !credential.expired ? null : APP_CHECK_RECONNECT_ADVICE
+});
+var isSessionFullyAttested = (hasIdentityToken, appCheck) => hasIdentityToken && appCheck.present && !appCheck.expired;
 var authLoginHandler = async (options, context) => {
   const claims = decodeFirebaseIdTokenClaims(options.firebaseIdToken);
-  const authFilePath = storeFirebaseIdToken(options.firebaseIdToken, options.refreshToken, options.apiKey, context.env);
+  const authFilePath = storeAuthSession(
+    {
+      firebaseIdToken: options.firebaseIdToken,
+      refreshToken: options.refreshToken,
+      apiKey: options.apiKey,
+      appCheckToken: options.appCheckToken
+    },
+    context.env
+  );
   console.log(`[auth.login] Firebase ID token stored in ${authFilePath}`);
+  const appCheck = readStoredAppCheckCredential(context.env);
+  if (appCheck.present) {
+    console.log(
+      `[auth.login] App Check attestation stored (expires ${appCheck.expiresAt ?? "unknown"}).`
+    );
+  } else {
+    console.log(
+      "[auth.login] No App Check attestation in this session: endpoints that enforce App Check will refuse this CLI. Sign in through the browser (`beemmvision auth login`) to get one."
+    );
+  }
   return {
     stored: true,
     authFilePath,
     subject: typeof claims.user_id === "string" ? claims.user_id : claims.sub,
     email: typeof claims.email === "string" ? claims.email : null,
-    source: "cli"
+    source: "cli",
+    appCheck: describeAppCheck(appCheck)
   };
 };
 var authWhoamiHandler = async (_options, context) => {
@@ -1059,6 +1143,10 @@ var authWhoamiHandler = async (_options, context) => {
   }
   const claims = decodeFirebaseIdTokenClaims(token);
   console.log(`[auth.whoami] Firebase ID token loaded from ${buildAuthSource(context)}`);
+  const appCheck = readStoredAppCheckCredential(context.env);
+  console.log(
+    appCheck.present ? `[auth.whoami] App Check token ${appCheck.expired ? "EXPIRED at" : "valid until"} ${appCheck.expiresAt ?? "unknown"}` : "[auth.whoami] No App Check token in this session (degraded: endpoints enforcing App Check will refuse)."
+  );
   return {
     source: buildAuthSource(context),
     authFilePath: getVisionboardAuthFilePath(context.env),
@@ -1066,7 +1154,8 @@ var authWhoamiHandler = async (_options, context) => {
     email: typeof claims.email === "string" ? claims.email : null,
     audience: typeof claims.aud === "string" ? claims.aud : null,
     issuer: typeof claims.iss === "string" ? claims.iss : null,
-    expiresAtEpochSeconds: typeof claims.exp === "number" ? claims.exp : null
+    expiresAtEpochSeconds: typeof claims.exp === "number" ? claims.exp : null,
+    appCheck: describeAppCheck(appCheck)
   };
 };
 var authLogoutHandler = async (_options, context) => {
@@ -1105,7 +1194,12 @@ var registerAuthCommands = (program, context) => {
       return;
     }
     const browserOptions = AuthLoginBrowserOptionsSchema.parse(rawOptions);
-    if (!browserOptions.force && context.runtimeConfig.firebaseIdToken) {
+    const existingAppCheck = readStoredAppCheckCredential(context.env);
+    const fullyAttested = isSessionFullyAttested(
+      Boolean(context.runtimeConfig.firebaseIdToken),
+      existingAppCheck
+    );
+    if (!browserOptions.force && fullyAttested) {
       const claims = decodeFirebaseIdTokenClaims(context.runtimeConfig.firebaseIdToken);
       const email = typeof claims.email === "string" ? claims.email : null;
       if (email) {
@@ -1117,6 +1211,11 @@ var registerAuthCommands = (program, context) => {
         context.response = createSuccessResponse("auth.login", { email, alreadyLoggedIn: true }, context.output.logs);
         return;
       }
+    }
+    if (!browserOptions.force && context.runtimeConfig.firebaseIdToken && !fullyAttested) {
+      console.log(
+        existingAppCheck.present ? "[auth.login] Signed in, but the App Check attestation expired \u2014 re-attesting through the browser." : "[auth.login] Signed in, but this session carries no App Check attestation \u2014 re-attesting through the browser."
+      );
     }
     const session = await createBrowserAuthSession(context.runtimeConfig.appBaseUrl, {
       timeoutMs: (browserOptions.timeoutSeconds ?? 180) * 1e3
@@ -1133,8 +1232,18 @@ var registerAuthCommands = (program, context) => {
           console.log(`[auth.login] Unable to open browser automatically: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
-      const { firebaseIdToken: firebaseIdTokenFromBrowser, refreshToken, apiKey } = await session.waitForToken();
-      const parsedOptions = AuthLoginOptionsSchema.parse({ firebaseIdToken: firebaseIdTokenFromBrowser, refreshToken, apiKey });
+      const {
+        firebaseIdToken: firebaseIdTokenFromBrowser,
+        refreshToken,
+        apiKey,
+        appCheckToken
+      } = await session.waitForToken();
+      const parsedOptions = AuthLoginOptionsSchema.parse({
+        firebaseIdToken: firebaseIdTokenFromBrowser,
+        refreshToken,
+        apiKey,
+        appCheckToken
+      });
       const result = await authLoginHandler(parsedOptions, context);
       console.log("[auth.login] Browser authentication completed successfully.");
       const tokenAudience = getFirebaseTokenAudience(firebaseIdTokenFromBrowser);
@@ -1387,6 +1496,8 @@ var doctorHandler = async (options, context) => {
   const callableConfigured = Boolean(
     context.runtimeConfig.functionsBaseUrl && tokenInspection.validFormat
   );
+  const appCheck = readStoredAppCheckCredential(context.env);
+  const appCheckMessage = !appCheck.present ? "No App Check attestation in this session. Endpoints that enforce App Check (projects, workflows, credits) will answer 401. Run `beemmvision auth login` to attest this CLI through your browser." : appCheck.expired ? `App Check attestation expired at ${appCheck.expiresAt}. Run \`beemmvision auth login\` again (an attestation lasts one hour, like the session).` : `App Check attestation valid until ${appCheck.expiresAt ?? "an unreadable date"}.`;
   const checks = [
     {
       id: "transport-resolution",
@@ -1412,6 +1523,11 @@ var doctorHandler = async (options, context) => {
       id: "firebase-token-audience",
       ok: Boolean(tokenAudience),
       message: tokenAudience ? `Firebase ID token audience: ${tokenAudience}` : "Firebase ID token audience unavailable."
+    },
+    {
+      id: "app-check-token",
+      ok: appCheck.present && !appCheck.expired,
+      message: appCheckMessage
     },
     {
       id: "callable-ready",
@@ -1452,6 +1568,9 @@ var doctorHandler = async (options, context) => {
     if (!context.runtimeConfig.firebaseIdToken) {
       console.log("[doctor.fix] Firebase ID token is missing. Use `auth login` to authenticate.");
     }
+    if (!appCheck.present || appCheck.expired) {
+      console.log("[doctor.fix] App Check attestation missing or expired. Use `auth login` to get a fresh one.");
+    }
   }
   checks.forEach((check) => {
     console.log(`[doctor] ${check.ok ? "OK" : "FAIL"} ${check.id}: ${check.message}`);
@@ -1462,6 +1581,12 @@ var doctorHandler = async (options, context) => {
   return {
     transport: transportTarget,
     callableConfigured,
+    appCheck: {
+      present: appCheck.present,
+      expired: appCheck.expired,
+      expiresAt: appCheck.expiresAt ?? null,
+      expiresInSeconds: appCheck.expiresInSeconds ?? null
+    },
     checks,
     fixesApplied
   };
@@ -2623,7 +2748,8 @@ var renderFinalResults = (execution, metadata) => {
   lines.push("");
   lines.push("\u256D\u2500" + "\u2500".repeat(58) + "\u2500\u256E");
   lines.push("\u2502  \x1B[32mWorkflow Complete!\x1B[0m" + " ".repeat(41) + "\u2502");
-  const creditLine = metadata.creditsUsed !== void 0 ? `Credits used: ${formatCredits(metadata.creditsUsed)} | Remaining: ${formatCredits(metadata.remainingCredits || 0)}` : "";
+  const remaining = typeof metadata.remainingCredits === "number" ? formatCredits(metadata.remainingCredits) : "unavailable";
+  const creditLine = metadata.creditsUsed !== void 0 ? `Credits used: ${formatCredits(metadata.creditsUsed)} | Remaining: ${remaining}` : "";
   if (creditLine) {
     lines.push("\u2502  " + creditLine.padEnd(56) + "\u2502");
   }
@@ -2665,7 +2791,19 @@ var workflowRunHandler = async (options, context) => {
   const appBaseUrl = context.runtimeConfig.appBaseUrl || "https://app.beemmvision.com";
   const workflowUrl = `${appBaseUrl}/#/project/${projectId}/workflow/${options.workflowId}`;
   const transport = context.transport;
-  const credits = await transport.getCredits();
+  let credits = null;
+  try {
+    credits = await transport.getCredits();
+  } catch (error) {
+    if (!context.json) {
+      context.output.writeHuman(
+        `
+\u26A0\uFE0F  Balance: unavailable (${error instanceof Error ? error.message : String(error)})
+   The run continues; the backend remains the authority on what it charges.
+`
+      );
+    }
+  }
   if (!context.json) {
     context.output.writeHuman(`
 \u{1F517} Open in browser: ${workflowUrl}
@@ -2676,10 +2814,11 @@ var workflowRunHandler = async (options, context) => {
       estimatedCost = estimateWorkflowCost(workflow);
     } catch {
     }
+    const balanceLine = credits === null ? "   Your balance: unavailable (see above)" : `   Your balance: ${formatCredits(credits)} credits`;
     if (estimatedCost > 0 && process.stdin.isTTY) {
       context.output.writeHuman(`
 \u{1F4B0} Estimated cost: ${formatCredits(estimatedCost)} credits`);
-      context.output.writeHuman(`   Your balance: ${formatCredits(credits)} credits
+      context.output.writeHuman(`${balanceLine}
 `);
       const answer = await promptConfirmation("Continue? (y/n): ");
       if (answer.toLowerCase() !== "y") {
@@ -2689,11 +2828,11 @@ var workflowRunHandler = async (options, context) => {
     } else if (estimatedCost > 0) {
       context.output.writeHuman(`
 \u{1F4B0} Estimated cost: ${formatCredits(estimatedCost)} credits`);
-      context.output.writeHuman(`   Your balance: ${formatCredits(credits)} credits`);
+      context.output.writeHuman(balanceLine);
       context.output.writeHuman(`   (Non-interactive mode: proceeding automatically)
 `);
     }
-    if (credits < 10) {
+    if (credits !== null && credits < 10) {
       context.output.writeHuman(`
 \u26A0\uFE0F  Warning: Low credit balance (${formatCredits(credits)} credits).
 `);
@@ -2738,7 +2877,8 @@ var workflowRunHandler = async (options, context) => {
           const completed = [...nodeStates.values()].filter((s) => s.status === "success" || s.status === "failed" || s.status === "skipped").length;
           const running = [...nodeStates.values()].filter((s) => s.status === "running").length;
           const queued = Math.max(0, totalNodeCount - completed - running);
-          renderDashboard(nodeStates, `${formatCredits(credits)} \u2192 ${formatCredits(credits - creditsUsed)} (-${formatCredits(creditsUsed)} est.)`, workflowUrl, {
+          const creditsInfo = credits === null ? `unavailable \u2192 unavailable (-${formatCredits(creditsUsed)} est.)` : `${formatCredits(credits)} \u2192 ${formatCredits(credits - creditsUsed)} (-${formatCredits(creditsUsed)} est.)`;
+          renderDashboard(nodeStates, creditsInfo, workflowUrl, {
             completed,
             total: totalNodeCount,
             running,
@@ -2747,7 +2887,7 @@ var workflowRunHandler = async (options, context) => {
         }
       )
     );
-    remainingCredits = execution.remainingCredits ?? credits - creditsUsed;
+    remainingCredits = execution.remainingCredits ?? (credits === null ? null : credits - creditsUsed);
     creditsUsed = execution.creditsUsed ?? creditsUsed;
     if (!context.json) {
       renderFinalResults(execution, {
@@ -3257,6 +3397,10 @@ var createOutputController = (options) => {
   };
 };
 
+// src/core/runtimeDefaults.ts
+var DEFAULT_FUNCTIONS_BASE_URL = "https://us-central1-beemm-vision.cloudfunctions.net";
+var DEFAULT_APP_BASE_URL = "https://app.beemmvision.com";
+
 // src/core/runtimeConfig.ts
 var normalizeTransportMode = (value) => {
   if (value === "mock" || value === "callable") {
@@ -3289,14 +3433,14 @@ var parseRuntimeConfig = async (argv, env = process.env) => {
   );
   const cliFunctionsBaseUrl = readCliOption(argv, "functions-base-url");
   const envFunctionsBaseUrl = readCliEnvVar(env, "FUNCTIONS_BASE_URL");
-  const functionsBaseUrl = cliFunctionsBaseUrl || envFunctionsBaseUrl || storedConfig.functionsBaseUrl || "https://us-central1-beemm-vision.cloudfunctions.net";
+  const functionsBaseUrl = cliFunctionsBaseUrl || envFunctionsBaseUrl || storedConfig.functionsBaseUrl || DEFAULT_FUNCTIONS_BASE_URL;
   const functionsBaseUrlSource = cliFunctionsBaseUrl ? "cli" : envFunctionsBaseUrl ? "env" : storedConfig.functionsBaseUrl ? "config" : "default";
   const cliFirebaseIdToken = readCliOption(argv, "firebase-id-token");
   const envFirebaseIdToken = readCliEnvVar(env, "FIREBASE_ID_TOKEN");
   const storedFirebaseIdToken = await getValidFirebaseIdToken(env);
   const cliAppBaseUrl = readCliOption(argv, "app-base-url");
   const envAppBaseUrl = readCliEnvVar(env, "APP_BASE_URL");
-  const appBaseUrl = cliAppBaseUrl || envAppBaseUrl || storedConfig.appBaseUrl || "https://app.beemmvision.com";
+  const appBaseUrl = cliAppBaseUrl || envAppBaseUrl || storedConfig.appBaseUrl || DEFAULT_APP_BASE_URL;
   const appBaseUrlSource = cliAppBaseUrl ? "cli" : envAppBaseUrl ? "env" : storedConfig.appBaseUrl ? "config" : "default";
   const firebaseIdToken = cliFirebaseIdToken || envFirebaseIdToken || storedFirebaseIdToken || void 0;
   const firebaseIdTokenSource = cliFirebaseIdToken ? "cli" : envFirebaseIdToken ? "env" : storedFirebaseIdToken ? "stored" : "missing";
@@ -3308,8 +3452,118 @@ var parseRuntimeConfig = async (argv, env = process.env) => {
     currentProjectId: loadStoredProjectId(env),
     appBaseUrl,
     functionsBaseUrlSource,
-    appBaseUrlSource
+    appBaseUrlSource,
+    // Relu APRES `getValidFirebaseIdToken`, qui peut avoir reecrit le fichier
+    // de session en rafraichissant le jeton d'identite.
+    appCheck: readStoredAppCheckCredential(env)
   };
+};
+
+// src/core/appCheck.ts
+var APP_CHECK_HEADER = "X-Firebase-AppCheck";
+var APP_CHECK_RECOVERY_INSTRUCTION = "Relancez `beemmvision auth login` : la page qui s'ouvre r\xE9sout un vrai Turnstile dans votre navigateur et transmet l'attestation au CLI. Elle dure une heure, comme la session.";
+var buildCallableHeaders = (firebaseIdToken, appCheck, accept = "application/json") => {
+  const headers = {
+    Accept: accept,
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${firebaseIdToken}`
+  };
+  if (appCheck?.token) {
+    headers[APP_CHECK_HEADER] = appCheck.token;
+  }
+  return headers;
+};
+var isAppCheckRejection = (reason, message) => {
+  if (reason === "missing-token" || reason === "invalid-token") {
+    return true;
+  }
+  return /app\s*check/i.test(message);
+};
+var describeAppCheckState = (appCheck) => {
+  if (!appCheck?.token) {
+    return "Aucun jeton App Check n'est stock\xE9 dans cette session CLI (session ouverte avant la prise en charge d'App Check, ou attestation indisponible au login).";
+  }
+  const expiryMs = appCheck.expiresAt ? Date.parse(appCheck.expiresAt) : Number.NaN;
+  if (Number.isFinite(expiryMs) && expiryMs <= Date.now()) {
+    return `Le jeton App Check de cette session a expir\xE9 le ${new Date(expiryMs).toISOString()}.`;
+  }
+  return "Le jeton App Check de cette session a \xE9t\xE9 transmis mais refus\xE9 par le backend (expir\xE9 ou invalide).";
+};
+var appCheckErrorMessage = (serverMessage, appCheck) => `${serverMessage} ${describeAppCheckState(appCheck)} ${APP_CHECK_RECOVERY_INSTRUCTION}`;
+var isOpaqueCallableUnauthenticated = (code, message) => code === "UNAUTHENTICATED" && message.trim() === "Unauthenticated";
+var readUnverifiedExpiryMs = (token) => {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return void 0;
+  }
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    const exp = payload?.exp;
+    return typeof exp === "number" ? exp * 1e3 : void 0;
+  } catch {
+    return void 0;
+  }
+};
+var identityState = (firebaseIdToken) => {
+  if (!firebaseIdToken) {
+    return { rank: "absent", clause: "aucun jeton d'identit\xE9 n'\xE9tait pr\xE9sent\xE9" };
+  }
+  const expiryMs = readUnverifiedExpiryMs(firebaseIdToken);
+  if (expiryMs === void 0) {
+    return {
+      rank: "unknown",
+      clause: "l'expiration du jeton d'identit\xE9 n'est pas lisible localement"
+    };
+  }
+  if (expiryMs <= Date.now()) {
+    return {
+      rank: "expired",
+      clause: `le jeton d'identit\xE9 a expir\xE9 le ${new Date(expiryMs).toISOString()}`
+    };
+  }
+  return {
+    rank: "valid",
+    clause: `le jeton d'identit\xE9 est encore valide localement, jusqu'au ${new Date(expiryMs).toISOString()}`
+  };
+};
+var attestationState = (appCheck) => {
+  if (!appCheck?.token) {
+    return {
+      rank: "absent",
+      clause: "aucun jeton App Check n'est stock\xE9 dans cette session (session ouverte avant la prise en charge d'App Check, ou attestation indisponible au login)"
+    };
+  }
+  const expiryMs = appCheck.expiresAt ? Date.parse(appCheck.expiresAt) : Number.NaN;
+  if (!Number.isFinite(expiryMs)) {
+    return {
+      rank: "unknown",
+      clause: "un jeton App Check a \xE9t\xE9 transmis, mais son expiration n'est pas lisible localement"
+    };
+  }
+  if (expiryMs <= Date.now()) {
+    return {
+      rank: "expired",
+      clause: `le jeton App Check a expir\xE9 le ${new Date(expiryMs).toISOString()}`
+    };
+  }
+  return {
+    rank: "valid",
+    clause: `un jeton App Check a \xE9t\xE9 transmis, valide localement jusqu'au ${new Date(expiryMs).toISOString()}`
+  };
+};
+var OPAQUE_PREAMBLE = "Le backend a r\xE9pondu \xAB Unauthenticated \xBB, et rien d'autre. Sur une fonction `onCall` prot\xE9g\xE9e par App Check, le SDK Firebase \xE9met EXACTEMENT ce message pour deux causes qu'il ne distingue pas sur le fil : jeton d'identit\xE9 refus\xE9, ou attestation App Check absente, expir\xE9e ou refus\xE9e. Le serveur ne dit pas laquelle ; ce qui suit classe donc des hypoth\xE8ses \xE0 partir de l'\xE9tat LOCAL des jetons, et n'est pas un diagnostic.";
+var SHARED_RECOVERY = `La m\xEAme action couvre les deux cas : ${APP_CHECK_RECOVERY_INSTRUCTION}`;
+var opaqueCallableUnauthenticatedMessage = (appCheck, firebaseIdToken) => {
+  const identity = identityState(firebaseIdToken);
+  const attestation = attestationState(appCheck);
+  const attestationSuspect = attestation.rank === "absent" || attestation.rank === "expired";
+  if (attestationSuspect && identity.rank === "valid") {
+    return `${OPAQUE_PREAMBLE} Hypoth\xE8se la plus probable, l'attestation App Check : ${attestation.clause}. Hypoth\xE8se de repli, la session Firebase \u2014 alors m\xEAme que ${identity.clause}. ${SHARED_RECOVERY}`;
+  }
+  if (identity.rank === "expired" || identity.rank === "absent") {
+    return `${OPAQUE_PREAMBLE} Hypoth\xE8se la plus probable, la session Firebase : ${identity.clause}. Hypoth\xE8se de repli, l'attestation App Check \u2014 ${attestation.clause}. ${SHARED_RECOVERY}`;
+  }
+  return `${OPAQUE_PREAMBLE} Rien, c\xF4t\xE9 client, ne permet de d\xE9signer l'une plut\xF4t que l'autre : ${identity.clause}, et ${attestation.clause}. Le serveur en a refus\xE9 une sans dire laquelle. ${SHARED_RECOVERY}`;
 };
 
 // src/transports/callableWorkflowTransport.ts
@@ -3323,13 +3577,13 @@ var createFunctionsUrl = (baseUrl, functionName) => {
   }
   return `${trimmedBaseUrl}/${functionName}`;
 };
-var mapFunctionsErrorToCliError = (status, payload) => {
+var mapFunctionsErrorToCliError = (status, payload, appCheck) => {
   const code = payload?.error?.code || "internal";
   const message = payload?.error?.message || `Functions transport failed with status ${status}.`;
   if (code === "unauthenticated" || code === "permission-denied") {
     return new CliError({
       type: "auth_error",
-      message,
+      message: isAppCheckRejection(payload?.error?.reason, message) ? appCheckErrorMessage(message, appCheck) : message,
       exitCode: EXIT_CODES.AUTH,
       cause: payload
     });
@@ -3349,13 +3603,17 @@ var mapFunctionsErrorToCliError = (status, payload) => {
     cause: payload
   });
 };
-var mapCallableErrorToCliError = (status, payload) => {
+var mapCallableErrorToCliError = (status, payload, appCheck, firebaseIdToken) => {
   const code = payload?.error?.status || "INTERNAL";
   const message = payload?.error?.message || `Callable transport failed with status ${status}.`;
   if (code === "UNAUTHENTICATED" || code === "PERMISSION_DENIED") {
     return new CliError({
       type: "auth_error",
-      message,
+      // Trois cas, dans cet ordre : le serveur a nommé App Check ; le serveur
+      // a répondu le « Unauthenticated » indifférencié du SDK, qui ne nomme
+      // rien ; le serveur a dit quelque chose d'explicite, qu'on laisse tel
+      // quel.
+      message: /app\s*check/i.test(message) ? appCheckErrorMessage(message, appCheck) : isOpaqueCallableUnauthenticated(code, message) ? opaqueCallableUnauthenticatedMessage(appCheck, firebaseIdToken) : message,
       exitCode: EXIT_CODES.AUTH,
       cause: payload
     });
@@ -3376,25 +3634,36 @@ var mapCallableErrorToCliError = (status, payload) => {
   });
 };
 var CallableWorkflowTransport = class {
-  constructor(baseUrl, firebaseIdToken, fetchImpl = fetch) {
+  constructor(baseUrl, firebaseIdToken, fetchImpl = fetch, appCheck = {}) {
     this.baseUrl = baseUrl;
     this.firebaseIdToken = firebaseIdToken;
     this.fetchImpl = fetchImpl;
+    this.appCheck = appCheck;
   }
   baseUrl;
   firebaseIdToken;
   fetchImpl;
+  appCheck;
   kind = "callable";
+  /**
+   * Les en-têtes de TOUS les appels sortants de ce transport.
+   *
+   * La logique elle-même vit dans `core/appCheck.ts`, partagée avec les appels
+   * que le serveur MCP émet hors de ce transport : trois `fetch` bruts avaient
+   * déjà divergé une fois, en n'attachant jamais l'attestation.
+   */
+  buildHeaders(accept = "application/json") {
+    return buildCallableHeaders(this.firebaseIdToken, this.appCheck, accept);
+  }
+  mapFunctionsError(status, payload) {
+    return mapFunctionsErrorToCliError(status, payload, this.appCheck);
+  }
   async exportWorkflow(input) {
     let response;
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "exportPortableWorkflow"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify(input)
       });
     } catch (error) {
@@ -3413,7 +3682,7 @@ var CallableWorkflowTransport = class {
       payload = null;
     }
     if (!response.ok || !payload?.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
+      throw this.mapFunctionsError(response.status, payload);
     }
     return import_portableWorkflow.PortableWorkflowExportSchema.parse(payload.portableWorkflow);
   }
@@ -3422,11 +3691,7 @@ var CallableWorkflowTransport = class {
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "importPortableWorkflow"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify(input)
       });
     } catch (error) {
@@ -3445,7 +3710,7 @@ var CallableWorkflowTransport = class {
       payload = null;
     }
     if (!response.ok || !payload?.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
+      throw this.mapFunctionsError(response.status, payload);
     }
     return import_portableWorkflow.WorkflowImportResultSchema.parse({
       importMode: payload.importMode,
@@ -3459,11 +3724,7 @@ var CallableWorkflowTransport = class {
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "generateWorkflowWithSamy"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify({ data: input })
       });
     } catch (error) {
@@ -3482,7 +3743,12 @@ var CallableWorkflowTransport = class {
       payload = null;
     }
     if (!response.ok || !payload || isCallableErrorResponse(payload)) {
-      throw mapCallableErrorToCliError(response.status, payload);
+      throw mapCallableErrorToCliError(
+        response.status,
+        payload,
+        this.appCheck,
+        this.firebaseIdToken
+      );
     }
     return import_samyWorkflow.WorkflowAssistantGenerateResponseSchema.parse(payload.result);
   }
@@ -3490,11 +3756,7 @@ var CallableWorkflowTransport = class {
     if (onProgress) {
       const response2 = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "executeWorkflowPortable"), {
         method: "POST",
-        headers: {
-          Accept: "application/x-ndjson",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders("application/x-ndjson"),
         body: JSON.stringify({ ...input, stream: true, executionId: `cli-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })
       });
       if (!response2.ok) {
@@ -3550,11 +3812,7 @@ var CallableWorkflowTransport = class {
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "executeWorkflowPortable"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify(input)
       });
     } catch (error) {
@@ -3573,7 +3831,7 @@ var CallableWorkflowTransport = class {
       payload = null;
     }
     if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
+      throw this.mapFunctionsError(response.status, payload);
     }
     return import_workflowRun.WorkflowExecutionResultSchema.parse({
       run: payload.run,
@@ -3586,11 +3844,7 @@ var CallableWorkflowTransport = class {
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "listProjectWorkflows"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify(input)
       });
     } catch (error) {
@@ -3609,7 +3863,7 @@ var CallableWorkflowTransport = class {
       payload = null;
     }
     if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
+      throw this.mapFunctionsError(response.status, payload);
     }
     return import_catalog.WorkflowListResultSchema.parse(payload);
   }
@@ -3618,11 +3872,7 @@ var CallableWorkflowTransport = class {
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "listCommunityTemplates"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify({})
       });
     } catch (error) {
@@ -3641,7 +3891,7 @@ var CallableWorkflowTransport = class {
       payload = null;
     }
     if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
+      throw this.mapFunctionsError(response.status, payload);
     }
     return import_catalog.TemplateListResultSchema.parse(payload);
   }
@@ -3650,11 +3900,7 @@ var CallableWorkflowTransport = class {
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "getCommunityTemplate"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify(input)
       });
     } catch (error) {
@@ -3673,7 +3919,7 @@ var CallableWorkflowTransport = class {
       payload = null;
     }
     if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
+      throw this.mapFunctionsError(response.status, payload);
     }
     return import_catalog.TemplateGetResultSchema.parse(payload);
   }
@@ -3682,11 +3928,7 @@ var CallableWorkflowTransport = class {
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "duplicateCommunityTemplate"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify(input)
       });
     } catch (error) {
@@ -3705,7 +3947,7 @@ var CallableWorkflowTransport = class {
       payload = null;
     }
     if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
+      throw this.mapFunctionsError(response.status, payload);
     }
     return import_catalog.TemplateDuplicateResultSchema.parse(payload);
   }
@@ -3714,11 +3956,7 @@ var CallableWorkflowTransport = class {
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "listUserProjects"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify(input)
       });
     } catch (error) {
@@ -3737,7 +3975,7 @@ var CallableWorkflowTransport = class {
       payload = null;
     }
     if (!response.ok || !payload || !("ok" in payload) || !payload.ok) {
-      throw mapFunctionsErrorToCliError(response.status, payload);
+      throw this.mapFunctionsError(response.status, payload);
     }
     return import_catalog.ProjectListResultSchema.parse(payload);
   }
@@ -3746,11 +3984,7 @@ var CallableWorkflowTransport = class {
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "getUserCredits"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify({})
       });
     } catch (error) {
@@ -3762,24 +3996,34 @@ var CallableWorkflowTransport = class {
         cause: error
       });
     }
+    let payload = null;
     try {
-      const text = await response.text();
-      const payload = JSON.parse(text);
-      return payload?.credits ?? 0;
+      payload = JSON.parse(await response.text());
     } catch {
-      return 0;
+      payload = null;
     }
+    if (!response.ok) {
+      throw this.mapFunctionsError(
+        response.status,
+        payload ? { ok: false, error: payload.error } : null
+      );
+    }
+    if (!payload || payload.ok !== true || typeof payload.credits !== "number" || !Number.isFinite(payload.credits)) {
+      throw new CliError({
+        type: "api_error",
+        message: payload?.error?.message || `Le solde n\u2019a pas pu \xEAtre lu : la r\xE9ponse de getUserCredits n\u2019est pas un solde (statut ${response.status}). Aucun chiffre n\u2019est renvoy\xE9 plut\xF4t qu\u2019un solde invent\xE9.`,
+        exitCode: EXIT_CODES.API,
+        cause: payload
+      });
+    }
+    return payload.credits;
   }
   async renameWorkflow(input) {
     let response;
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "renameWorkflow"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify(input)
       });
     } catch (error) {
@@ -3812,11 +4056,7 @@ var CallableWorkflowTransport = class {
     try {
       response = await this.fetchImpl(createFunctionsUrl(this.baseUrl, "createProject"), {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.firebaseIdToken}`
-        },
+        headers: this.buildHeaders(),
         body: JSON.stringify(input)
       });
     } catch (error) {
@@ -4129,6 +4369,10 @@ var describeTransportTarget = (runtimeConfig) => {
   }
   return "not_configured";
 };
+var toAppCheckCredential = (runtimeConfig) => ({
+  token: runtimeConfig.appCheck?.token,
+  expiresAt: runtimeConfig.appCheck?.expiresAt
+});
 var resolveWorkflowTransport = (runtimeConfig) => {
   if (runtimeConfig.transportMode === "mock") {
     return new MockWorkflowTransport();
@@ -4149,10 +4393,20 @@ var resolveWorkflowTransport = (runtimeConfig) => {
         exitCode: EXIT_CODES.AUTH
       });
     }
-    return new CallableWorkflowTransport(runtimeConfig.functionsBaseUrl, runtimeConfig.firebaseIdToken);
+    return new CallableWorkflowTransport(
+      runtimeConfig.functionsBaseUrl,
+      runtimeConfig.firebaseIdToken,
+      fetch,
+      toAppCheckCredential(runtimeConfig)
+    );
   }
   if (hasCallableConfig) {
-    return new CallableWorkflowTransport(runtimeConfig.functionsBaseUrl, runtimeConfig.firebaseIdToken);
+    return new CallableWorkflowTransport(
+      runtimeConfig.functionsBaseUrl,
+      runtimeConfig.firebaseIdToken,
+      fetch,
+      toAppCheckCredential(runtimeConfig)
+    );
   }
   if (!runtimeConfig.functionsBaseUrl) {
     throw new CliError({
@@ -4241,7 +4495,7 @@ var VERSION_COMMANDER_CODE = "commander.version";
 var createProgram = (context, captureCommanderOutput) => {
   const program = new Command();
   const commanderSinks = context.output.configureCommanderOutput();
-  program.name("beemmvision").version("0.2.0").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
+  program.name("beemmvision").version("0.3.0").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
     // Both streams are tapped, because Commander picks the stream itself:
     // `--help` writes to stdout, while a bare command group and `help
     // <unknown>` write the very same help to stderr. The capture is only
