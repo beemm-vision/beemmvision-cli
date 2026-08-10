@@ -8,6 +8,25 @@ repos et reste **un seul** work item.
 - Ce repo est rattaché au projet Plane **`BV`**.
 - Workspace : <https://app.plane.so/beemmvision/>
 
+## ⛔ Périmètre : BeemmVision, et rien d'autre
+
+**Toute action sur Plane porte sur le projet `BV` (BeemmVision) et sur lui
+seul.** Ce n'est pas une préférence, c'est une limite.
+
+- Ne créer, modifier, déplacer ni supprimer **aucun** work item, label, état,
+  module, cycle ou vue **en dehors de `BV`**.
+- Les projets **`PB` (Photobeemm)** et **`LAB`** existent dans le workspace mais
+  sont **hors périmètre**. Ne pas y toucher — pas même pour « harmoniser »,
+  « corriger une incohérence » ou « pendant qu'on y est ».
+- Les repos **`photobeemm-*`** sont hors périmètre : aucune PR, aucun workflow,
+  aucun secret, aucun fichier, aucune branche.
+- Une demande formulée en termes généraux (« nettoie les labels », « ajoute la
+  catégorie partout », « corrige les vues ») s'entend **BV uniquement**.
+
+**Si une demande implique de modifier quoi que ce soit hors de `BV` : s'arrêter
+et demander avant d'agir.** Ne jamais l'inférer, ne jamais l'étendre de
+soi-même, même quand le changement paraît évident ou anodin.
+
 ## Avant de commencer
 
 1. Chercher le work item Plane correspondant (serveur MCP `plane`).
