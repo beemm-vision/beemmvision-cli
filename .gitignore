@@ -23,5 +23,14 @@ yarn-debug.log*
 !.vscode/extensions.json
 .idea/
 
-# Local agent state
-.agents/local/
+# IDE / agent local
+.claude/
+.cursor/
+.agents/
+
+# Isolated worktrees / caches
+.worktrees/
+coverage/
+*.tsbuildinfo
+*.pem
+**/*serviceAccount*.json
