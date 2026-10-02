@@ -1232,10 +1232,10 @@ var authRefreshHandler = async (_options, context) => {
 };
 var registerAuthCommands = (program, context) => {
   const authCommand = program.command("auth").description("Manage CLI Firebase authentication state");
-  authCommand.command("login").description("Store a Firebase ID token in the local CLI config, or start browser login when no token is provided").option("--token <token>", "Firebase ID token to store locally").option("--firebase-id-token <token>", "Firebase ID token to store locally").option("--no-open", "Do not attempt to open the browser automatically").option("--timeout-seconds <seconds>", "Browser login timeout in seconds", (value) => Number(value)).option("--force", "Force re-login even if already authenticated").action(async (rawOptions, command) => {
+  authCommand.command("login").description("Store a Firebase ID token in the local CLI config, or start browser login when no token is provided").option("--token <token>", "Firebase ID token to store locally").option("--firebase-id-token <token>", "Firebase ID token to store locally").option("--no-open", "Do not attempt to open the browser automatically").option("--timeout-seconds <seconds>", "Browser login timeout in seconds", (value) => Number(value)).option("--force", "Force re-login even if already authenticated").action(async (rawOptions) => {
     context.commandName = "auth.login";
-    const rootOptions = command.parent?.parent?.opts?.() ?? {};
-    const firebaseIdToken = rawOptions.token ?? rawOptions.firebaseIdToken ?? rootOptions.firebaseIdToken;
+    const routedFirebaseIdToken = context.runtimeConfig.firebaseIdTokenSource === "cli" ? context.runtimeConfig.firebaseIdToken : void 0;
+    const firebaseIdToken = rawOptions.token ?? rawOptions.firebaseIdToken ?? routedFirebaseIdToken;
     if (typeof firebaseIdToken === "string" && firebaseIdToken.trim()) {
       if (rawOptions.token !== void 0 || rawOptions.firebaseIdToken !== void 0) {
         warnTokenOnCommandLine(context);
@@ -1457,8 +1457,9 @@ var registerConfigCommands = (program, context) => {
     context.commandName = "config.set";
     const raw = ConfigRawOptionsSchema.parse(rawOptions);
     const appBaseUrl = raw.appBaseUrl || raw.appBaseURL;
+    const routedFunctionsBaseUrl = context.runtimeConfig.functionsBaseUrlSource === "cli" ? context.runtimeConfig.functionsBaseUrl : void 0;
     const normalized = {
-      functionsBaseUrl: raw.functionsBaseUrl || raw.functionsBaseURL,
+      functionsBaseUrl: routedFunctionsBaseUrl || raw.functionsBaseUrl || raw.functionsBaseURL,
       // Seule l'origine est persistee, et seulement si elle est sure : elle
       // resservira a chaque `auth login` (SEC-CLI-002).
       appBaseUrl: appBaseUrl ? normalizeAppBaseUrl(appBaseUrl) : void 0
@@ -3814,6 +3815,21 @@ var normalizeTransportMode = (value) => {
   }
   return "auto";
 };
+var applyCliRoutingOptions = (base, cliOptions) => {
+  const next = { ...base };
+  if (cliOptions.transport) {
+    next.transportMode = normalizeTransportMode(cliOptions.transport);
+  }
+  if (cliOptions.functionsBaseUrl) {
+    next.functionsBaseUrl = cliOptions.functionsBaseUrl;
+    next.functionsBaseUrlSource = "cli";
+  }
+  if (cliOptions.firebaseIdToken) {
+    next.firebaseIdToken = cliOptions.firebaseIdToken;
+    next.firebaseIdTokenSource = "cli";
+  }
+  return next;
+};
 var parseRuntimeConfig = async (cliOptions = {}, env = process.env) => {
   const storedConfig = loadVisionboardCliConfig(env);
   const transportMode = normalizeTransportMode(
@@ -4967,7 +4983,7 @@ var createProgram = (context, captureCommanderOutput) => {
   program.hook("preAction", async (_rootCommand, actionCommand) => {
     const routing = collectRoutingOptions(actionCommand);
     if (Object.keys(routing).length > 0) {
-      context.runtimeConfig = await parseRuntimeConfig(routing, context.env);
+      context.runtimeConfig = applyCliRoutingOptions(context.runtimeConfig, routing);
     }
     if (routing.firebaseIdToken) {
       warnTokenOnCommandLine(context);
