@@ -477,7 +477,7 @@ var require_workflowRun = __commonJS({
 });
 
 // src/core/runner.ts
-import { Command, CommanderError as CommanderError2 } from "commander";
+import { Command, CommanderError as CommanderError2, Help, Option } from "commander";
 
 // src/commands/auth.ts
 import { z } from "zod";
@@ -858,7 +858,7 @@ var commanderErrorToCliError = (error) => {
 // src/core/browserAuth.ts
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
-import { URL } from "node:url";
+import { URL as URL2 } from "node:url";
 var buildBrowserAuthUrl = (baseAppUrl, state, callbackUrl, client) => {
   const trimmedBaseUrl = baseAppUrl.replace(/\/$/, "");
   const params = new URLSearchParams({ state, callbackUrl });
@@ -900,7 +900,7 @@ var readJsonBody = async (request) => {
 };
 var writeJson = (response, statusCode, payload, baseAppUrl) => {
   response.statusCode = statusCode;
-  const origin = new URL(baseAppUrl).origin;
+  const origin = new URL2(baseAppUrl).origin;
   response.setHeader("Access-Control-Allow-Origin", origin);
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
   response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS, GET");
@@ -910,7 +910,7 @@ var writeJson = (response, statusCode, payload, baseAppUrl) => {
 };
 var writeHtml = (response, statusCode, html, baseAppUrl) => {
   response.statusCode = statusCode;
-  const origin = new URL(baseAppUrl).origin;
+  const origin = new URL2(baseAppUrl).origin;
   response.setHeader("Access-Control-Allow-Origin", origin);
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
   response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS, GET");
@@ -930,7 +930,7 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         writeJson(response, 404, { ok: false, error: "Not found" }, baseAppUrl);
         return;
       }
-      const requestUrl = new URL(request.url, `http://${host}`);
+      const requestUrl = new URL2(request.url, `http://${host}`);
       if (request.method === "OPTIONS") {
         writeJson(response, 204, {}, baseAppUrl);
         return;
@@ -940,7 +940,17 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         return;
       }
       if (request.method === "POST" && requestUrl.pathname === callbackPath) {
-        const body = await readJsonBody(request);
+        let body;
+        try {
+          body = await readJsonBody(request);
+        } catch {
+          writeJson(response, 400, { ok: false, error: "Invalid JSON body" }, baseAppUrl);
+          return;
+        }
+        if (!body || typeof body !== "object") {
+          writeJson(response, 400, { ok: false, error: "Invalid JSON body" }, baseAppUrl);
+          return;
+        }
         const receivedState = typeof body.state === "string" ? body.state : "";
         const firebaseIdToken = typeof body.firebaseIdToken === "string" ? body.firebaseIdToken : "";
         const refreshToken = typeof body.refreshToken === "string" ? body.refreshToken : void 0;
@@ -948,25 +958,16 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         const appCheckToken = typeof body.appCheckToken === "string" && body.appCheckToken.trim() ? body.appCheckToken.trim() : void 0;
         if (receivedState !== state) {
           writeJson(response, 400, { ok: false, error: "Invalid state" }, baseAppUrl);
-          if (!deferredToken.settled) {
-            pendingError = new Error("Browser auth state mismatch.");
-          }
           return;
         }
         if (!firebaseIdToken) {
           writeJson(response, 400, { ok: false, error: "Missing firebaseIdToken" }, baseAppUrl);
-          if (!deferredToken.settled) {
-            pendingError = new Error("Browser auth callback missing Firebase ID token.");
-          }
           return;
         }
         try {
           decodeFirebaseIdTokenClaims(firebaseIdToken);
-        } catch (error) {
+        } catch {
           writeJson(response, 400, { ok: false, error: "Invalid firebaseIdToken" }, baseAppUrl);
-          if (!deferredToken.settled) {
-            pendingError = error instanceof Error ? error : new Error(String(error));
-          }
           return;
         }
         writeHtml(
@@ -998,10 +999,9 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         return;
       }
       writeJson(response, 404, { ok: false, error: "Not found" }, baseAppUrl);
-    } catch (error) {
-      writeJson(response, 500, { ok: false, error: error instanceof Error ? error.message : "Internal error" }, baseAppUrl);
-      if (!deferredToken.settled) {
-        pendingError = error instanceof Error ? error : new Error(String(error));
+    } catch {
+      if (!response.headersSent) {
+        writeJson(response, 500, { ok: false, error: "Internal error" }, baseAppUrl);
       }
     }
   });
@@ -1073,6 +1073,51 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
   };
 };
 
+// src/core/appBaseUrl.ts
+var LOOPBACK_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "[::1]"]);
+var SAFE_HOSTNAME = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+var normalizeAppBaseUrl = (value) => {
+  const refuse = () => {
+    throw new CliError({
+      type: "validation_error",
+      message: `Invalid app base URL ${JSON.stringify(value)}: expected an https:// origin (http:// only for localhost or 127.0.0.1). Fix it with \`beemmvision config set --app-base-url <url>\` or BEEMMVISION_APP_BASE_URL.`,
+      exitCode: EXIT_CODES.VALIDATION
+    });
+  };
+  let url;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return refuse();
+  }
+  const loopback = LOOPBACK_HOSTS.has(url.hostname);
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
+    return refuse();
+  }
+  if (url.username || url.password) {
+    return refuse();
+  }
+  if (!loopback && !SAFE_HOSTNAME.test(url.hostname)) {
+    return refuse();
+  }
+  return url.origin;
+};
+
+// src/core/terminalText.ts
+var TERMINAL_CONTROL_CHARACTERS = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
+var sanitizeForTerminal = (value) => value.replace(/\r\n/g, "\n").replace(TERMINAL_CONTROL_CHARACTERS, (character) => `\\x${character.charCodeAt(0).toString(16).padStart(2, "0")}`);
+
+// src/core/tokenArgvWarning.ts
+var warnTokenOnCommandLine = (context) => {
+  if (context.json) {
+    return;
+  }
+  context.output.writeHuman(
+    "Warning: a Firebase ID token passed on the command line is visible to other local users (ps, /proc) while the command runs. Prefer `beemmvision auth login` (browser) or the BEEMMVISION_FIREBASE_ID_TOKEN environment variable.\n",
+    "stderr"
+  );
+};
+
 // src/commands/auth.ts
 var AuthLoginOptionsSchema = z.object({
   firebaseIdToken: z.string().min(1, "firebaseIdToken is required"),
@@ -1089,7 +1134,10 @@ var AuthWhoamiOptionsSchema = z.object({}).passthrough();
 var AuthLogoutOptionsSchema = z.object({}).passthrough();
 var AuthRefreshOptionsSchema = z.object({}).passthrough();
 var AuthLoginBrowserOptionsSchema = z.object({
-  noOpen: z.boolean().optional(),
+  // `--no-open` : Commander le range sous `open` (false), jamais sous
+  // `noOpen`. L'ancien schema lisait `noOpen`, toujours absent, et le
+  // navigateur s'ouvrait quoi qu'on demande (SEC-CLI-003).
+  open: z.boolean().optional(),
   timeoutSeconds: z.number().int().positive().max(900).optional(),
   force: z.boolean().default(false)
 });
@@ -1189,6 +1237,9 @@ var registerAuthCommands = (program, context) => {
     const rootOptions = command.parent?.parent?.opts?.() ?? {};
     const firebaseIdToken = rawOptions.token ?? rawOptions.firebaseIdToken ?? rootOptions.firebaseIdToken;
     if (typeof firebaseIdToken === "string" && firebaseIdToken.trim()) {
+      if (rawOptions.token !== void 0 || rawOptions.firebaseIdToken !== void 0) {
+        warnTokenOnCommandLine(context);
+      }
       const parsedOptions = AuthLoginOptionsSchema.parse({ firebaseIdToken });
       const result = await authLoginHandler(parsedOptions, context);
       console.log("[auth.login] Login completed successfully.");
@@ -1205,8 +1256,9 @@ var registerAuthCommands = (program, context) => {
       const claims = decodeFirebaseIdTokenClaims(context.runtimeConfig.firebaseIdToken);
       const email = typeof claims.email === "string" ? claims.email : null;
       if (email) {
-        console.log(`
-\u2705 Already logged in as \x1B[36m${email}\x1B[0m
+        context.output.writeStyled(`
+\u2705 Already logged in as \x1B[36m${sanitizeForTerminal(email)}\x1B[0m
+
 `);
         console.log(`   To re-login, run: beemmvision auth login --force
 `);
@@ -1219,14 +1271,15 @@ var registerAuthCommands = (program, context) => {
         existingAppCheck.present ? "[auth.login] Signed in, but the App Check attestation expired \u2014 re-attesting through the browser." : "[auth.login] Signed in, but this session carries no App Check attestation \u2014 re-attesting through the browser."
       );
     }
-    const session = await createBrowserAuthSession(context.runtimeConfig.appBaseUrl, {
+    const appBaseUrl = normalizeAppBaseUrl(context.runtimeConfig.appBaseUrl);
+    const session = await createBrowserAuthSession(appBaseUrl, {
       client: "terminal",
       timeoutMs: (browserOptions.timeoutSeconds ?? 180) * 1e3
     });
     try {
       console.log(`[auth.login] Browser login URL: ${session.authUrl}`);
       console.log("[auth.login] Waiting for browser authentication...");
-      if (browserOptions.noOpen !== true) {
+      if (browserOptions.open !== false) {
         try {
           const { default: open } = await import("open");
           await open(session.authUrl);
@@ -1358,24 +1411,6 @@ var ConfigSetOptionsSchema = z2.object({
 });
 var ConfigShowOptionsSchema = z2.object({}).passthrough();
 var ConfigClearOptionsSchema = z2.object({}).passthrough();
-var readLongOptionValue = (argv, optionName) => {
-  const exactToken = `--${optionName}`;
-  const prefixedToken = `${exactToken}=`;
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    if (token === exactToken) {
-      const next = argv[index + 1];
-      if (next && !next.startsWith("--")) {
-        return next;
-      }
-      return void 0;
-    }
-    if (token.startsWith(prefixedToken)) {
-      return token.slice(prefixedToken.length);
-    }
-  }
-  return void 0;
-};
 var configShowHandler = async (_options, context) => {
   const storedConfig = loadVisionboardCliConfig(context.env);
   console.log("[config.show] Loaded CLI configuration");
@@ -1420,14 +1455,13 @@ var registerConfigCommands = (program, context) => {
   );
   configCommand.command("set").description("Persist app/functions URLs for deployed usage").option("--functions-base-url <url>", "Callable Functions base URL").option("--app-base-url <url>", "App base URL used by browser auth").action(async (rawOptions) => {
     context.commandName = "config.set";
-    const raw = ConfigRawOptionsSchema.parse({
-      ...rawOptions,
-      functionsBaseUrl: readLongOptionValue(process.argv, "functions-base-url") ?? rawOptions.functionsBaseUrl,
-      appBaseUrl: readLongOptionValue(process.argv, "app-base-url") ?? rawOptions.appBaseUrl
-    });
+    const raw = ConfigRawOptionsSchema.parse(rawOptions);
+    const appBaseUrl = raw.appBaseUrl || raw.appBaseURL;
     const normalized = {
       functionsBaseUrl: raw.functionsBaseUrl || raw.functionsBaseURL,
-      appBaseUrl: raw.appBaseUrl || raw.appBaseURL
+      // Seule l'origine est persistee, et seulement si elle est sure : elle
+      // resservira a chaque `auth login` (SEC-CLI-002).
+      appBaseUrl: appBaseUrl ? normalizeAppBaseUrl(appBaseUrl) : void 0
     };
     if (!normalized.functionsBaseUrl && !normalized.appBaseUrl) {
       throw new CliError({
@@ -1449,15 +1483,46 @@ var registerConfigCommands = (program, context) => {
 
 // src/commands/doctor.ts
 import { z as z3 } from "zod";
+import { statSync } from "node:fs";
+import { win32 as win32Path } from "node:path";
 var DoctorOptionsSchema = z3.object({
   fix: z3.boolean().optional().default(false)
 });
-var detectJava = async () => {
+var resolveWindowsJavaPath = (env, isFile = (candidate) => {
+  try {
+    return statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}) => {
+  const pathKey = Object.keys(env).find((key) => key.toUpperCase() === "PATH");
+  const rawPath = pathKey ? env[pathKey] ?? "" : "";
+  for (const rawEntry of rawPath.split(";")) {
+    const entry = rawEntry.trim().replace(/^"(.*)"$/, "$1");
+    if (!entry || !/^(?:[A-Za-z]:[\\/]|\\\\)/.test(entry)) {
+      continue;
+    }
+    const candidate = win32Path.join(entry, "java.exe");
+    if (isFile(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+};
+var detectJava = async (env) => {
   try {
     const { execFile } = await import("node:child_process");
     const { promisify } = await import("node:util");
     const execFileAsync = promisify(execFile);
-    const result = await execFileAsync("java", ["-version"]);
+    let javaExecutable = "java";
+    if (process.platform === "win32") {
+      const resolved = resolveWindowsJavaPath(env);
+      if (!resolved) {
+        return { available: false, details: "java.exe not found in an absolute PATH entry" };
+      }
+      javaExecutable = resolved;
+    }
+    const result = await execFileAsync(javaExecutable, ["-version"]);
     return {
       available: true,
       details: (result.stderr || result.stdout || "").trim()
@@ -1470,7 +1535,7 @@ var detectJava = async () => {
   }
 };
 var doctorHandler = async (options, context) => {
-  const java = await detectJava();
+  const java = await detectJava(context.env);
   const transportTarget = context.describeTransport();
   const tokenAudience = context.runtimeConfig.firebaseIdToken ? getFirebaseTokenAudience(context.runtimeConfig.firebaseIdToken) : void 0;
   const tokenInspection = (() => {
@@ -3054,7 +3119,7 @@ var renderDashboard = (nodeStates, creditsInfo, workflowUrl, progress) => {
     const status = state.status.toUpperCase().padEnd(11);
     const duration = state.duration || "-";
     const color = state.status === "running" ? "33m" : state.status === "success" ? "32m" : state.status === "failed" ? "31m" : "90m";
-    lines.push(`[\x1B[${color}${icon}\x1B[0m] ${state.label.padEnd(20)} ${status} ${duration}`);
+    lines.push(`[\x1B[${color}${icon}\x1B[0m] ${sanitizeForTerminal(state.label).padEnd(20)} ${status} ${duration}`);
   }
   lines.push("");
   lines.push(`Progress: ${progress.completed}/${progress.total} nodes complete | ${progress.running} running | ${progress.queued} queued`);
@@ -3085,28 +3150,28 @@ var renderFinalResults = (execution, metadata) => {
     lines.push("\x1B[1m\u{1F4DD} Text Outputs (" + textArtifacts.length + "):\x1B[0m");
     textArtifacts.forEach((a) => {
       const preview = a.text ? a.text.length > 120 ? a.text.substring(0, 120) + "..." : a.text : "(empty)";
-      lines.push("  " + a.label + ' \u2192 "' + preview + '"');
+      lines.push("  " + sanitizeForTerminal(a.label) + ' \u2192 "' + sanitizeForTerminal(preview) + '"');
     });
     lines.push("");
   }
   if (imageArtifacts.length > 0) {
     lines.push("\x1B[1m\u{1F5BC}\uFE0F  Image Outputs (" + imageArtifacts.length + "):\x1B[0m");
     imageArtifacts.forEach((a, i) => {
-      lines.push("  " + (i + 1) + ". " + (a.url || "(no url)"));
+      lines.push("  " + (i + 1) + ". " + sanitizeForTerminal(a.url || "(no url)"));
     });
     lines.push("");
   }
   if (videoArtifacts.length > 0) {
     lines.push("\x1B[1m\u{1F3AC} Video Outputs (" + videoArtifacts.length + "):\x1B[0m");
     videoArtifacts.forEach((a, i) => {
-      lines.push("  " + (i + 1) + ". " + (a.url || "(no url)"));
+      lines.push("  " + (i + 1) + ". " + sanitizeForTerminal(a.url || "(no url)"));
     });
     lines.push("");
   }
   if (run.warnings.length > 0) {
     lines.push("\x1B[33m\u26A0\uFE0F  Warnings (" + run.warnings.length + "):\x1B[0m");
     run.warnings.forEach((w) => {
-      lines.push("  - " + w);
+      lines.push("  - " + sanitizeForTerminal(w));
     });
     lines.push("");
   }
@@ -3226,9 +3291,11 @@ var workflowRunHandler = async (options, context) => {
     }
   } catch (error) {
     if (!context.json) {
-      context.output.writeHuman(`
-\x1B[31m\u274C Workflow run failed: ${error instanceof Error ? error.message : String(error)}\x1B[0m
-`);
+      context.output.writeStyled(
+        `
+\x1B[31m\u274C Workflow run failed: ${sanitizeForTerminal(error instanceof Error ? error.message : String(error))}\x1B[0m
+`
+      );
     }
     throw error;
   }
@@ -3623,6 +3690,9 @@ var createOutputController = (options) => {
       pushLog(chunk);
       return;
     }
+    writeHumanToTerminal(sanitizeForTerminal(chunk), stream);
+  };
+  const writeHumanToTerminal = (chunk, stream) => {
     if (activeSpinner) {
       clearSpinner();
     }
@@ -3638,11 +3708,20 @@ var createOutputController = (options) => {
       renderSpinner();
     }
   };
+  const writeStyled = (chunk, stream = "stdout") => {
+    if (options.jsonMode) {
+      pushLog(chunk);
+      return;
+    }
+    writeHumanToTerminal(chunk, stream);
+  };
   return {
     jsonMode: options.jsonMode,
     logs,
     writeHuman,
-    createSpinner({ text, stream = "stdout" }) {
+    writeStyled,
+    createSpinner({ text: rawText, stream = "stdout" }) {
+      const text = sanitizeForTerminal(rawText);
       if (options.jsonMode) {
         return {
           update() {
@@ -3669,8 +3748,9 @@ var createOutputController = (options) => {
         renderSpinner();
       }
       return {
-        update(nextText) {
+        update(rawNextText) {
           if (!activeSpinner) return;
+          const nextText = sanitizeForTerminal(rawNextText);
           if (activeSpinner.text === nextText) return;
           activeSpinner.text = nextText;
           if (isTTY) {
@@ -3682,7 +3762,7 @@ var createOutputController = (options) => {
           }
         },
         stop(finalText) {
-          stopSpinnerInternal(finalText);
+          stopSpinnerInternal(finalText === void 0 ? void 0 : sanitizeForTerminal(finalText));
         }
       };
     },
@@ -3734,40 +3814,21 @@ var normalizeTransportMode = (value) => {
   }
   return "auto";
 };
-var readCliOption = (argv, optionName) => {
-  const exactToken = `--${optionName}`;
-  const prefixedToken = `${exactToken}=`;
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    if (token === exactToken) {
-      const next = argv[index + 1];
-      if (next && !next.startsWith("--")) {
-        return next;
-      }
-      return void 0;
-    }
-    if (token.startsWith(prefixedToken)) {
-      return token.slice(prefixedToken.length);
-    }
-  }
-  return void 0;
-};
-var parseRuntimeConfig = async (argv, env = process.env) => {
+var parseRuntimeConfig = async (cliOptions = {}, env = process.env) => {
   const storedConfig = loadVisionboardCliConfig(env);
   const transportMode = normalizeTransportMode(
-    readCliOption(argv, "transport") || readCliEnvVar(env, "CLI_TRANSPORT")
+    cliOptions.transport || readCliEnvVar(env, "CLI_TRANSPORT")
   );
-  const cliFunctionsBaseUrl = readCliOption(argv, "functions-base-url");
+  const cliFunctionsBaseUrl = cliOptions.functionsBaseUrl;
   const envFunctionsBaseUrl = readCliEnvVar(env, "FUNCTIONS_BASE_URL");
   const functionsBaseUrl = cliFunctionsBaseUrl || envFunctionsBaseUrl || storedConfig.functionsBaseUrl || DEFAULT_FUNCTIONS_BASE_URL;
   const functionsBaseUrlSource = cliFunctionsBaseUrl ? "cli" : envFunctionsBaseUrl ? "env" : storedConfig.functionsBaseUrl ? "config" : "default";
-  const cliFirebaseIdToken = readCliOption(argv, "firebase-id-token");
+  const cliFirebaseIdToken = cliOptions.firebaseIdToken;
   const envFirebaseIdToken = readCliEnvVar(env, "FIREBASE_ID_TOKEN");
   const storedFirebaseIdToken = await getValidFirebaseIdToken(env);
-  const cliAppBaseUrl = readCliOption(argv, "app-base-url");
   const envAppBaseUrl = readCliEnvVar(env, "APP_BASE_URL");
-  const appBaseUrl = cliAppBaseUrl || envAppBaseUrl || storedConfig.appBaseUrl || DEFAULT_APP_BASE_URL;
-  const appBaseUrlSource = cliAppBaseUrl ? "cli" : envAppBaseUrl ? "env" : storedConfig.appBaseUrl ? "config" : "default";
+  const appBaseUrl = envAppBaseUrl || storedConfig.appBaseUrl || DEFAULT_APP_BASE_URL;
+  const appBaseUrlSource = envAppBaseUrl ? "env" : storedConfig.appBaseUrl ? "config" : "default";
   const firebaseIdToken = cliFirebaseIdToken || envFirebaseIdToken || storedFirebaseIdToken || void 0;
   const firebaseIdTokenSource = cliFirebaseIdToken ? "cli" : envFirebaseIdToken ? "env" : storedFirebaseIdToken ? "stored" : "missing";
   return {
@@ -4818,9 +4879,68 @@ var labelCommandFromArgv = (argv) => {
 };
 var HELP_COMMANDER_CODES = /* @__PURE__ */ new Set(["commander.helpDisplayed", "commander.help"]);
 var VERSION_COMMANDER_CODE = "commander.version";
+var GLOBAL_OPTION_COPIES = [
+  { flags: "--json" },
+  { flags: "--transport <transport>", attribute: "transport" },
+  { flags: "--functions-base-url <url>", attribute: "functionsBaseUrl" },
+  { flags: "--firebase-id-token <token>", attribute: "firebaseIdToken" }
+];
+var ROUTING_ATTRIBUTES = ["transport", "functionsBaseUrl", "firebaseIdToken"];
+var routingCopiesByCommand = /* @__PURE__ */ new WeakMap();
+var installGlobalOptionCopies = (command, root = command) => {
+  for (const subcommand of command.commands) {
+    const copied = /* @__PURE__ */ new Set();
+    for (const copy of GLOBAL_OPTION_COPIES) {
+      const option = new Option(copy.flags).hideHelp();
+      if (subcommand.options.some((existing) => existing.long === option.long)) {
+        continue;
+      }
+      subcommand.addOption(option);
+      if (copy.attribute) {
+        copied.add(copy.attribute);
+      }
+    }
+    if (!subcommand.options.some((existing) => existing.long === "--version")) {
+      subcommand.addOption(new Option("-V, --version").hideHelp());
+      subcommand.on("option:version", () => root.emit("option:version"));
+    }
+    routingCopiesByCommand.set(subcommand, copied);
+    installGlobalOptionCopies(subcommand, root);
+  }
+};
+var collectRoutingOptions = (actionCommand) => {
+  const lineage = [];
+  for (let current = actionCommand; current; current = current.parent) {
+    lineage.unshift(current);
+  }
+  const routing = {};
+  lineage.forEach((command, depth) => {
+    const copies = depth === 0 ? new Set(ROUTING_ATTRIBUTES) : routingCopiesByCommand.get(command);
+    for (const attribute of ROUTING_ATTRIBUTES) {
+      if (routing[attribute] !== void 0 || !copies?.has(attribute)) {
+        continue;
+      }
+      if (command.getOptionValueSource(attribute) !== "cli") {
+        continue;
+      }
+      const value = command.getOptionValue(attribute);
+      if (typeof value === "string") {
+        routing[attribute] = value;
+      }
+    }
+  });
+  return routing;
+};
 var createProgram = (context, captureCommanderOutput) => {
   const program = new Command();
   const commanderSinks = context.output.configureCommanderOutput();
+  program.enablePositionalOptions();
+  program.configureHelp({
+    subcommandTerm(command) {
+      const term = Help.prototype.subcommandTerm.call(this, command);
+      return command.options.some((option) => !option.hidden) ? term : term.replace(" [options]", "");
+    }
+  });
   program.name("beemmvision").version("0.3.0").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
     // Both streams are tapped, because Commander picks the stream itself:
     // `--help` writes to stdout, while a bare command group and `help
@@ -4843,11 +4963,21 @@ var createProgram = (context, captureCommanderOutput) => {
   registerTemplateCommands(program, context);
   registerDoctorCommand(program, context);
   registerCreditsCommand(program, context);
+  installGlobalOptionCopies(program);
+  program.hook("preAction", async (_rootCommand, actionCommand) => {
+    const routing = collectRoutingOptions(actionCommand);
+    if (Object.keys(routing).length > 0) {
+      context.runtimeConfig = await parseRuntimeConfig(routing, context.env);
+    }
+    if (routing.firebaseIdToken) {
+      warnTokenOnCommandLine(context);
+    }
+  });
   return program;
 };
 var runCli = async (argv, options) => {
   const jsonMode = detectJsonFlag(argv);
-  const runtimeConfig = await parseRuntimeConfig(argv, options?.env);
+  const runtimeConfig = await parseRuntimeConfig({}, options?.env);
   const stdoutBuffer = createOutputBuffer();
   const stderrBuffer = createOutputBuffer();
   const output = createOutputController({
@@ -4858,8 +4988,8 @@ var runCli = async (argv, options) => {
     stderrSink: options?.stderrSink
   });
   const lazyTransport = createLazyWorkflowTransport({
-    resolve: () => resolveWorkflowTransport(runtimeConfig),
-    describe: () => describeTransportTarget(runtimeConfig)
+    resolve: () => resolveWorkflowTransport(context.runtimeConfig),
+    describe: () => describeTransportTarget(context.runtimeConfig)
   });
   const transportOverride = options?.transportOverride;
   const context = {
