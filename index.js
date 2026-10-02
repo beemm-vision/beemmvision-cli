@@ -859,9 +859,11 @@ var commanderErrorToCliError = (error) => {
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { URL } from "node:url";
-var buildBrowserAuthUrl = (baseAppUrl, state, callbackUrl) => {
+var buildBrowserAuthUrl = (baseAppUrl, state, callbackUrl, client) => {
   const trimmedBaseUrl = baseAppUrl.replace(/\/$/, "");
   const params = new URLSearchParams({ state, callbackUrl });
+  const label = client?.trim().slice(0, 64);
+  if (label) params.set("client", label);
   return `${trimmedBaseUrl}/#/cli-auth?${params.toString()}`;
 };
 var createDeferred = () => {
@@ -1012,7 +1014,7 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
     throw new Error("Unable to start local auth callback server.");
   }
   const callbackUrl = `http://${host}:${address.port}${callbackPath}`;
-  const authUrl = buildBrowserAuthUrl(baseAppUrl, state, callbackUrl);
+  const authUrl = buildBrowserAuthUrl(baseAppUrl, state, callbackUrl, options.client);
   const timeout = setTimeout(() => {
     if (!deferredToken.settled) {
       pendingError = new Error("Browser login timed out.");
@@ -1218,6 +1220,7 @@ var registerAuthCommands = (program, context) => {
       );
     }
     const session = await createBrowserAuthSession(context.runtimeConfig.appBaseUrl, {
+      client: "terminal",
       timeoutMs: (browserOptions.timeoutSeconds ?? 180) * 1e3
     });
     try {
@@ -2480,6 +2483,219 @@ var SEEDANCE_IMAGE_TIER_TO_P = {
   "2k": "1440p",
   "4k": "2160p"
 };
+var LTX25_RATES = {
+  fast: { "720p": 9, "1080p": 13, "1440p": 19, "2160p": 30 },
+  pro: { "720p": 12, "1080p": 17 }
+};
+var LTX25_DURATIONS = {
+  fast: [6, 8, 10, 12, 14, 16, 18, 20],
+  pro: [6, 8, 10]
+};
+var LTX25_TIER_ALIASES = {
+  "0.5k": "720p",
+  "1k": "1080p",
+  "2k": "1440p",
+  "4k": "2160p"
+};
+var LTX25_TIER_RANK = { "720p": 1, "1080p": 2, "1440p": 3, "2160p": 4 };
+var H3_CPS = {
+  "480p": 5,
+  "480P": 5,
+  "768p": 6,
+  "768P": 6,
+  "2k": 13,
+  "2K": 13,
+  "4k": 16,
+  "4K": 16
+};
+var H3_RES_ALIAS = {
+  "720p": "768P",
+  "1080p": "2K",
+  "1440p": "2K",
+  "2160p": "4K"
+};
+var seedance25CliCost = (inputs) => {
+  const raw = String(inputs.resolution ?? "720p").trim().toLowerCase();
+  const resolution = raw === "480p" || raw === "720p" || raw === "1080p" ? raw : raw === "1k" || raw === "2k" || raw === "4k" ? "1080p" : "720p";
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 || String(inputs.duration) === "auto" ? 5 : Math.min(30, Math.max(4, Math.trunc(parsed)));
+  const cps = {
+    "480p": { no: 14, yes: 8.5 },
+    "720p": { no: 31.5, yes: 19 },
+    "1080p": { no: 57, yes: 34.25 }
+  }[resolution];
+  const hasVideo = Boolean(
+    inputs.video_url || inputs.video_urls || inputs.video || inputs.reference_video || inputs.reference_video_urls || inputs.reference_videos || inputs.reference_video_url
+  );
+  return Math.round((hasVideo ? cps.yes : cps.no) * duration * 100) / 100;
+};
+var wan30CliCost = (tier, inputs) => {
+  const raw = String(inputs.resolution ?? "1080p").trim().toLowerCase();
+  const resolution = raw === "480p" || raw === "720p" || raw === "1080p" ? raw : "1080p";
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(30, Math.max(2, Math.trunc(parsed)));
+  const cps = tier === "prime" ? { "480p": 6.8, "720p": 14, "1080p": 28 }[resolution] : { "480p": 5, "720p": 10, "1080p": 20 }[resolution];
+  return Math.round(cps * duration * 100) / 100;
+};
+var H3MAX_CPS = {
+  "480p": 5,
+  "480P": 5,
+  "768p": 8,
+  "768P": 8
+};
+var H3MAX_RES_ALIAS = {
+  "720p": "768P",
+  "1080p": "768P",
+  "1440p": "768P",
+  "2160p": "768P",
+  "2k": "768P",
+  "2K": "768P",
+  "4k": "768P",
+  "4K": "768P"
+};
+var h3MaxCliCost = (inputs, kind) => {
+  const raw = String(inputs.resolution ?? "768P").trim();
+  const mapped = H3MAX_RES_ALIAS[raw] ?? H3MAX_RES_ALIAS[raw.toLowerCase()] ?? raw;
+  const cps = kind === "r2v" ? 8 : H3MAX_CPS[mapped] ?? H3MAX_CPS[mapped.toLowerCase()] ?? 8;
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(15, Math.max(5, Math.trunc(parsed)));
+  const images = Array.isArray(inputs.reference_image_urls) ? inputs.reference_image_urls.length : Array.isArray(inputs.image_urls) ? inputs.image_urls.length : Number(inputs.imageInputCount) || 0;
+  const videos = Array.isArray(inputs.reference_video_urls) ? inputs.reference_video_urls.length : 0;
+  const audios = Array.isArray(inputs.reference_audio_urls) ? inputs.reference_audio_urls.length : 0;
+  const extraTokens = Math.max(0, images * 4e3 + videos * 4e3 + audios * 1e3 - 4096);
+  return cps * duration + (extraTokens === 0 ? 0 : Math.ceil(extraTokens / 1e3) * 2);
+};
+var H3_MULTI_ANGLE_CPS = { "480P": 5, "768P": 8, "1080P": 16 };
+var h3MultiAngleCliCost = (inputs) => {
+  const raw = inputs.resolution === void 0 || inputs.resolution === null || inputs.resolution === "" ? "480P" : String(inputs.resolution).trim();
+  const cps = H3_MULTI_ANGLE_CPS[raw] ?? H3_MULTI_ANGLE_CPS["480P"];
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(15, Math.max(5, Math.trunc(parsed)));
+  return cps * duration;
+};
+var GEMINI_OMNI_CPS = { "360p": 3, "720p": 10, "1080p": 15, "4k": 30 };
+var GEMINI_OMNI_RES_ALIAS = {
+  "360p": "360p",
+  "360P": "360p",
+  "720p": "720p",
+  "720P": "720p",
+  "1080p": "1080p",
+  "1080P": "1080p",
+  "1k": "1080p",
+  "1K": "1080p",
+  "2k": "1080p",
+  "2K": "1080p",
+  "4k": "4k",
+  "4K": "4k",
+  "2160p": "4k",
+  "2160P": "4k"
+};
+var geminiOmniCliCost = (inputs) => {
+  const raw = String(inputs.resolution ?? "720p").trim();
+  const mapped = GEMINI_OMNI_RES_ALIAS[raw] ?? GEMINI_OMNI_RES_ALIAS[raw.toLowerCase()] ?? "720p";
+  const cps = GEMINI_OMNI_CPS[mapped] ?? 10;
+  const hasVideo = Boolean(inputs.video_url || (Array.isArray(inputs.video_urls) ? inputs.video_urls.length : inputs.video_urls) || inputs.video);
+  if (hasVideo) return cps * 10;
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 8 : Math.min(10, Math.max(3, Math.trunc(parsed)));
+  return cps * duration;
+};
+var GEMINI_OMNI_V1_CPS = 13;
+var geminiOmniV1CliCost = (inputs) => {
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 8 : Math.min(10, Math.max(3, Math.trunc(parsed)));
+  return GEMINI_OMNI_V1_CPS * duration;
+};
+var FLUX3_FULL_CPS = {
+  t2v: { "720p": 17, "1080p": 29 },
+  i2v: { "720p": 17, "1080p": 29 },
+  flf2v: { "720p": 17, "1080p": 29 },
+  kf2v: { "720p": 17, "1080p": 29 },
+  extend: { "720p": 41, "1080p": 53 },
+  edit: { "720p": 3, "1080p": 3 }
+};
+var FLUX3_DRAFT_CPS = { t2v: 6, i2v: 6, flf2v: 6, kf2v: 6, extend: 12 };
+var FLUX3_GENERIC_RES = { "0.5K": "1080p", "1K": "1080p", "2K": "1440p", "4K": "2160p", "4k": "2160p" };
+var flux3CliCost = (inputs) => {
+  const firstUrl = (v) => {
+    const out = [];
+    const push = (x) => {
+      if (typeof x === "string" && x.trim()) out.push(x.trim());
+      else if (Array.isArray(x)) x.forEach(push);
+    };
+    push(v);
+    return out[0];
+  };
+  const has = (...k) => k.some((x) => firstUrl(inputs[x]) !== void 0);
+  const video = has("video_url", "video_urls", "video");
+  const kind = video ? String(inputs.mode ?? "").toLowerCase().startsWith("extend") ? "extend" : "edit" : Array.isArray(inputs.keyframes) && inputs.keyframes.length ? "kf2v" : has("end_image", "end_image_url") ? "flf2v" : has("start_image", "start_image_url", "image_url") ? "i2v" : "t2v";
+  if (kind === "edit") return FLUX3_FULL_CPS.edit["720p"] * 15;
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(20, Math.max(5, Math.trunc(parsed)));
+  const draft = inputs.draft === true || inputs.draft === "true" || inputs.draft === 1 || inputs.draft === "1";
+  if (draft) return FLUX3_DRAFT_CPS[kind] * duration;
+  const rawRes = String(inputs.resolution ?? "").trim();
+  const res = rawRes === "1080p" ? "1080p" : FLUX3_GENERIC_RES[rawRes] === "1080p" ? "1080p" : "720p";
+  return FLUX3_FULL_CPS[kind][res] * duration;
+};
+var klingO34kCliCost = (inputs) => {
+  const hasVideo = Boolean(inputs.video_url || (Array.isArray(inputs.video_urls) ? inputs.video_urls.length : inputs.video_urls) || inputs.video);
+  const isEdit = hasVideo && inputs.mode !== "reference";
+  const raw = inputs.duration;
+  const known = raw !== void 0 && raw !== null && raw !== "" && raw !== "auto" && Number.isFinite(Number(raw));
+  const parsed = Number(raw);
+  const duration = known ? Math.min(15, Math.max(3, Math.trunc(parsed))) : isEdit ? 10 : 5;
+  return 42 * duration;
+};
+var klingO34kReferenceCliCost = (inputs) => {
+  const parsed = Number(inputs.duration);
+  const duration = Number.isFinite(parsed) ? Math.min(15, Math.max(3, Math.trunc(parsed))) : 5;
+  return 42 * duration;
+};
+var H3MAX_TURBO_CPS = { "480p": 2.5, "480P": 2.5, "768p": 4, "768P": 4 };
+var H3MAX_TURBO_RES_ALIAS = {
+  "720p": "768P",
+  "1080p": "768P",
+  "1440p": "768P",
+  "2160p": "768P",
+  "2k": "768P",
+  "2K": "768P",
+  "4k": "768P",
+  "4K": "768P"
+};
+var h3MaxTurboCliCost = (inputs) => {
+  const raw = String(inputs.resolution ?? "768P").trim();
+  const mapped = H3MAX_TURBO_RES_ALIAS[raw] ?? H3MAX_TURBO_RES_ALIAS[raw.toLowerCase()] ?? raw;
+  const cps = H3MAX_TURBO_CPS[mapped] ?? H3MAX_TURBO_CPS[mapped.toLowerCase()] ?? 4;
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(15, Math.max(5, Math.trunc(parsed)));
+  return cps * duration;
+};
+var h3CliCost = (inputs) => {
+  const raw = String(inputs.resolution ?? "2K").trim();
+  const mapped = H3_RES_ALIAS[raw] ?? H3_RES_ALIAS[raw.toLowerCase()] ?? raw;
+  const cps = H3_CPS[mapped] ?? H3_CPS[mapped.toLowerCase()] ?? 13;
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(15, Math.max(5, Math.trunc(parsed)));
+  const refs = Array.isArray(inputs.reference_image_urls) ? inputs.reference_image_urls.length : Array.isArray(inputs.image_urls) ? inputs.image_urls.length : Number(inputs.imageInputCount) || 0;
+  return cps * duration + Math.max(0, refs - 5) * 8;
+};
+var ltx25HasAudio = (inputs) => {
+  const raw = inputs.audio_url ?? inputs.audio ?? inputs.audio_urls;
+  if (typeof raw === "string") return raw.trim().length > 0;
+  return Array.isArray(raw) && raw.some((v) => typeof v === "string" && v.trim());
+};
+var ltx25Cost = (inputs, mode) => {
+  if (ltx25HasAudio(inputs)) return LTX25_RATES[mode]["1080p"] * 20;
+  const rates = LTX25_RATES[mode];
+  const raw = String(inputs.resolution ?? "").toLowerCase();
+  const wanted = LTX25_TIER_RANK[raw] !== void 0 ? raw : LTX25_TIER_ALIASES[raw] ?? "1080p";
+  const tier = Object.keys(rates).filter((t) => (LTX25_TIER_RANK[t] ?? 0) <= (LTX25_TIER_RANK[wanted] ?? 2)).sort((a, b) => (LTX25_TIER_RANK[a] ?? 0) - (LTX25_TIER_RANK[b] ?? 0)).pop() ?? "1080p";
+  const allowed = LTX25_DURATIONS[mode];
+  const parsed = Math.trunc(Number(inputs.duration));
+  const duration = Number.isFinite(parsed) && parsed > 0 ? allowed.filter((d) => d <= parsed).pop() ?? allowed[0] : 6;
+  return (rates[tier] ?? rates["1080p"]) * duration;
+};
 var normalizeSeedanceResolution = (raw, supported) => {
   if (raw === void 0 || raw === null || raw === "") {
     return supported[0];
@@ -2504,6 +2720,17 @@ var seedance2VideoCost = (inputs, usdPerThousandTokens) => {
   const hasVideoInput = Boolean(inputs.video_url || inputs.video_urls);
   const multiplier = hasVideoInput ? 0.6 : 1;
   return roundCostUpToHundredth(usdPerSec * duration * multiplier * 100);
+};
+var GPT_IMAGE_25_CREDITS = {
+  "1K": { low: 0.59, medium: 1.32, high: 5.27, xhigh: 9.37, max: 21.08 },
+  "2K": { low: 0.67, medium: 1.57, high: 6.03, xhigh: 10.71, max: 24.09 },
+  "4K": { low: 1.12, medium: 2.6, high: 10.01, xhigh: 17.79, max: 40.03 }
+};
+var gptImage25Cost = (inputs) => {
+  const res = String(inputs.resolution ?? "").trim().toUpperCase();
+  const row = GPT_IMAGE_25_CREDITS[res === "4K" || res === "2K" ? res : "1K"];
+  const q = String(inputs.quality ?? "").trim().toLowerCase();
+  return row[q in row ? q : "high"];
 };
 var AI_PRICING = {
   "nano-banana": { baseCost: 15, calculateCost: (inputs) => inputs.resolution === "4K" || inputs.resolution === "4k" ? 30 : 15 },
@@ -2534,6 +2761,7 @@ var AI_PRICING = {
   // layerizePricing.ts — cette entrée évite un « Modèle inconnu » sur les
   // chemins qui interrogent AI_PRICING.
   "seedream-pro-layerize": { baseCost: 6.75 },
+  "bria-ad-delayer": { baseCost: 30 },
   "kling": { baseCost: 2.8 },
   "kling-o3": { baseCost: 2.8, calculateCost: (inputs) => (inputs.resolution?.toLowerCase() === "4k" ? 5.6 : 2.8) * (parseInt(inputs.imageInputCount) || 1) },
   "qwen-max": { baseCost: 7.5 },
@@ -2542,6 +2770,39 @@ var AI_PRICING = {
   "qwen-image-2-pro-edit": { baseCost: 7.5 },
   "grok-edit": { baseCost: 2.2, calculateCost: (inputs) => 2.2 * (parseInt(inputs.imageInputCount) || 1) },
   "grok": { baseCost: 2 },
+  "grok-2": {
+    baseCost: 6,
+    calculateCost: (inputs) => {
+      const res = String(inputs.resolution || "").toLowerCase();
+      const q = inputs.quality === "low" ? "low" : "medium";
+      if (res === "2k") return q === "low" ? 6 : 8;
+      return q === "low" ? 4 : 6;
+    }
+  },
+  "grok-2-edit": {
+    baseCost: 7,
+    calculateCost: (inputs) => {
+      const res = String(inputs.resolution || "").toLowerCase();
+      const q = inputs.quality === "low" ? "low" : "medium";
+      const base = res === "2k" ? q === "low" ? 6 : 8 : q === "low" ? 4 : 6;
+      const n = Math.min(3, Math.max(1, parseInt(inputs.imageInputCount) || 1));
+      return base + n;
+    }
+  },
+  "qwen-image-3": {
+    baseCost: 4,
+    calculateCost: (inputs) => String(inputs.resolution || "").toLowerCase() === "2k" ? 7.5 : 4
+  },
+  "qwen-image-3-edit": {
+    baseCost: 4,
+    calculateCost: (inputs) => String(inputs.resolution || "").toLowerCase() === "2k" ? 7.5 : 4
+  },
+  "krea-2": { baseCost: 6 },
+  "krea-2-style": { baseCost: 6.5 },
+  "krea-2-medium": { baseCost: 3 },
+  "krea-2-medium-style": { baseCost: 3.5 },
+  "krea-2-turbo": { baseCost: 1 },
+  "krea-2-turbo-style": { baseCost: 1 },
   "hunyuan": { baseCost: 9, calculateCost: (inputs) => {
     const r = inputs.resolution?.toLowerCase();
     return r === "4k" ? 144 : r === "2k" ? 36 : 9;
@@ -2590,6 +2851,13 @@ var AI_PRICING = {
       return roundCostUpToHundredth(usd * 100);
     }
   },
+  // GPT Image 2.5 — miroir de packages/workflow-contracts/src/gptImage25.ts (le
+  // CLI n'importe pas le paquet). Grille (définition × qualité) identique sur
+  // les quatre endpoints ; toute correction là-bas se recopie ICI.
+  "gpt-image-2-5-flare": { baseCost: 5.27, calculateCost: gptImage25Cost },
+  "gpt-image-2-5-flare-edit": { baseCost: 5.27, calculateCost: gptImage25Cost },
+  "gpt-image-2-5-sunburst": { baseCost: 5.27, calculateCost: gptImage25Cost },
+  "gpt-image-2-5-sunburst-edit": { baseCost: 5.27, calculateCost: gptImage25Cost },
   "flux-2-pro": { baseCost: 6 },
   "recraft-v4-vector": { baseCost: 8 },
   "recraft-v4.1-pro": { baseCost: 25 },
@@ -2610,6 +2878,18 @@ var AI_PRICING = {
   "luma-uni-1-max": { baseCost: 11 },
   "ltx-video": { baseCost: 36 },
   "ltx-video-fast": { baseCost: 24 },
+  // LTX 2.5 — miroir de packages/workflow-contracts/src/ltx25.ts (le CLI ne
+  // consomme pas le paquet partagé). Tarif à la seconde par palier, 1 cr = $0,01.
+  // Les durées et paliers hors enveloppe sont rabattus vers le bas comme le fait
+  // le builder de payload, pour que l'estimation colle au débit réel.
+  "ltx-25-fast": {
+    baseCost: 78,
+    calculateCost: (inputs) => ltx25Cost(inputs, "fast")
+  },
+  "ltx-25-pro": {
+    baseCost: 102,
+    calculateCost: (inputs) => ltx25Cost(inputs, "pro")
+  },
   "wan-video-flash": { baseCost: 25 },
   "grok-video": { baseCost: 42 },
   "bytedance-seedance-1.5-pro": { baseCost: 26 },
@@ -2636,26 +2916,72 @@ var AI_PRICING = {
     baseCost: 121,
     calculateCost: (inputs) => seedance2VideoCost(inputs, 0.0112)
   },
+  "bytedance-seedance-2-5": {
+    baseCost: 157.5,
+    calculateCost: (inputs) => seedance25CliCost(inputs)
+  },
   "bytedance-seedance-2-mini": {
     baseCost: 76,
     calculateCost: (inputs) => seedance2VideoCost(inputs, 7e-3)
   },
-  "veo-3.1-fast": { baseCost: 120 },
-  "gemini-omni-flash": {
-    baseCost: 104,
-    calculateCost: (inputs) => {
-      const hasVideo = Boolean(
-        inputs.video_url || (Array.isArray(inputs.video_urls) ? inputs.video_urls.length : inputs.video_urls) || inputs.video
-      );
-      return hasVideo ? 104 : 13 * (Number(inputs.duration) || 8);
-    }
-  },
-  "google/gemini-2.5-flash": { baseCost: 2 },
-  "anthropic/claude-sonnet-4.6": { baseCost: 4 },
-  "anthropic/claude-sonnet-4.5": { baseCost: 4 },
-  "openai/gpt-4o": { baseCost: 4 },
-  "qwen/qwen3-vl-235b-a22b-instruct": { baseCost: 3.5 },
-  "x-ai/grok-4-fast": { baseCost: 2 }
+  "wan-3-0": { baseCost: 100, calculateCost: (inputs) => wan30CliCost("standard", inputs) },
+  "wan-3-0-prime": { baseCost: 140, calculateCost: (inputs) => wan30CliCost("prime", inputs) },
+  "minimax-h3": { baseCost: 65, calculateCost: h3CliCost },
+  "minimax-h3-image-to-video": { baseCost: 65, calculateCost: h3CliCost },
+  "minimax-h3-ref-to-video": { baseCost: 65, calculateCost: h3CliCost },
+  "minimax-h3-max": { baseCost: 40, calculateCost: (inputs) => h3MaxCliCost(inputs) },
+  "minimax-h3-max-image-to-video": { baseCost: 40, calculateCost: (inputs) => h3MaxCliCost(inputs) },
+  "minimax-h3-max-ref-to-video": { baseCost: 40, calculateCost: (inputs) => h3MaxCliCost(inputs, "r2v") },
+  "minimax-h3-max-multi-angle-image-to-video": { baseCost: 40, calculateCost: (inputs) => h3MultiAngleCliCost(inputs) },
+  "gemini-omni-flash": { baseCost: 80, calculateCost: (inputs) => geminiOmniCliCost(inputs) },
+  "gemini-omni-flash-v1": { baseCost: 104, calculateCost: (inputs) => geminiOmniV1CliCost(inputs) },
+  "flux-3": { baseCost: 85, calculateCost: (inputs) => flux3CliCost(inputs) },
+  "flux-3-enhance": { baseCost: 580 },
+  "kling-o3-4k": { baseCost: 210, calculateCost: (inputs) => klingO34kCliCost(inputs) },
+  "kling-o3-pro-v2v-edit": { baseCost: 168, calculateCost: () => 168 },
+  "kling-o3-4k-v2v-reference": { baseCost: 210, calculateCost: (inputs) => klingO34kReferenceCliCost(inputs) },
+  "minimax-h3-max-turbo": { baseCost: 20, calculateCost: (inputs) => h3MaxTurboCliCost(inputs) },
+  "minimax-h3-max-turbo-image-to-video": { baseCost: 20, calculateCost: (inputs) => h3MaxTurboCliCost(inputs) },
+  // --- ajoutés en BV-194 (paliers dans functions/src/shared/llmGrid.ts) ---
+  "anthropic/claude-fable-5.1": { baseCost: 40 },
+  "anthropic/claude-fable-5": { baseCost: 40 },
+  "anthropic/claude-opus-5": { baseCost: 20 },
+  "anthropic/claude-opus-4.8": { baseCost: 20 },
+  "anthropic/claude-opus-4.7": { baseCost: 20 },
+  "anthropic/claude-opus-4.6": { baseCost: 20 },
+  "anthropic/claude-opus-4.5": { baseCost: 20 },
+  "openai/gpt-6-astra": { baseCost: 40 },
+  "openai/gpt-5.5": { baseCost: 20 },
+  "openai/gpt-5.4": { baseCost: 8 },
+  "openai/o3": { baseCost: 8 },
+  "openai/gpt-5.2": { baseCost: 6 },
+  "openai/gpt-5.1": { baseCost: 6 },
+  "openai/gpt-4o-mini": { baseCost: 4 },
+  "google/gemini-3.1-pro-preview": { baseCost: 8 },
+  "google/gemini-3-flash-preview": { baseCost: 6 },
+  "qwen/qwen3.7-flash": { baseCost: 3 },
+  "z-ai/glm-5.3-flash": { baseCost: 3 },
+  "google/gemini-2.5-flash": { baseCost: 4 },
+  "google/gemini-3.7-flash": { baseCost: 6 },
+  "openai/gpt-5.6-luna": { baseCost: 4 },
+  "qwen/qwen3.8-flash": { baseCost: 4 },
+  "qwen/qwen3.8-27b": { baseCost: 4 },
+  "openai/gpt-5-mini": { baseCost: 4 },
+  "qwen/qwen3-vl-235b-a22b-instruct": { baseCost: 4 },
+  "google/gemini-3.8-flash": { baseCost: 6 },
+  "google/gemini-3.6-flash": { baseCost: 6 },
+  "openai/gpt-5": { baseCost: 6 },
+  "anthropic/claude-sonnet-5": { baseCost: 8 },
+  "openai/gpt-4o": { baseCost: 8 },
+  "anthropic/claude-sonnet-4.6": { baseCost: 8 },
+  "anthropic/claude-sonnet-4.5": { baseCost: 8 },
+  "google/gemini-2.5-flash-lite": { baseCost: 3 },
+  "google/gemini-3.1-flash-lite": { baseCost: 4 },
+  "google/gemini-3.5-flash-lite": { baseCost: 4 },
+  "google/gemini-2.5-pro": { baseCost: 6 },
+  "google/gemini-3.5-flash": { baseCost: 6 },
+  "x-ai/grok-4.20": { baseCost: 6 },
+  "qwen/qwen3.8-max-0902": { baseCost: 8 }
 };
 var calculateGenerationCost = (modelId, inputs = {}) => {
   const rule = AI_PRICING[modelId];
