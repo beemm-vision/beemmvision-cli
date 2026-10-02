@@ -477,7 +477,7 @@ var require_workflowRun = __commonJS({
 });
 
 // src/core/runner.ts
-import { Command, CommanderError as CommanderError2 } from "commander";
+import { Command, CommanderError as CommanderError2, Help, Option } from "commander";
 
 // src/commands/auth.ts
 import { z } from "zod";
@@ -858,10 +858,12 @@ var commanderErrorToCliError = (error) => {
 // src/core/browserAuth.ts
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
-import { URL } from "node:url";
-var buildBrowserAuthUrl = (baseAppUrl, state, callbackUrl) => {
+import { URL as URL2 } from "node:url";
+var buildBrowserAuthUrl = (baseAppUrl, state, callbackUrl, client) => {
   const trimmedBaseUrl = baseAppUrl.replace(/\/$/, "");
   const params = new URLSearchParams({ state, callbackUrl });
+  const label = client?.trim().slice(0, 64);
+  if (label) params.set("client", label);
   return `${trimmedBaseUrl}/#/cli-auth?${params.toString()}`;
 };
 var createDeferred = () => {
@@ -898,7 +900,7 @@ var readJsonBody = async (request) => {
 };
 var writeJson = (response, statusCode, payload, baseAppUrl) => {
   response.statusCode = statusCode;
-  const origin = new URL(baseAppUrl).origin;
+  const origin = new URL2(baseAppUrl).origin;
   response.setHeader("Access-Control-Allow-Origin", origin);
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
   response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS, GET");
@@ -908,7 +910,7 @@ var writeJson = (response, statusCode, payload, baseAppUrl) => {
 };
 var writeHtml = (response, statusCode, html, baseAppUrl) => {
   response.statusCode = statusCode;
-  const origin = new URL(baseAppUrl).origin;
+  const origin = new URL2(baseAppUrl).origin;
   response.setHeader("Access-Control-Allow-Origin", origin);
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
   response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS, GET");
@@ -928,7 +930,7 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         writeJson(response, 404, { ok: false, error: "Not found" }, baseAppUrl);
         return;
       }
-      const requestUrl = new URL(request.url, `http://${host}`);
+      const requestUrl = new URL2(request.url, `http://${host}`);
       if (request.method === "OPTIONS") {
         writeJson(response, 204, {}, baseAppUrl);
         return;
@@ -938,7 +940,17 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         return;
       }
       if (request.method === "POST" && requestUrl.pathname === callbackPath) {
-        const body = await readJsonBody(request);
+        let body;
+        try {
+          body = await readJsonBody(request);
+        } catch {
+          writeJson(response, 400, { ok: false, error: "Invalid JSON body" }, baseAppUrl);
+          return;
+        }
+        if (!body || typeof body !== "object") {
+          writeJson(response, 400, { ok: false, error: "Invalid JSON body" }, baseAppUrl);
+          return;
+        }
         const receivedState = typeof body.state === "string" ? body.state : "";
         const firebaseIdToken = typeof body.firebaseIdToken === "string" ? body.firebaseIdToken : "";
         const refreshToken = typeof body.refreshToken === "string" ? body.refreshToken : void 0;
@@ -946,25 +958,16 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         const appCheckToken = typeof body.appCheckToken === "string" && body.appCheckToken.trim() ? body.appCheckToken.trim() : void 0;
         if (receivedState !== state) {
           writeJson(response, 400, { ok: false, error: "Invalid state" }, baseAppUrl);
-          if (!deferredToken.settled) {
-            pendingError = new Error("Browser auth state mismatch.");
-          }
           return;
         }
         if (!firebaseIdToken) {
           writeJson(response, 400, { ok: false, error: "Missing firebaseIdToken" }, baseAppUrl);
-          if (!deferredToken.settled) {
-            pendingError = new Error("Browser auth callback missing Firebase ID token.");
-          }
           return;
         }
         try {
           decodeFirebaseIdTokenClaims(firebaseIdToken);
-        } catch (error) {
+        } catch {
           writeJson(response, 400, { ok: false, error: "Invalid firebaseIdToken" }, baseAppUrl);
-          if (!deferredToken.settled) {
-            pendingError = error instanceof Error ? error : new Error(String(error));
-          }
           return;
         }
         writeHtml(
@@ -996,10 +999,9 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         return;
       }
       writeJson(response, 404, { ok: false, error: "Not found" }, baseAppUrl);
-    } catch (error) {
-      writeJson(response, 500, { ok: false, error: error instanceof Error ? error.message : "Internal error" }, baseAppUrl);
-      if (!deferredToken.settled) {
-        pendingError = error instanceof Error ? error : new Error(String(error));
+    } catch {
+      if (!response.headersSent) {
+        writeJson(response, 500, { ok: false, error: "Internal error" }, baseAppUrl);
       }
     }
   });
@@ -1012,7 +1014,7 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
     throw new Error("Unable to start local auth callback server.");
   }
   const callbackUrl = `http://${host}:${address.port}${callbackPath}`;
-  const authUrl = buildBrowserAuthUrl(baseAppUrl, state, callbackUrl);
+  const authUrl = buildBrowserAuthUrl(baseAppUrl, state, callbackUrl, options.client);
   const timeout = setTimeout(() => {
     if (!deferredToken.settled) {
       pendingError = new Error("Browser login timed out.");
@@ -1071,6 +1073,51 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
   };
 };
 
+// src/core/appBaseUrl.ts
+var LOOPBACK_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "[::1]"]);
+var SAFE_HOSTNAME = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+var normalizeAppBaseUrl = (value) => {
+  const refuse = () => {
+    throw new CliError({
+      type: "validation_error",
+      message: `Invalid app base URL ${JSON.stringify(value)}: expected an https:// origin (http:// only for localhost or 127.0.0.1). Fix it with \`beemmvision config set --app-base-url <url>\` or BEEMMVISION_APP_BASE_URL.`,
+      exitCode: EXIT_CODES.VALIDATION
+    });
+  };
+  let url;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return refuse();
+  }
+  const loopback = LOOPBACK_HOSTS.has(url.hostname);
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
+    return refuse();
+  }
+  if (url.username || url.password) {
+    return refuse();
+  }
+  if (!loopback && !SAFE_HOSTNAME.test(url.hostname)) {
+    return refuse();
+  }
+  return url.origin;
+};
+
+// src/core/terminalText.ts
+var TERMINAL_CONTROL_CHARACTERS = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
+var sanitizeForTerminal = (value) => value.replace(/\r\n/g, "\n").replace(TERMINAL_CONTROL_CHARACTERS, (character) => `\\x${character.charCodeAt(0).toString(16).padStart(2, "0")}`);
+
+// src/core/tokenArgvWarning.ts
+var warnTokenOnCommandLine = (context) => {
+  if (context.json) {
+    return;
+  }
+  context.output.writeHuman(
+    "Warning: a Firebase ID token passed on the command line is visible to other local users (ps, /proc) while the command runs. Prefer `beemmvision auth login` (browser) or the BEEMMVISION_FIREBASE_ID_TOKEN environment variable.\n",
+    "stderr"
+  );
+};
+
 // src/commands/auth.ts
 var AuthLoginOptionsSchema = z.object({
   firebaseIdToken: z.string().min(1, "firebaseIdToken is required"),
@@ -1087,7 +1134,10 @@ var AuthWhoamiOptionsSchema = z.object({}).passthrough();
 var AuthLogoutOptionsSchema = z.object({}).passthrough();
 var AuthRefreshOptionsSchema = z.object({}).passthrough();
 var AuthLoginBrowserOptionsSchema = z.object({
-  noOpen: z.boolean().optional(),
+  // `--no-open` : Commander le range sous `open` (false), jamais sous
+  // `noOpen`. L'ancien schema lisait `noOpen`, toujours absent, et le
+  // navigateur s'ouvrait quoi qu'on demande (SEC-CLI-003).
+  open: z.boolean().optional(),
   timeoutSeconds: z.number().int().positive().max(900).optional(),
   force: z.boolean().default(false)
 });
@@ -1182,11 +1232,14 @@ var authRefreshHandler = async (_options, context) => {
 };
 var registerAuthCommands = (program, context) => {
   const authCommand = program.command("auth").description("Manage CLI Firebase authentication state");
-  authCommand.command("login").description("Store a Firebase ID token in the local CLI config, or start browser login when no token is provided").option("--token <token>", "Firebase ID token to store locally").option("--firebase-id-token <token>", "Firebase ID token to store locally").option("--no-open", "Do not attempt to open the browser automatically").option("--timeout-seconds <seconds>", "Browser login timeout in seconds", (value) => Number(value)).option("--force", "Force re-login even if already authenticated").action(async (rawOptions, command) => {
+  authCommand.command("login").description("Store a Firebase ID token in the local CLI config, or start browser login when no token is provided").option("--token <token>", "Firebase ID token to store locally").option("--firebase-id-token <token>", "Firebase ID token to store locally").option("--no-open", "Do not attempt to open the browser automatically").option("--timeout-seconds <seconds>", "Browser login timeout in seconds", (value) => Number(value)).option("--force", "Force re-login even if already authenticated").action(async (rawOptions) => {
     context.commandName = "auth.login";
-    const rootOptions = command.parent?.parent?.opts?.() ?? {};
-    const firebaseIdToken = rawOptions.token ?? rawOptions.firebaseIdToken ?? rootOptions.firebaseIdToken;
+    const routedFirebaseIdToken = context.runtimeConfig.firebaseIdTokenSource === "cli" ? context.runtimeConfig.firebaseIdToken : void 0;
+    const firebaseIdToken = rawOptions.token ?? rawOptions.firebaseIdToken ?? routedFirebaseIdToken;
     if (typeof firebaseIdToken === "string" && firebaseIdToken.trim()) {
+      if (rawOptions.token !== void 0 || rawOptions.firebaseIdToken !== void 0) {
+        warnTokenOnCommandLine(context);
+      }
       const parsedOptions = AuthLoginOptionsSchema.parse({ firebaseIdToken });
       const result = await authLoginHandler(parsedOptions, context);
       console.log("[auth.login] Login completed successfully.");
@@ -1203,8 +1256,9 @@ var registerAuthCommands = (program, context) => {
       const claims = decodeFirebaseIdTokenClaims(context.runtimeConfig.firebaseIdToken);
       const email = typeof claims.email === "string" ? claims.email : null;
       if (email) {
-        console.log(`
-\u2705 Already logged in as \x1B[36m${email}\x1B[0m
+        context.output.writeStyled(`
+\u2705 Already logged in as \x1B[36m${sanitizeForTerminal(email)}\x1B[0m
+
 `);
         console.log(`   To re-login, run: beemmvision auth login --force
 `);
@@ -1217,13 +1271,15 @@ var registerAuthCommands = (program, context) => {
         existingAppCheck.present ? "[auth.login] Signed in, but the App Check attestation expired \u2014 re-attesting through the browser." : "[auth.login] Signed in, but this session carries no App Check attestation \u2014 re-attesting through the browser."
       );
     }
-    const session = await createBrowserAuthSession(context.runtimeConfig.appBaseUrl, {
+    const appBaseUrl = normalizeAppBaseUrl(context.runtimeConfig.appBaseUrl);
+    const session = await createBrowserAuthSession(appBaseUrl, {
+      client: "terminal",
       timeoutMs: (browserOptions.timeoutSeconds ?? 180) * 1e3
     });
     try {
       console.log(`[auth.login] Browser login URL: ${session.authUrl}`);
       console.log("[auth.login] Waiting for browser authentication...");
-      if (browserOptions.noOpen !== true) {
+      if (browserOptions.open !== false) {
         try {
           const { default: open } = await import("open");
           await open(session.authUrl);
@@ -1355,24 +1411,6 @@ var ConfigSetOptionsSchema = z2.object({
 });
 var ConfigShowOptionsSchema = z2.object({}).passthrough();
 var ConfigClearOptionsSchema = z2.object({}).passthrough();
-var readLongOptionValue = (argv, optionName) => {
-  const exactToken = `--${optionName}`;
-  const prefixedToken = `${exactToken}=`;
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    if (token === exactToken) {
-      const next = argv[index + 1];
-      if (next && !next.startsWith("--")) {
-        return next;
-      }
-      return void 0;
-    }
-    if (token.startsWith(prefixedToken)) {
-      return token.slice(prefixedToken.length);
-    }
-  }
-  return void 0;
-};
 var configShowHandler = async (_options, context) => {
   const storedConfig = loadVisionboardCliConfig(context.env);
   console.log("[config.show] Loaded CLI configuration");
@@ -1417,14 +1455,14 @@ var registerConfigCommands = (program, context) => {
   );
   configCommand.command("set").description("Persist app/functions URLs for deployed usage").option("--functions-base-url <url>", "Callable Functions base URL").option("--app-base-url <url>", "App base URL used by browser auth").action(async (rawOptions) => {
     context.commandName = "config.set";
-    const raw = ConfigRawOptionsSchema.parse({
-      ...rawOptions,
-      functionsBaseUrl: readLongOptionValue(process.argv, "functions-base-url") ?? rawOptions.functionsBaseUrl,
-      appBaseUrl: readLongOptionValue(process.argv, "app-base-url") ?? rawOptions.appBaseUrl
-    });
+    const raw = ConfigRawOptionsSchema.parse(rawOptions);
+    const appBaseUrl = raw.appBaseUrl || raw.appBaseURL;
+    const routedFunctionsBaseUrl = context.runtimeConfig.functionsBaseUrlSource === "cli" ? context.runtimeConfig.functionsBaseUrl : void 0;
     const normalized = {
-      functionsBaseUrl: raw.functionsBaseUrl || raw.functionsBaseURL,
-      appBaseUrl: raw.appBaseUrl || raw.appBaseURL
+      functionsBaseUrl: routedFunctionsBaseUrl || raw.functionsBaseUrl || raw.functionsBaseURL,
+      // Seule l'origine est persistee, et seulement si elle est sure : elle
+      // resservira a chaque `auth login` (SEC-CLI-002).
+      appBaseUrl: appBaseUrl ? normalizeAppBaseUrl(appBaseUrl) : void 0
     };
     if (!normalized.functionsBaseUrl && !normalized.appBaseUrl) {
       throw new CliError({
@@ -1446,15 +1484,46 @@ var registerConfigCommands = (program, context) => {
 
 // src/commands/doctor.ts
 import { z as z3 } from "zod";
+import { statSync } from "node:fs";
+import { win32 as win32Path } from "node:path";
 var DoctorOptionsSchema = z3.object({
   fix: z3.boolean().optional().default(false)
 });
-var detectJava = async () => {
+var resolveWindowsJavaPath = (env, isFile = (candidate) => {
+  try {
+    return statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}) => {
+  const pathKey = Object.keys(env).find((key) => key.toUpperCase() === "PATH");
+  const rawPath = pathKey ? env[pathKey] ?? "" : "";
+  for (const rawEntry of rawPath.split(";")) {
+    const entry = rawEntry.trim().replace(/^"(.*)"$/, "$1");
+    if (!entry || !/^(?:[A-Za-z]:[\\/]|\\\\)/.test(entry)) {
+      continue;
+    }
+    const candidate = win32Path.join(entry, "java.exe");
+    if (isFile(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+};
+var detectJava = async (env) => {
   try {
     const { execFile } = await import("node:child_process");
     const { promisify } = await import("node:util");
     const execFileAsync = promisify(execFile);
-    const result = await execFileAsync("java", ["-version"]);
+    let javaExecutable = "java";
+    if (process.platform === "win32") {
+      const resolved = resolveWindowsJavaPath(env);
+      if (!resolved) {
+        return { available: false, details: "java.exe not found in an absolute PATH entry" };
+      }
+      javaExecutable = resolved;
+    }
+    const result = await execFileAsync(javaExecutable, ["-version"]);
     return {
       available: true,
       details: (result.stderr || result.stdout || "").trim()
@@ -1467,7 +1536,7 @@ var detectJava = async () => {
   }
 };
 var doctorHandler = async (options, context) => {
-  const java = await detectJava();
+  const java = await detectJava(context.env);
   const transportTarget = context.describeTransport();
   const tokenAudience = context.runtimeConfig.firebaseIdToken ? getFirebaseTokenAudience(context.runtimeConfig.firebaseIdToken) : void 0;
   const tokenInspection = (() => {
@@ -2480,6 +2549,219 @@ var SEEDANCE_IMAGE_TIER_TO_P = {
   "2k": "1440p",
   "4k": "2160p"
 };
+var LTX25_RATES = {
+  fast: { "720p": 9, "1080p": 13, "1440p": 19, "2160p": 30 },
+  pro: { "720p": 12, "1080p": 17 }
+};
+var LTX25_DURATIONS = {
+  fast: [6, 8, 10, 12, 14, 16, 18, 20],
+  pro: [6, 8, 10]
+};
+var LTX25_TIER_ALIASES = {
+  "0.5k": "720p",
+  "1k": "1080p",
+  "2k": "1440p",
+  "4k": "2160p"
+};
+var LTX25_TIER_RANK = { "720p": 1, "1080p": 2, "1440p": 3, "2160p": 4 };
+var H3_CPS = {
+  "480p": 5,
+  "480P": 5,
+  "768p": 6,
+  "768P": 6,
+  "2k": 13,
+  "2K": 13,
+  "4k": 16,
+  "4K": 16
+};
+var H3_RES_ALIAS = {
+  "720p": "768P",
+  "1080p": "2K",
+  "1440p": "2K",
+  "2160p": "4K"
+};
+var seedance25CliCost = (inputs) => {
+  const raw = String(inputs.resolution ?? "720p").trim().toLowerCase();
+  const resolution = raw === "480p" || raw === "720p" || raw === "1080p" ? raw : raw === "1k" || raw === "2k" || raw === "4k" ? "1080p" : "720p";
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 || String(inputs.duration) === "auto" ? 5 : Math.min(30, Math.max(4, Math.trunc(parsed)));
+  const cps = {
+    "480p": { no: 14, yes: 8.5 },
+    "720p": { no: 31.5, yes: 19 },
+    "1080p": { no: 57, yes: 34.25 }
+  }[resolution];
+  const hasVideo = Boolean(
+    inputs.video_url || inputs.video_urls || inputs.video || inputs.reference_video || inputs.reference_video_urls || inputs.reference_videos || inputs.reference_video_url
+  );
+  return Math.round((hasVideo ? cps.yes : cps.no) * duration * 100) / 100;
+};
+var wan30CliCost = (tier, inputs) => {
+  const raw = String(inputs.resolution ?? "1080p").trim().toLowerCase();
+  const resolution = raw === "480p" || raw === "720p" || raw === "1080p" ? raw : "1080p";
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(30, Math.max(2, Math.trunc(parsed)));
+  const cps = tier === "prime" ? { "480p": 6.8, "720p": 14, "1080p": 28 }[resolution] : { "480p": 5, "720p": 10, "1080p": 20 }[resolution];
+  return Math.round(cps * duration * 100) / 100;
+};
+var H3MAX_CPS = {
+  "480p": 5,
+  "480P": 5,
+  "768p": 8,
+  "768P": 8
+};
+var H3MAX_RES_ALIAS = {
+  "720p": "768P",
+  "1080p": "768P",
+  "1440p": "768P",
+  "2160p": "768P",
+  "2k": "768P",
+  "2K": "768P",
+  "4k": "768P",
+  "4K": "768P"
+};
+var h3MaxCliCost = (inputs, kind) => {
+  const raw = String(inputs.resolution ?? "768P").trim();
+  const mapped = H3MAX_RES_ALIAS[raw] ?? H3MAX_RES_ALIAS[raw.toLowerCase()] ?? raw;
+  const cps = kind === "r2v" ? 8 : H3MAX_CPS[mapped] ?? H3MAX_CPS[mapped.toLowerCase()] ?? 8;
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(15, Math.max(5, Math.trunc(parsed)));
+  const images = Array.isArray(inputs.reference_image_urls) ? inputs.reference_image_urls.length : Array.isArray(inputs.image_urls) ? inputs.image_urls.length : Number(inputs.imageInputCount) || 0;
+  const videos = Array.isArray(inputs.reference_video_urls) ? inputs.reference_video_urls.length : 0;
+  const audios = Array.isArray(inputs.reference_audio_urls) ? inputs.reference_audio_urls.length : 0;
+  const extraTokens = Math.max(0, images * 4e3 + videos * 4e3 + audios * 1e3 - 4096);
+  return cps * duration + (extraTokens === 0 ? 0 : Math.ceil(extraTokens / 1e3) * 2);
+};
+var H3_MULTI_ANGLE_CPS = { "480P": 5, "768P": 8, "1080P": 16 };
+var h3MultiAngleCliCost = (inputs) => {
+  const raw = inputs.resolution === void 0 || inputs.resolution === null || inputs.resolution === "" ? "480P" : String(inputs.resolution).trim();
+  const cps = H3_MULTI_ANGLE_CPS[raw] ?? H3_MULTI_ANGLE_CPS["480P"];
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(15, Math.max(5, Math.trunc(parsed)));
+  return cps * duration;
+};
+var GEMINI_OMNI_CPS = { "360p": 3, "720p": 10, "1080p": 15, "4k": 30 };
+var GEMINI_OMNI_RES_ALIAS = {
+  "360p": "360p",
+  "360P": "360p",
+  "720p": "720p",
+  "720P": "720p",
+  "1080p": "1080p",
+  "1080P": "1080p",
+  "1k": "1080p",
+  "1K": "1080p",
+  "2k": "1080p",
+  "2K": "1080p",
+  "4k": "4k",
+  "4K": "4k",
+  "2160p": "4k",
+  "2160P": "4k"
+};
+var geminiOmniCliCost = (inputs) => {
+  const raw = String(inputs.resolution ?? "720p").trim();
+  const mapped = GEMINI_OMNI_RES_ALIAS[raw] ?? GEMINI_OMNI_RES_ALIAS[raw.toLowerCase()] ?? "720p";
+  const cps = GEMINI_OMNI_CPS[mapped] ?? 10;
+  const hasVideo = Boolean(inputs.video_url || (Array.isArray(inputs.video_urls) ? inputs.video_urls.length : inputs.video_urls) || inputs.video);
+  if (hasVideo) return cps * 10;
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 8 : Math.min(10, Math.max(3, Math.trunc(parsed)));
+  return cps * duration;
+};
+var GEMINI_OMNI_V1_CPS = 13;
+var geminiOmniV1CliCost = (inputs) => {
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 8 : Math.min(10, Math.max(3, Math.trunc(parsed)));
+  return GEMINI_OMNI_V1_CPS * duration;
+};
+var FLUX3_FULL_CPS = {
+  t2v: { "720p": 17, "1080p": 29 },
+  i2v: { "720p": 17, "1080p": 29 },
+  flf2v: { "720p": 17, "1080p": 29 },
+  kf2v: { "720p": 17, "1080p": 29 },
+  extend: { "720p": 41, "1080p": 53 },
+  edit: { "720p": 3, "1080p": 3 }
+};
+var FLUX3_DRAFT_CPS = { t2v: 6, i2v: 6, flf2v: 6, kf2v: 6, extend: 12 };
+var FLUX3_GENERIC_RES = { "0.5K": "1080p", "1K": "1080p", "2K": "1440p", "4K": "2160p", "4k": "2160p" };
+var flux3CliCost = (inputs) => {
+  const firstUrl = (v) => {
+    const out = [];
+    const push = (x) => {
+      if (typeof x === "string" && x.trim()) out.push(x.trim());
+      else if (Array.isArray(x)) x.forEach(push);
+    };
+    push(v);
+    return out[0];
+  };
+  const has = (...k) => k.some((x) => firstUrl(inputs[x]) !== void 0);
+  const video = has("video_url", "video_urls", "video");
+  const kind = video ? String(inputs.mode ?? "").toLowerCase().startsWith("extend") ? "extend" : "edit" : Array.isArray(inputs.keyframes) && inputs.keyframes.length ? "kf2v" : has("end_image", "end_image_url") ? "flf2v" : has("start_image", "start_image_url", "image_url") ? "i2v" : "t2v";
+  if (kind === "edit") return FLUX3_FULL_CPS.edit["720p"] * 15;
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(20, Math.max(5, Math.trunc(parsed)));
+  const draft = inputs.draft === true || inputs.draft === "true" || inputs.draft === 1 || inputs.draft === "1";
+  if (draft) return FLUX3_DRAFT_CPS[kind] * duration;
+  const rawRes = String(inputs.resolution ?? "").trim();
+  const res = rawRes === "1080p" ? "1080p" : FLUX3_GENERIC_RES[rawRes] === "1080p" ? "1080p" : "720p";
+  return FLUX3_FULL_CPS[kind][res] * duration;
+};
+var klingO34kCliCost = (inputs) => {
+  const hasVideo = Boolean(inputs.video_url || (Array.isArray(inputs.video_urls) ? inputs.video_urls.length : inputs.video_urls) || inputs.video);
+  const isEdit = hasVideo && inputs.mode !== "reference";
+  const raw = inputs.duration;
+  const known = raw !== void 0 && raw !== null && raw !== "" && raw !== "auto" && Number.isFinite(Number(raw));
+  const parsed = Number(raw);
+  const duration = known ? Math.min(15, Math.max(3, Math.trunc(parsed))) : isEdit ? 10 : 5;
+  return 42 * duration;
+};
+var klingO34kReferenceCliCost = (inputs) => {
+  const parsed = Number(inputs.duration);
+  const duration = Number.isFinite(parsed) ? Math.min(15, Math.max(3, Math.trunc(parsed))) : 5;
+  return 42 * duration;
+};
+var H3MAX_TURBO_CPS = { "480p": 2.5, "480P": 2.5, "768p": 4, "768P": 4 };
+var H3MAX_TURBO_RES_ALIAS = {
+  "720p": "768P",
+  "1080p": "768P",
+  "1440p": "768P",
+  "2160p": "768P",
+  "2k": "768P",
+  "2K": "768P",
+  "4k": "768P",
+  "4K": "768P"
+};
+var h3MaxTurboCliCost = (inputs) => {
+  const raw = String(inputs.resolution ?? "768P").trim();
+  const mapped = H3MAX_TURBO_RES_ALIAS[raw] ?? H3MAX_TURBO_RES_ALIAS[raw.toLowerCase()] ?? raw;
+  const cps = H3MAX_TURBO_CPS[mapped] ?? H3MAX_TURBO_CPS[mapped.toLowerCase()] ?? 4;
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(15, Math.max(5, Math.trunc(parsed)));
+  return cps * duration;
+};
+var h3CliCost = (inputs) => {
+  const raw = String(inputs.resolution ?? "2K").trim();
+  const mapped = H3_RES_ALIAS[raw] ?? H3_RES_ALIAS[raw.toLowerCase()] ?? raw;
+  const cps = H3_CPS[mapped] ?? H3_CPS[mapped.toLowerCase()] ?? 13;
+  const parsed = Number(inputs.duration);
+  const duration = !Number.isFinite(parsed) || parsed <= 0 ? 5 : Math.min(15, Math.max(5, Math.trunc(parsed)));
+  const refs = Array.isArray(inputs.reference_image_urls) ? inputs.reference_image_urls.length : Array.isArray(inputs.image_urls) ? inputs.image_urls.length : Number(inputs.imageInputCount) || 0;
+  return cps * duration + Math.max(0, refs - 5) * 8;
+};
+var ltx25HasAudio = (inputs) => {
+  const raw = inputs.audio_url ?? inputs.audio ?? inputs.audio_urls;
+  if (typeof raw === "string") return raw.trim().length > 0;
+  return Array.isArray(raw) && raw.some((v) => typeof v === "string" && v.trim());
+};
+var ltx25Cost = (inputs, mode) => {
+  if (ltx25HasAudio(inputs)) return LTX25_RATES[mode]["1080p"] * 20;
+  const rates = LTX25_RATES[mode];
+  const raw = String(inputs.resolution ?? "").toLowerCase();
+  const wanted = LTX25_TIER_RANK[raw] !== void 0 ? raw : LTX25_TIER_ALIASES[raw] ?? "1080p";
+  const tier = Object.keys(rates).filter((t) => (LTX25_TIER_RANK[t] ?? 0) <= (LTX25_TIER_RANK[wanted] ?? 2)).sort((a, b) => (LTX25_TIER_RANK[a] ?? 0) - (LTX25_TIER_RANK[b] ?? 0)).pop() ?? "1080p";
+  const allowed = LTX25_DURATIONS[mode];
+  const parsed = Math.trunc(Number(inputs.duration));
+  const duration = Number.isFinite(parsed) && parsed > 0 ? allowed.filter((d) => d <= parsed).pop() ?? allowed[0] : 6;
+  return (rates[tier] ?? rates["1080p"]) * duration;
+};
 var normalizeSeedanceResolution = (raw, supported) => {
   if (raw === void 0 || raw === null || raw === "") {
     return supported[0];
@@ -2504,6 +2786,17 @@ var seedance2VideoCost = (inputs, usdPerThousandTokens) => {
   const hasVideoInput = Boolean(inputs.video_url || inputs.video_urls);
   const multiplier = hasVideoInput ? 0.6 : 1;
   return roundCostUpToHundredth(usdPerSec * duration * multiplier * 100);
+};
+var GPT_IMAGE_25_CREDITS = {
+  "1K": { low: 0.59, medium: 1.32, high: 5.27, xhigh: 9.37, max: 21.08 },
+  "2K": { low: 0.67, medium: 1.57, high: 6.03, xhigh: 10.71, max: 24.09 },
+  "4K": { low: 1.12, medium: 2.6, high: 10.01, xhigh: 17.79, max: 40.03 }
+};
+var gptImage25Cost = (inputs) => {
+  const res = String(inputs.resolution ?? "").trim().toUpperCase();
+  const row = GPT_IMAGE_25_CREDITS[res === "4K" || res === "2K" ? res : "1K"];
+  const q = String(inputs.quality ?? "").trim().toLowerCase();
+  return row[q in row ? q : "high"];
 };
 var AI_PRICING = {
   "nano-banana": { baseCost: 15, calculateCost: (inputs) => inputs.resolution === "4K" || inputs.resolution === "4k" ? 30 : 15 },
@@ -2534,6 +2827,7 @@ var AI_PRICING = {
   // layerizePricing.ts — cette entrée évite un « Modèle inconnu » sur les
   // chemins qui interrogent AI_PRICING.
   "seedream-pro-layerize": { baseCost: 6.75 },
+  "bria-ad-delayer": { baseCost: 30 },
   "kling": { baseCost: 2.8 },
   "kling-o3": { baseCost: 2.8, calculateCost: (inputs) => (inputs.resolution?.toLowerCase() === "4k" ? 5.6 : 2.8) * (parseInt(inputs.imageInputCount) || 1) },
   "qwen-max": { baseCost: 7.5 },
@@ -2542,6 +2836,39 @@ var AI_PRICING = {
   "qwen-image-2-pro-edit": { baseCost: 7.5 },
   "grok-edit": { baseCost: 2.2, calculateCost: (inputs) => 2.2 * (parseInt(inputs.imageInputCount) || 1) },
   "grok": { baseCost: 2 },
+  "grok-2": {
+    baseCost: 6,
+    calculateCost: (inputs) => {
+      const res = String(inputs.resolution || "").toLowerCase();
+      const q = inputs.quality === "low" ? "low" : "medium";
+      if (res === "2k") return q === "low" ? 6 : 8;
+      return q === "low" ? 4 : 6;
+    }
+  },
+  "grok-2-edit": {
+    baseCost: 7,
+    calculateCost: (inputs) => {
+      const res = String(inputs.resolution || "").toLowerCase();
+      const q = inputs.quality === "low" ? "low" : "medium";
+      const base = res === "2k" ? q === "low" ? 6 : 8 : q === "low" ? 4 : 6;
+      const n = Math.min(3, Math.max(1, parseInt(inputs.imageInputCount) || 1));
+      return base + n;
+    }
+  },
+  "qwen-image-3": {
+    baseCost: 4,
+    calculateCost: (inputs) => String(inputs.resolution || "").toLowerCase() === "2k" ? 7.5 : 4
+  },
+  "qwen-image-3-edit": {
+    baseCost: 4,
+    calculateCost: (inputs) => String(inputs.resolution || "").toLowerCase() === "2k" ? 7.5 : 4
+  },
+  "krea-2": { baseCost: 6 },
+  "krea-2-style": { baseCost: 6.5 },
+  "krea-2-medium": { baseCost: 3 },
+  "krea-2-medium-style": { baseCost: 3.5 },
+  "krea-2-turbo": { baseCost: 1 },
+  "krea-2-turbo-style": { baseCost: 1 },
   "hunyuan": { baseCost: 9, calculateCost: (inputs) => {
     const r = inputs.resolution?.toLowerCase();
     return r === "4k" ? 144 : r === "2k" ? 36 : 9;
@@ -2590,6 +2917,13 @@ var AI_PRICING = {
       return roundCostUpToHundredth(usd * 100);
     }
   },
+  // GPT Image 2.5 — miroir de packages/workflow-contracts/src/gptImage25.ts (le
+  // CLI n'importe pas le paquet). Grille (définition × qualité) identique sur
+  // les quatre endpoints ; toute correction là-bas se recopie ICI.
+  "gpt-image-2-5-flare": { baseCost: 5.27, calculateCost: gptImage25Cost },
+  "gpt-image-2-5-flare-edit": { baseCost: 5.27, calculateCost: gptImage25Cost },
+  "gpt-image-2-5-sunburst": { baseCost: 5.27, calculateCost: gptImage25Cost },
+  "gpt-image-2-5-sunburst-edit": { baseCost: 5.27, calculateCost: gptImage25Cost },
   "flux-2-pro": { baseCost: 6 },
   "recraft-v4-vector": { baseCost: 8 },
   "recraft-v4.1-pro": { baseCost: 25 },
@@ -2610,6 +2944,18 @@ var AI_PRICING = {
   "luma-uni-1-max": { baseCost: 11 },
   "ltx-video": { baseCost: 36 },
   "ltx-video-fast": { baseCost: 24 },
+  // LTX 2.5 — miroir de packages/workflow-contracts/src/ltx25.ts (le CLI ne
+  // consomme pas le paquet partagé). Tarif à la seconde par palier, 1 cr = $0,01.
+  // Les durées et paliers hors enveloppe sont rabattus vers le bas comme le fait
+  // le builder de payload, pour que l'estimation colle au débit réel.
+  "ltx-25-fast": {
+    baseCost: 78,
+    calculateCost: (inputs) => ltx25Cost(inputs, "fast")
+  },
+  "ltx-25-pro": {
+    baseCost: 102,
+    calculateCost: (inputs) => ltx25Cost(inputs, "pro")
+  },
   "wan-video-flash": { baseCost: 25 },
   "grok-video": { baseCost: 42 },
   "bytedance-seedance-1.5-pro": { baseCost: 26 },
@@ -2636,26 +2982,72 @@ var AI_PRICING = {
     baseCost: 121,
     calculateCost: (inputs) => seedance2VideoCost(inputs, 0.0112)
   },
+  "bytedance-seedance-2-5": {
+    baseCost: 157.5,
+    calculateCost: (inputs) => seedance25CliCost(inputs)
+  },
   "bytedance-seedance-2-mini": {
     baseCost: 76,
     calculateCost: (inputs) => seedance2VideoCost(inputs, 7e-3)
   },
-  "veo-3.1-fast": { baseCost: 120 },
-  "gemini-omni-flash": {
-    baseCost: 104,
-    calculateCost: (inputs) => {
-      const hasVideo = Boolean(
-        inputs.video_url || (Array.isArray(inputs.video_urls) ? inputs.video_urls.length : inputs.video_urls) || inputs.video
-      );
-      return hasVideo ? 104 : 13 * (Number(inputs.duration) || 8);
-    }
-  },
-  "google/gemini-2.5-flash": { baseCost: 2 },
-  "anthropic/claude-sonnet-4.6": { baseCost: 4 },
-  "anthropic/claude-sonnet-4.5": { baseCost: 4 },
-  "openai/gpt-4o": { baseCost: 4 },
-  "qwen/qwen3-vl-235b-a22b-instruct": { baseCost: 3.5 },
-  "x-ai/grok-4-fast": { baseCost: 2 }
+  "wan-3-0": { baseCost: 100, calculateCost: (inputs) => wan30CliCost("standard", inputs) },
+  "wan-3-0-prime": { baseCost: 140, calculateCost: (inputs) => wan30CliCost("prime", inputs) },
+  "minimax-h3": { baseCost: 65, calculateCost: h3CliCost },
+  "minimax-h3-image-to-video": { baseCost: 65, calculateCost: h3CliCost },
+  "minimax-h3-ref-to-video": { baseCost: 65, calculateCost: h3CliCost },
+  "minimax-h3-max": { baseCost: 40, calculateCost: (inputs) => h3MaxCliCost(inputs) },
+  "minimax-h3-max-image-to-video": { baseCost: 40, calculateCost: (inputs) => h3MaxCliCost(inputs) },
+  "minimax-h3-max-ref-to-video": { baseCost: 40, calculateCost: (inputs) => h3MaxCliCost(inputs, "r2v") },
+  "minimax-h3-max-multi-angle-image-to-video": { baseCost: 40, calculateCost: (inputs) => h3MultiAngleCliCost(inputs) },
+  "gemini-omni-flash": { baseCost: 80, calculateCost: (inputs) => geminiOmniCliCost(inputs) },
+  "gemini-omni-flash-v1": { baseCost: 104, calculateCost: (inputs) => geminiOmniV1CliCost(inputs) },
+  "flux-3": { baseCost: 85, calculateCost: (inputs) => flux3CliCost(inputs) },
+  "flux-3-enhance": { baseCost: 580 },
+  "kling-o3-4k": { baseCost: 210, calculateCost: (inputs) => klingO34kCliCost(inputs) },
+  "kling-o3-pro-v2v-edit": { baseCost: 168, calculateCost: () => 168 },
+  "kling-o3-4k-v2v-reference": { baseCost: 210, calculateCost: (inputs) => klingO34kReferenceCliCost(inputs) },
+  "minimax-h3-max-turbo": { baseCost: 20, calculateCost: (inputs) => h3MaxTurboCliCost(inputs) },
+  "minimax-h3-max-turbo-image-to-video": { baseCost: 20, calculateCost: (inputs) => h3MaxTurboCliCost(inputs) },
+  // --- ajoutés en BV-194 (paliers dans functions/src/shared/llmGrid.ts) ---
+  "anthropic/claude-fable-5.1": { baseCost: 40 },
+  "anthropic/claude-fable-5": { baseCost: 40 },
+  "anthropic/claude-opus-5": { baseCost: 20 },
+  "anthropic/claude-opus-4.8": { baseCost: 20 },
+  "anthropic/claude-opus-4.7": { baseCost: 20 },
+  "anthropic/claude-opus-4.6": { baseCost: 20 },
+  "anthropic/claude-opus-4.5": { baseCost: 20 },
+  "openai/gpt-6-astra": { baseCost: 40 },
+  "openai/gpt-5.5": { baseCost: 20 },
+  "openai/gpt-5.4": { baseCost: 8 },
+  "openai/o3": { baseCost: 8 },
+  "openai/gpt-5.2": { baseCost: 6 },
+  "openai/gpt-5.1": { baseCost: 6 },
+  "openai/gpt-4o-mini": { baseCost: 4 },
+  "google/gemini-3.1-pro-preview": { baseCost: 8 },
+  "google/gemini-3-flash-preview": { baseCost: 6 },
+  "qwen/qwen3.7-flash": { baseCost: 3 },
+  "z-ai/glm-5.3-flash": { baseCost: 3 },
+  "google/gemini-2.5-flash": { baseCost: 4 },
+  "google/gemini-3.7-flash": { baseCost: 6 },
+  "openai/gpt-5.6-luna": { baseCost: 4 },
+  "qwen/qwen3.8-flash": { baseCost: 4 },
+  "qwen/qwen3.8-27b": { baseCost: 4 },
+  "openai/gpt-5-mini": { baseCost: 4 },
+  "qwen/qwen3-vl-235b-a22b-instruct": { baseCost: 4 },
+  "google/gemini-3.8-flash": { baseCost: 6 },
+  "google/gemini-3.6-flash": { baseCost: 6 },
+  "openai/gpt-5": { baseCost: 6 },
+  "anthropic/claude-sonnet-5": { baseCost: 8 },
+  "openai/gpt-4o": { baseCost: 8 },
+  "anthropic/claude-sonnet-4.6": { baseCost: 8 },
+  "anthropic/claude-sonnet-4.5": { baseCost: 8 },
+  "google/gemini-2.5-flash-lite": { baseCost: 3 },
+  "google/gemini-3.1-flash-lite": { baseCost: 4 },
+  "google/gemini-3.5-flash-lite": { baseCost: 4 },
+  "google/gemini-2.5-pro": { baseCost: 6 },
+  "google/gemini-3.5-flash": { baseCost: 6 },
+  "x-ai/grok-4.20": { baseCost: 6 },
+  "qwen/qwen3.8-max-0902": { baseCost: 8 }
 };
 var calculateGenerationCost = (modelId, inputs = {}) => {
   const rule = AI_PRICING[modelId];
@@ -2728,7 +3120,7 @@ var renderDashboard = (nodeStates, creditsInfo, workflowUrl, progress) => {
     const status = state.status.toUpperCase().padEnd(11);
     const duration = state.duration || "-";
     const color = state.status === "running" ? "33m" : state.status === "success" ? "32m" : state.status === "failed" ? "31m" : "90m";
-    lines.push(`[\x1B[${color}${icon}\x1B[0m] ${state.label.padEnd(20)} ${status} ${duration}`);
+    lines.push(`[\x1B[${color}${icon}\x1B[0m] ${sanitizeForTerminal(state.label).padEnd(20)} ${status} ${duration}`);
   }
   lines.push("");
   lines.push(`Progress: ${progress.completed}/${progress.total} nodes complete | ${progress.running} running | ${progress.queued} queued`);
@@ -2759,28 +3151,28 @@ var renderFinalResults = (execution, metadata) => {
     lines.push("\x1B[1m\u{1F4DD} Text Outputs (" + textArtifacts.length + "):\x1B[0m");
     textArtifacts.forEach((a) => {
       const preview = a.text ? a.text.length > 120 ? a.text.substring(0, 120) + "..." : a.text : "(empty)";
-      lines.push("  " + a.label + ' \u2192 "' + preview + '"');
+      lines.push("  " + sanitizeForTerminal(a.label) + ' \u2192 "' + sanitizeForTerminal(preview) + '"');
     });
     lines.push("");
   }
   if (imageArtifacts.length > 0) {
     lines.push("\x1B[1m\u{1F5BC}\uFE0F  Image Outputs (" + imageArtifacts.length + "):\x1B[0m");
     imageArtifacts.forEach((a, i) => {
-      lines.push("  " + (i + 1) + ". " + (a.url || "(no url)"));
+      lines.push("  " + (i + 1) + ". " + sanitizeForTerminal(a.url || "(no url)"));
     });
     lines.push("");
   }
   if (videoArtifacts.length > 0) {
     lines.push("\x1B[1m\u{1F3AC} Video Outputs (" + videoArtifacts.length + "):\x1B[0m");
     videoArtifacts.forEach((a, i) => {
-      lines.push("  " + (i + 1) + ". " + (a.url || "(no url)"));
+      lines.push("  " + (i + 1) + ". " + sanitizeForTerminal(a.url || "(no url)"));
     });
     lines.push("");
   }
   if (run.warnings.length > 0) {
     lines.push("\x1B[33m\u26A0\uFE0F  Warnings (" + run.warnings.length + "):\x1B[0m");
     run.warnings.forEach((w) => {
-      lines.push("  - " + w);
+      lines.push("  - " + sanitizeForTerminal(w));
     });
     lines.push("");
   }
@@ -2900,9 +3292,11 @@ var workflowRunHandler = async (options, context) => {
     }
   } catch (error) {
     if (!context.json) {
-      context.output.writeHuman(`
-\x1B[31m\u274C Workflow run failed: ${error instanceof Error ? error.message : String(error)}\x1B[0m
-`);
+      context.output.writeStyled(
+        `
+\x1B[31m\u274C Workflow run failed: ${sanitizeForTerminal(error instanceof Error ? error.message : String(error))}\x1B[0m
+`
+      );
     }
     throw error;
   }
@@ -3297,6 +3691,9 @@ var createOutputController = (options) => {
       pushLog(chunk);
       return;
     }
+    writeHumanToTerminal(sanitizeForTerminal(chunk), stream);
+  };
+  const writeHumanToTerminal = (chunk, stream) => {
     if (activeSpinner) {
       clearSpinner();
     }
@@ -3312,11 +3709,20 @@ var createOutputController = (options) => {
       renderSpinner();
     }
   };
+  const writeStyled = (chunk, stream = "stdout") => {
+    if (options.jsonMode) {
+      pushLog(chunk);
+      return;
+    }
+    writeHumanToTerminal(chunk, stream);
+  };
   return {
     jsonMode: options.jsonMode,
     logs,
     writeHuman,
-    createSpinner({ text, stream = "stdout" }) {
+    writeStyled,
+    createSpinner({ text: rawText, stream = "stdout" }) {
+      const text = sanitizeForTerminal(rawText);
       if (options.jsonMode) {
         return {
           update() {
@@ -3343,8 +3749,9 @@ var createOutputController = (options) => {
         renderSpinner();
       }
       return {
-        update(nextText) {
+        update(rawNextText) {
           if (!activeSpinner) return;
+          const nextText = sanitizeForTerminal(rawNextText);
           if (activeSpinner.text === nextText) return;
           activeSpinner.text = nextText;
           if (isTTY) {
@@ -3356,7 +3763,7 @@ var createOutputController = (options) => {
           }
         },
         stop(finalText) {
-          stopSpinnerInternal(finalText);
+          stopSpinnerInternal(finalText === void 0 ? void 0 : sanitizeForTerminal(finalText));
         }
       };
     },
@@ -3408,40 +3815,36 @@ var normalizeTransportMode = (value) => {
   }
   return "auto";
 };
-var readCliOption = (argv, optionName) => {
-  const exactToken = `--${optionName}`;
-  const prefixedToken = `${exactToken}=`;
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    if (token === exactToken) {
-      const next = argv[index + 1];
-      if (next && !next.startsWith("--")) {
-        return next;
-      }
-      return void 0;
-    }
-    if (token.startsWith(prefixedToken)) {
-      return token.slice(prefixedToken.length);
-    }
+var applyCliRoutingOptions = (base, cliOptions) => {
+  const next = { ...base };
+  if (cliOptions.transport) {
+    next.transportMode = normalizeTransportMode(cliOptions.transport);
   }
-  return void 0;
+  if (cliOptions.functionsBaseUrl) {
+    next.functionsBaseUrl = cliOptions.functionsBaseUrl;
+    next.functionsBaseUrlSource = "cli";
+  }
+  if (cliOptions.firebaseIdToken) {
+    next.firebaseIdToken = cliOptions.firebaseIdToken;
+    next.firebaseIdTokenSource = "cli";
+  }
+  return next;
 };
-var parseRuntimeConfig = async (argv, env = process.env) => {
+var parseRuntimeConfig = async (cliOptions = {}, env = process.env) => {
   const storedConfig = loadVisionboardCliConfig(env);
   const transportMode = normalizeTransportMode(
-    readCliOption(argv, "transport") || readCliEnvVar(env, "CLI_TRANSPORT")
+    cliOptions.transport || readCliEnvVar(env, "CLI_TRANSPORT")
   );
-  const cliFunctionsBaseUrl = readCliOption(argv, "functions-base-url");
+  const cliFunctionsBaseUrl = cliOptions.functionsBaseUrl;
   const envFunctionsBaseUrl = readCliEnvVar(env, "FUNCTIONS_BASE_URL");
   const functionsBaseUrl = cliFunctionsBaseUrl || envFunctionsBaseUrl || storedConfig.functionsBaseUrl || DEFAULT_FUNCTIONS_BASE_URL;
   const functionsBaseUrlSource = cliFunctionsBaseUrl ? "cli" : envFunctionsBaseUrl ? "env" : storedConfig.functionsBaseUrl ? "config" : "default";
-  const cliFirebaseIdToken = readCliOption(argv, "firebase-id-token");
+  const cliFirebaseIdToken = cliOptions.firebaseIdToken;
   const envFirebaseIdToken = readCliEnvVar(env, "FIREBASE_ID_TOKEN");
   const storedFirebaseIdToken = await getValidFirebaseIdToken(env);
-  const cliAppBaseUrl = readCliOption(argv, "app-base-url");
   const envAppBaseUrl = readCliEnvVar(env, "APP_BASE_URL");
-  const appBaseUrl = cliAppBaseUrl || envAppBaseUrl || storedConfig.appBaseUrl || DEFAULT_APP_BASE_URL;
-  const appBaseUrlSource = cliAppBaseUrl ? "cli" : envAppBaseUrl ? "env" : storedConfig.appBaseUrl ? "config" : "default";
+  const appBaseUrl = envAppBaseUrl || storedConfig.appBaseUrl || DEFAULT_APP_BASE_URL;
+  const appBaseUrlSource = envAppBaseUrl ? "env" : storedConfig.appBaseUrl ? "config" : "default";
   const firebaseIdToken = cliFirebaseIdToken || envFirebaseIdToken || storedFirebaseIdToken || void 0;
   const firebaseIdTokenSource = cliFirebaseIdToken ? "cli" : envFirebaseIdToken ? "env" : storedFirebaseIdToken ? "stored" : "missing";
   return {
@@ -4492,9 +4895,68 @@ var labelCommandFromArgv = (argv) => {
 };
 var HELP_COMMANDER_CODES = /* @__PURE__ */ new Set(["commander.helpDisplayed", "commander.help"]);
 var VERSION_COMMANDER_CODE = "commander.version";
+var GLOBAL_OPTION_COPIES = [
+  { flags: "--json" },
+  { flags: "--transport <transport>", attribute: "transport" },
+  { flags: "--functions-base-url <url>", attribute: "functionsBaseUrl" },
+  { flags: "--firebase-id-token <token>", attribute: "firebaseIdToken" }
+];
+var ROUTING_ATTRIBUTES = ["transport", "functionsBaseUrl", "firebaseIdToken"];
+var routingCopiesByCommand = /* @__PURE__ */ new WeakMap();
+var installGlobalOptionCopies = (command, root = command) => {
+  for (const subcommand of command.commands) {
+    const copied = /* @__PURE__ */ new Set();
+    for (const copy of GLOBAL_OPTION_COPIES) {
+      const option = new Option(copy.flags).hideHelp();
+      if (subcommand.options.some((existing) => existing.long === option.long)) {
+        continue;
+      }
+      subcommand.addOption(option);
+      if (copy.attribute) {
+        copied.add(copy.attribute);
+      }
+    }
+    if (!subcommand.options.some((existing) => existing.long === "--version")) {
+      subcommand.addOption(new Option("-V, --version").hideHelp());
+      subcommand.on("option:version", () => root.emit("option:version"));
+    }
+    routingCopiesByCommand.set(subcommand, copied);
+    installGlobalOptionCopies(subcommand, root);
+  }
+};
+var collectRoutingOptions = (actionCommand) => {
+  const lineage = [];
+  for (let current = actionCommand; current; current = current.parent) {
+    lineage.unshift(current);
+  }
+  const routing = {};
+  lineage.forEach((command, depth) => {
+    const copies = depth === 0 ? new Set(ROUTING_ATTRIBUTES) : routingCopiesByCommand.get(command);
+    for (const attribute of ROUTING_ATTRIBUTES) {
+      if (routing[attribute] !== void 0 || !copies?.has(attribute)) {
+        continue;
+      }
+      if (command.getOptionValueSource(attribute) !== "cli") {
+        continue;
+      }
+      const value = command.getOptionValue(attribute);
+      if (typeof value === "string") {
+        routing[attribute] = value;
+      }
+    }
+  });
+  return routing;
+};
 var createProgram = (context, captureCommanderOutput) => {
   const program = new Command();
   const commanderSinks = context.output.configureCommanderOutput();
+  program.enablePositionalOptions();
+  program.configureHelp({
+    subcommandTerm(command) {
+      const term = Help.prototype.subcommandTerm.call(this, command);
+      return command.options.some((option) => !option.hidden) ? term : term.replace(" [options]", "");
+    }
+  });
   program.name("beemmvision").version("0.3.0").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
     // Both streams are tapped, because Commander picks the stream itself:
     // `--help` writes to stdout, while a bare command group and `help
@@ -4517,11 +4979,21 @@ var createProgram = (context, captureCommanderOutput) => {
   registerTemplateCommands(program, context);
   registerDoctorCommand(program, context);
   registerCreditsCommand(program, context);
+  installGlobalOptionCopies(program);
+  program.hook("preAction", async (_rootCommand, actionCommand) => {
+    const routing = collectRoutingOptions(actionCommand);
+    if (Object.keys(routing).length > 0) {
+      context.runtimeConfig = applyCliRoutingOptions(context.runtimeConfig, routing);
+    }
+    if (routing.firebaseIdToken) {
+      warnTokenOnCommandLine(context);
+    }
+  });
   return program;
 };
 var runCli = async (argv, options) => {
   const jsonMode = detectJsonFlag(argv);
-  const runtimeConfig = await parseRuntimeConfig(argv, options?.env);
+  const runtimeConfig = await parseRuntimeConfig({}, options?.env);
   const stdoutBuffer = createOutputBuffer();
   const stderrBuffer = createOutputBuffer();
   const output = createOutputController({
@@ -4532,8 +5004,8 @@ var runCli = async (argv, options) => {
     stderrSink: options?.stderrSink
   });
   const lazyTransport = createLazyWorkflowTransport({
-    resolve: () => resolveWorkflowTransport(runtimeConfig),
-    describe: () => describeTransportTarget(runtimeConfig)
+    resolve: () => resolveWorkflowTransport(context.runtimeConfig),
+    describe: () => describeTransportTarget(context.runtimeConfig)
   });
   const transportOverride = options?.transportOverride;
   const context = {
