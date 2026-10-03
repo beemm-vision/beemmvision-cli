@@ -1,6 +1,6 @@
 {
   "name": "beemmvision-cli",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "CLI Beemm Vision pilotable par des agents IA",
   "type": "module",
   "bin": {
