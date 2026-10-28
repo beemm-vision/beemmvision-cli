@@ -2,13 +2,12 @@
 #
 #   PR ouverte / rouverte      -> In Progress
 #   PR prete pour revue        -> In Review
-#   PR MERGEE                  -> À valider     (jamais Released : la mise en
-#                                                production reste humaine)
+#   PR MERGEE                  -> Released
 #   PR fermee sans merge       -> Ready
 #
-# Une PR sans identifiant Plane dans sa branche, son titre ou son corps cree
-# automatiquement un work item en In Progress, et l'identifiant est reinjecte
-# dans le corps de la PR.
+# Une PR sans identifiant Plane dans sa branche, son titre ou son corps recoit
+# un rappel en commentaire, une seule fois ; rien n'est cree (un work item =
+# une feature, pas une PR).
 #
 # Ce workflow ne peut pas bloquer un merge : l'etape est en continue-on-error
 # et le script sort toujours en 0.
