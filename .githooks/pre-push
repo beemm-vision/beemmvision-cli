@@ -1,8 +1,10 @@
 #!/bin/sh
+# beemm-hooks-version: 1
 # pre-push — garde-fous communs à Claude, Codex, Cursor et aux humains.
-# Source versionnée : .githooks/pre-push. `npm install` l'installe dans les
-# hooks partagés du repo (scripts/install-git-hooks.mjs) : il vaut pour tous
-# les worktrees, y compris sur une branche ancienne.
+# Source versionnée : .githooks/pre-push. `npm install` en COPIE une version
+# dans les hooks partagés du repo (scripts/install-git-hooks.mjs) : elle vaut
+# pour tous les worktrees, quelle que soit la branche. Modifier ce fichier =
+# monter beemm-hooks-version, sinon la copie installée ne bouge pas.
 #
 #   1. push vers main : refusé (branche → PR → CI verte → merge) ;
 #   2. branche en retard sur origin/main : refusé. Un arbre en retard
@@ -28,11 +30,9 @@ fi
 base_ref="refs/remotes/$base_remote/main"
 
 while read -r local_ref local_sha remote_ref remote_sha; do
-  # Suppression d'une branche distante : rien à vérifier.
-  [ "$local_sha" = "$zero" ] && continue
-
   case "$remote_ref" in
     refs/heads/main | refs/heads/master)
+      # Mise à jour comme suppression : main ne bouge que par une PR.
       cat >&2 <<EOF
 
 ✋ Push vers '${remote_ref#refs/heads/}' refusé.
@@ -47,12 +47,16 @@ EOF
     # Tags, notes… : hors périmètre.
     *) continue ;;
   esac
+  # Suppression d'une autre branche distante : rien à vérifier.
+  [ "$local_sha" = "$zero" ] && continue
   branch=${remote_ref#refs/heads/}
 
   if [ "${BEEMM_SKIP_SYNC_CHECK:-}" != 1 ]; then
     if [ "$fetched" = 0 ]; then
       fetched=1
-      if ! git fetch --quiet "$base_remote" main 2>/dev/null; then
+      # Refspec explicite : dans un clone à branche unique, un simple
+      # `fetch <remote> main` ne mettrait pas $base_ref à jour.
+      if ! git fetch --quiet "$base_remote" "+refs/heads/main:$base_ref" 2>/dev/null; then
         echo "⚠️  fetch de $base_remote/main impossible : comparaison avec la copie locale." >&2
       fi
     fi

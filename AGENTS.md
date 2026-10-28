@@ -30,6 +30,8 @@ remplacer `index.js` par un nouveau bundle, monter la version dans
    git rebase origin/main
    git push -u origin HEAD
    ```
+   Branche déjà poussée et rebasée : `git push --force-with-lease origin HEAD`
+   (jamais `--force`, jamais `git pull`, qui remettrait les anciens commits).
 5. **PR** titrée `[BV-123] Description`. Ce repo n'a pas de CI de build : la
    PR est relue, puis mergée en merge classique (`gh pr merge <n> --merge`).
 6. **Après le merge** : `git worktree remove .worktrees/BV-123-mon-sujet`, puis
@@ -38,7 +40,8 @@ remplacer `index.js` par un nouveau bundle, monter la version dans
 ## Garde-fous (hooks git)
 
 Pas d'installation automatique ici (le `npm install` des utilisateurs ne doit
-rien poser dans leur clone). Une fois par clone de développement :
+rien poser dans leur clone). Une fois par clone de développement (le script
+copie les hooks : une PR extérieure checkoutée ne change pas ce qui tourne) :
 
 ```bash
 node scripts/install-git-hooks.mjs

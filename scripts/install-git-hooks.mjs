@@ -6,11 +6,15 @@
 // Lancé par `npm install` (script `prepare`) ; relançable à la main :
 //   node scripts/install-git-hooks.mjs
 //
-// Chaque hook installé est un petit relais : il exécute le .githooks/<hook>
-// du worktree courant s'il existe (une mise à jour du hook prend effet dès
-// qu'elle est sur la branche), sinon la copie gardée à l'installation (une
-// branche ancienne, sans .githooks, reste protégée).
+// Le hook installé est une COPIE, jamais un renvoi vers la branche courante :
+// une branche ancienne (ou une PR extérieure qu'on vient de checkouter) ne
+// change pas ce qui tourne. Une copie n'est remplacée que par une version
+// égale ou plus récente (`# beemm-hooks-version: N`).
 //
+// Ne touche jamais :
+//   - un hook écrit à la main ou posé par un autre outil (husky, git-lfs…) ;
+//   - un core.hooksPath réglé hors de ce repo (global, système) ou pointant
+//     ailleurs que dans le dossier git du repo.
 // Ne fait jamais échouer une installation : en CI, en image Docker ou hors
 // git, il ne fait rien.
 import { spawnSync } from 'node:child_process';
@@ -19,56 +23,83 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const HOOKS = ['pre-commit', 'pre-push'];
-export const MARKER = 'beemm-hooks';
+const VERSION_RE = /^# beemm-hooks-version: (\d+)$/m;
+// Hooks Beemm d'avant BV-454 : remplacés sans façon (le nouveau fait la même chose et plus).
+const LEGACY_SIGNATURES = [
+  '# pre-commit : scan gitleaks des fichiers stagés',
+  '# Garde-fou : empêche tout push DIRECT vers main.',
+  '# beemm-hooks — relais installé par scripts/install-git-hooks.mjs.',
+];
 
-const relay = (hook) => `#!/bin/sh
-# ${MARKER} — relais installé par scripts/install-git-hooks.mjs. Ne pas éditer
-# ici : la source est .githooks/${hook} dans le repo.
-top=$(git rev-parse --show-toplevel 2>/dev/null)
-if [ -n "$top" ] && [ -f "$top/.githooks/${hook}" ]; then
-  exec sh "$top/.githooks/${hook}" "$@"
-fi
-fallback="$(dirname "$0")/${MARKER}/${hook}"
-[ -f "$fallback" ] && exec sh "$fallback" "$@"
-exit 0
-`;
+export function hookVersion(text) {
+  const m = VERSION_RE.exec(text);
+  return m ? Number(m[1]) : null;
+}
 
-function git(args, cwd) {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
+function git(args, cwd, env) {
+  const r = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
   return r.status === 0 ? r.stdout.trim() : null;
+}
+
+function isInside(child, parent) {
+  const rel = path.relative(parent, child);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
 export function installGitHooks({ cwd = process.cwd(), env = process.env } = {}) {
   if (env.CI) return { skipped: 'ci' };
   if (env.BEEMM_SKIP_GIT_HOOKS === '1') return { skipped: 'disabled' };
-  const top = git(['rev-parse', '--show-toplevel'], cwd);
+  const top = git(['rev-parse', '--show-toplevel'], cwd, env);
   if (!top) return { skipped: 'not-a-git-worktree' };
   const source = path.join(top, '.githooks');
   if (!fs.existsSync(source)) return { skipped: 'no-githooks' };
 
-  // --git-path suit core.hooksPath s'il est réglé, sinon <git-common-dir>/hooks.
-  const hooksDir = path.resolve(top, git(['rev-parse', '--git-path', 'hooks'], top));
-  // core.hooksPath pointe déjà sur .githooks (façon husky) : rien à installer.
-  if (hooksDir === source) return { skipped: 'hooks-path-is-source' };
+  const commonDir = fs.realpathSync(path.resolve(top, git(['rev-parse', '--git-common-dir'], top, env)));
+  // core.hooksPath réglé ailleurs que dans ce repo (global, système) : il
+  // vaudrait pour tous les repos de la machine. Hors de question d'y écrire.
+  const scope = git(['config', '--show-scope', '--get', 'core.hooksPath'], top, env);
+  if (scope && !/^(local|worktree)\s/.test(scope)) return { skipped: 'hooks-path-not-local' };
+  const hooksDir = path.resolve(top, git(['rev-parse', '--git-path', 'hooks'], top, env));
+  // Réglé dans ce repo mais hors du dossier git (façon husky, ou vers un
+  // dossier versionné) : écrire là modifierait des fichiers suivis.
+  const realHooksDir = fs.existsSync(hooksDir)
+    ? fs.realpathSync(hooksDir)
+    : path.join(fs.realpathSync(path.dirname(hooksDir)), path.basename(hooksDir));
+  if (!isInside(realHooksDir, commonDir)) return { skipped: 'hooks-path-outside-git-dir' };
+  fs.mkdirSync(hooksDir, { recursive: true });
 
-  fs.mkdirSync(path.join(hooksDir, MARKER), { recursive: true });
   const installed = [];
+  const kept = [];
   for (const hook of HOOKS) {
     const src = path.join(source, hook);
     if (!fs.existsSync(src)) continue;
+    const text = fs.readFileSync(src, 'utf8');
+    const version = hookVersion(text);
+    if (version === null) continue;
     const dest = path.join(hooksDir, hook);
-    // Un hook écrit à la main est gardé à côté, jamais écrasé sans copie.
-    if (fs.existsSync(dest) && !fs.readFileSync(dest, 'utf8').includes(MARKER)) {
-      const backup = `${dest}.avant-${MARKER}`;
-      if (!fs.existsSync(backup)) fs.copyFileSync(dest, backup);
+    if (fs.existsSync(dest)) {
+      const current = fs.readFileSync(dest, 'utf8');
+      const currentVersion = hookVersion(current);
+      const legacy = LEGACY_SIGNATURES.some((sig) => current.includes(sig));
+      if (currentVersion === null && !legacy) {
+        kept.push(hook);
+        continue;
+      }
+      if (currentVersion !== null && currentVersion > version) continue;
     }
-    fs.copyFileSync(src, path.join(hooksDir, MARKER, hook));
-    fs.chmodSync(path.join(hooksDir, MARKER, hook), 0o755);
-    fs.writeFileSync(dest, relay(hook), { mode: 0o755 });
+    fs.writeFileSync(dest, text, { mode: 0o755 });
     fs.chmodSync(dest, 0o755);
     installed.push(hook);
   }
-  return { installed, hooksDir };
+  // Restes de la première installation BV-454 (relais + copies), sans objet.
+  fs.rmSync(path.join(hooksDir, 'beemm-hooks'), { recursive: true, force: true });
+  for (const hook of HOOKS) {
+    const backup = path.join(hooksDir, `${hook}.avant-beemm-hooks`);
+    if (fs.existsSync(backup) && LEGACY_SIGNATURES.some((sig) => fs.readFileSync(backup, 'utf8').includes(sig))) {
+      fs.rmSync(backup);
+    }
+  }
+  return { installed, kept, hooksDir };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -76,6 +107,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const result = installGitHooks();
     if (result.installed?.length) {
       console.log(`git hooks Beemm installés (${result.installed.join(', ')}) dans ${result.hooksDir}`);
+    }
+    for (const hook of result.kept ?? []) {
+      console.warn(`⚠️  ${path.join(result.hooksDir, hook)} existe déjà et n'est pas un hook Beemm : laissé tel quel.`);
+      console.warn(`    Pour avoir les garde-fous, intègre .githooks/${hook} à ce hook.`);
+    }
+    if (result.skipped?.startsWith('hooks-path')) {
+      console.warn(`⚠️  git hooks Beemm non installés (${result.skipped}).`);
     }
   } catch (error) {
     console.warn(`⚠️  git hooks Beemm non installés : ${error.message}`);

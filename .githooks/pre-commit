@@ -1,8 +1,10 @@
 #!/bin/sh
+# beemm-hooks-version: 1
 # pre-commit — garde-fous communs à Claude, Codex, Cursor et aux humains.
-# Source versionnée : .githooks/pre-commit. `npm install` l'installe dans les
-# hooks partagés du repo (scripts/install-git-hooks.mjs) : il vaut pour tous
-# les worktrees, y compris sur une branche ancienne.
+# Source versionnée : .githooks/pre-commit. `npm install` en COPIE une version
+# dans les hooks partagés du repo (scripts/install-git-hooks.mjs) : elle vaut
+# pour tous les worktrees, quelle que soit la branche. Modifier ce fichier =
+# monter beemm-hooks-version, sinon la copie installée ne bouge pas.
 #
 #   1. commit sur main : refusé (le travail passe par une branche et une PR) ;
 #   2. secret dans les fichiers stagés : refusé (gitleaks, comme la CI).
