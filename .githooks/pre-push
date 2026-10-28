@@ -1,0 +1,90 @@
+#!/bin/sh
+# pre-push — garde-fous communs à Claude, Codex, Cursor et aux humains.
+# Source versionnée : .githooks/pre-push. `npm install` l'installe dans les
+# hooks partagés du repo (scripts/install-git-hooks.mjs) : il vaut pour tous
+# les worktrees, y compris sur une branche ancienne.
+#
+#   1. push vers main : refusé (branche → PR → CI verte → merge) ;
+#   2. branche en retard sur origin/main : refusé. Un arbre en retard
+#      réintroduit d'anciennes versions et supprime en silence ce que main a
+#      gagné entre-temps ;
+#   3. branche sans identifiant Plane BV-123 : simple rappel.
+#
+# BEEMM_SKIP_SYNC_CHECK=1 git push … lève le contrôle 2 seulement.
+# git push --no-verify lève tout (dernier recours).
+
+remote="$1"
+zero=0000000000000000000000000000000000000000
+status=0
+fetched=0
+
+# Un push vers une URL n'a pas de branches distantes suivies : on compare
+# alors avec origin.
+if git remote get-url "$remote" >/dev/null 2>&1; then
+  base_remote="$remote"
+else
+  base_remote=origin
+fi
+base_ref="refs/remotes/$base_remote/main"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Suppression d'une branche distante : rien à vérifier.
+  [ "$local_sha" = "$zero" ] && continue
+
+  case "$remote_ref" in
+    refs/heads/main | refs/heads/master)
+      cat >&2 <<EOF
+
+✋ Push vers '${remote_ref#refs/heads/}' refusé.
+   Pousse une branche (feat/BV-123-mon-sujet), ouvre une PR, laisse la CI
+   valider, puis merge (sur core : gh pr merge <n> --auto --merge).
+
+EOF
+      status=1
+      continue
+      ;;
+    refs/heads/*) ;;
+    # Tags, notes… : hors périmètre.
+    *) continue ;;
+  esac
+  branch=${remote_ref#refs/heads/}
+
+  if [ "${BEEMM_SKIP_SYNC_CHECK:-}" != 1 ]; then
+    if [ "$fetched" = 0 ]; then
+      fetched=1
+      if ! git fetch --quiet "$base_remote" main 2>/dev/null; then
+        echo "⚠️  fetch de $base_remote/main impossible : comparaison avec la copie locale." >&2
+      fi
+    fi
+    if git rev-parse --verify --quiet "$base_ref" >/dev/null &&
+      ! git merge-base --is-ancestor "$base_ref" "$local_sha"; then
+      behind=$(git rev-list --count "$local_sha..$base_ref")
+      cat >&2 <<EOF
+
+✋ '$branch' est en retard de $behind commit(s) sur $base_remote/main : push refusé.
+   Synchronise d'abord, puis repousse :
+     git fetch $base_remote main
+     git rebase $base_remote/main
+     git push --force-with-lease $base_remote $branch
+   Après un rebase, vérifie que tous tes commits sont encore là :
+     git log --oneline $base_remote/main..HEAD
+
+EOF
+      status=1
+      continue
+    fi
+  fi
+
+  case "$branch" in
+    *BV-[0-9]*) ;;
+    *)
+      cat >&2 <<EOF
+ℹ️  '$branch' ne porte pas d'identifiant Plane (BV-123) : la PR ne remontera pas
+   au board. Mets-le dans le titre de la PR ([BV-123] …) ou dans son corps
+   (Plane: BV-123).
+EOF
+      ;;
+  esac
+done
+
+exit $status

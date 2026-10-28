@@ -6,13 +6,11 @@ Deux comportements, selon que la PR porte ou non un identifiant Plane
 
 1. **Identifiant present** — le work item correspondant change d'etat selon
    l'evenement GitHub, et recoit un commentaire pointant la PR.
-2. **Identifiant absent, PR qui vient d'etre ouverte** — un work item est cree
-   en `In Progress` avec une description factuelle, puis son identifiant est
-   reinjecte dans le corps de la PR pour que les evenements suivants le
-   retrouvent.
+2. **Identifiant absent, PR qui vient d'etre ouverte** — un rappel est poste
+   une fois sur la PR ; rien n'est cree (un work item = une feature, pas une
+   PR). `PLANE_AUTOCREATE=true` retablit la creation automatique.
 
-`merged` n'amene JAMAIS a `Released` : une PR mergee passe le work item a
-`À valider`. La mise en production reste une decision humaine.
+Une PR mergee passe le work item a `Released` (cf. TRANSITIONS).
 
 Ce script ne fait jamais echouer le job : toute erreur est journalisee et la
 sortie est 0. Une panne de Plane ne doit pas rougir la CI ni bloquer un merge.

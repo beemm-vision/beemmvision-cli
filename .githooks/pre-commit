@@ -1,0 +1,47 @@
+#!/bin/sh
+# pre-commit — garde-fous communs à Claude, Codex, Cursor et aux humains.
+# Source versionnée : .githooks/pre-commit. `npm install` l'installe dans les
+# hooks partagés du repo (scripts/install-git-hooks.mjs) : il vaut pour tous
+# les worktrees, y compris sur une branche ancienne.
+#
+#   1. commit sur main : refusé (le travail passe par une branche et une PR) ;
+#   2. secret dans les fichiers stagés : refusé (gitleaks, comme la CI).
+#
+# Dernier recours : git commit --no-verify (saute les deux contrôles).
+
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+if [ "$branch" = main ] || [ "$branch" = master ]; then
+  cat >&2 <<EOF
+
+✋ Commit sur '$branch' refusé.
+   Le travail passe par une branche nommée avec le ticket Plane, puis une PR :
+     git switch -c feat/BV-123-mon-sujet
+   Puis recommence le commit.
+
+EOF
+  exit 1
+fi
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "⚠️  gitleaks absent du PATH — scan de secrets ignoré (commit autorisé)." >&2
+  exit 0
+fi
+
+# Lancé depuis la racine du worktree : gitleaks y lit .gitleaks.toml et
+# .gitleaksignore, comme la CI. `protect` est déprécié depuis gitleaks 8.19.
+if gitleaks git --help >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner && exit 0
+else
+  gitleaks protect --staged --redact --no-banner && exit 0
+fi
+
+cat >&2 <<EOF
+
+❌ gitleaks a détecté un secret dans les fichiers stagés.
+    1. Retire la valeur sensible du fichier.
+    2. Re-stage (git add ...) et re-commit.
+    3. Faux positif : commentaire « gitleaks:allow » sur la ligne,
+       ou exception étroite dans .gitleaks.toml.
+
+EOF
+exit 1

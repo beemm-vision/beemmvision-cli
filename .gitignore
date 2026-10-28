@@ -25,7 +25,8 @@ yarn-debug.log*
 
 # IDE / agent local
 .claude/
-.cursor/
+.cursor/*
+!.cursor/worktrees.json
 .agents/
 
 # Isolated worktrees / caches
