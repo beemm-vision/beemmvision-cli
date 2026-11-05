@@ -13,7 +13,11 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
 var __commonJS = (cb, mod) => function __require2() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  try {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  } catch (e) {
+    throw mod = 0, e;
+  }
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -146,7 +150,7 @@ var require_portableWorkflow = __commonJS({
             label: "Texte",
             position: { x: 120, y: 520 },
             inputs: {
-              value: "Decrivez la transformation souhaitee pour votre image importee.",
+              value: "D\xE9cris la transformation souhait\xE9e pour ton image import\xE9e.",
               width: 400,
               height: 220
             },
@@ -1600,7 +1604,7 @@ var require_geminiOmniFlashV1 = __commonJS({
     function buildGeminiOmniFlashV1FalRequest(params) {
       const { prompt, imageUrls = [], aspectRatio, dynamicInputs = {} } = params;
       if (hasGeminiOmniFlashV1UnsupportedVideo(dynamicInputs)) {
-        throw new Error("Gemini Omni Flash V1 n'accepte aucune vid\xE9o en entr\xE9e : l'\xE9dition vid\xE9o de cette g\xE9n\xE9ration est r\xE9serv\xE9e \xE0 Gemini Omni Flash 1.1. Choisissez le 1.1.");
+        throw new Error("Gemini Omni Flash V1 n'accepte aucune vid\xE9o en entr\xE9e : l'\xE9dition vid\xE9o de cette g\xE9n\xE9ration est r\xE9serv\xE9e \xE0 Gemini Omni Flash 1.1. Choisis le 1.1.");
       }
       const common = {
         prompt,
@@ -1639,7 +1643,7 @@ var require_flux3 = __commonJS({
   "../packages/workflow-contracts/dist/flux3.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.FLUX3_ENHANCE_CREDITS_PER_SECOND = exports.FLUX3_DRAFT_CREDITS_PER_SECOND = exports.FLUX3_FULL_CREDITS_PER_SECOND = exports.FLUX3_DEFAULT_SAFETY_TOLERANCE = exports.FLUX3_ASSUMED_FPS = exports.FLUX3_MAX_KEYFRAMES = exports.FLUX3_ENHANCE_BILLED_SECONDS = exports.FLUX3_EDIT_BILLED_SECONDS = exports.FLUX3_DEFAULT_RESOLUTION = exports.FLUX3_DEFAULT_DURATION = exports.FLUX3_DURATIONS = exports.FLUX3_ASPECTS = exports.FLUX3_RESOLUTIONS = exports.FLUX3_ENDPOINT_TO_KIND = exports.FLUX3_ENHANCE_ENDPOINT = exports.FLUX3_DRAFT_ENDPOINTS = exports.FLUX3_FULL_ENDPOINTS = void 0;
+    exports.readFlux3Alias = exports.FLUX3_ENHANCE_CREDITS_PER_SECOND = exports.FLUX3_DRAFT_CREDITS_PER_SECOND = exports.FLUX3_FULL_CREDITS_PER_SECOND = exports.FLUX3_DEFAULT_SAFETY_TOLERANCE = exports.FLUX3_ASSUMED_FPS = exports.FLUX3_MAX_KEYFRAMES = exports.FLUX3_ENHANCE_BILLED_SECONDS = exports.FLUX3_EDIT_BILLED_SECONDS = exports.FLUX3_DEFAULT_RESOLUTION = exports.FLUX3_DEFAULT_DURATION = exports.FLUX3_DURATIONS = exports.FLUX3_ASPECTS = exports.FLUX3_RESOLUTIONS = exports.FLUX3_ENDPOINT_TO_KIND = exports.FLUX3_ENHANCE_ENDPOINT = exports.FLUX3_DRAFT_ENDPOINTS = exports.FLUX3_FULL_ENDPOINTS = void 0;
     exports.normalizeFlux3Resolution = normalizeFlux3Resolution;
     exports.normalizeFlux3Duration = normalizeFlux3Duration;
     exports.normalizeFlux3AspectRatio = normalizeFlux3AspectRatio;
@@ -1759,6 +1763,7 @@ var require_flux3 = __commonJS({
       }
       return void 0;
     };
+    exports.readFlux3Alias = readAlias;
     function normalizeFlux3Resolution(raw) {
       const value = raw === void 0 || raw === null ? void 0 : String(raw).trim();
       const out = (0, falPayloadGuards_1.normalizeModelResolution)(value || void 0, exports.FLUX3_RESOLUTIONS);
@@ -1875,7 +1880,7 @@ var require_flux3 = __commonJS({
       const safety = normalizeFlux3SafetyTolerance(readAlias(dynamicInputs, ["safety_tolerance"]));
       if (kind === "edit") {
         if (draft) {
-          throw refusal("FLUX 3 ne propose pas de brouillon pour l'\xE9dition vid\xE9o. D\xE9cochez \xAB Brouillon \xBB, ou passez en mode Prolonger, qui en a un.");
+          throw refusal("FLUX 3 ne propose pas de brouillon pour l'\xE9dition vid\xE9o. D\xE9coche \xAB Brouillon \xBB, ou passe en mode Prolonger, qui en a un.");
         }
         const videoUrl = firstUrl(readAlias(dynamicInputs, ["video_url", "video_urls", "video"]));
         return {
@@ -1961,12 +1966,274 @@ var require_flux3 = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/flux3Max.js
+var require_flux3Max = __commonJS({
+  "../packages/workflow-contracts/dist/flux3Max.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.FLUX3MAX_BASE_COST = exports.FLUX3MAX_CREDITS_PER_SECOND = exports.FLUX3MAX_SEED_MAX = exports.FLUX3MAX_DEFAULT_REASONING_LEVEL = exports.FLUX3MAX_REASONING_LEVELS = exports.FLUX3MAX_FPS = exports.FLUX3MAX_MAX_KEYFRAMES = exports.FLUX3MAX_ASPECTS = exports.FLUX3MAX_DEFAULT_DURATION = exports.FLUX3MAX_DURATIONS = exports.FLUX3MAX_DEFAULT_RESOLUTION = exports.FLUX3MAX_RESOLUTIONS = exports.FLUX3MAX_ENDPOINT_TO_KIND = exports.FLUX3MAX_ALL_ENDPOINTS = exports.FLUX3MAX_ENDPOINTS = void 0;
+    exports.isFlux3MaxEndpoint = isFlux3MaxEndpoint;
+    exports.flux3MaxKindFromEndpoint = flux3MaxKindFromEndpoint;
+    exports.normalizeFlux3MaxReasoningLevel = normalizeFlux3MaxReasoningLevel;
+    exports.normalizeFlux3MaxSeed = normalizeFlux3MaxSeed;
+    exports.normalizeFlux3MaxGenerateAudio = normalizeFlux3MaxGenerateAudio;
+    exports.flux3MaxLastFrameIndex = flux3MaxLastFrameIndex;
+    exports.normalizeFlux3MaxKeyframes = normalizeFlux3MaxKeyframes;
+    exports.flux3MaxFrames = flux3MaxFrames;
+    exports.resolveFlux3MaxKind = resolveFlux3MaxKind;
+    exports.flux3MaxBuilderInputs = flux3MaxBuilderInputs;
+    exports.flux3MaxCreditCost = flux3MaxCreditCost;
+    exports.buildFlux3MaxFalRequest = buildFlux3MaxFalRequest;
+    exports.hardenFlux3MaxProxyInput = hardenFlux3MaxProxyInput;
+    exports.flux3MaxProxyRefusal = flux3MaxProxyRefusal;
+    var flux3_1 = require_flux3();
+    exports.FLUX3MAX_ENDPOINTS = {
+      t2v: "blackforestlabs/flux-3-max/text-to-video",
+      i2v: "blackforestlabs/flux-3-max/image-to-video",
+      kf2v: "blackforestlabs/flux-3-max/keyframes-to-video"
+    };
+    exports.FLUX3MAX_ALL_ENDPOINTS = [
+      exports.FLUX3MAX_ENDPOINTS.t2v,
+      exports.FLUX3MAX_ENDPOINTS.i2v,
+      exports.FLUX3MAX_ENDPOINTS.kf2v
+    ];
+    exports.FLUX3MAX_ENDPOINT_TO_KIND = {
+      [exports.FLUX3MAX_ENDPOINTS.t2v]: "t2v",
+      [exports.FLUX3MAX_ENDPOINTS.i2v]: "i2v",
+      [exports.FLUX3MAX_ENDPOINTS.kf2v]: "kf2v"
+    };
+    exports.FLUX3MAX_RESOLUTIONS = flux3_1.FLUX3_RESOLUTIONS;
+    exports.FLUX3MAX_DEFAULT_RESOLUTION = flux3_1.FLUX3_DEFAULT_RESOLUTION;
+    exports.FLUX3MAX_DURATIONS = flux3_1.FLUX3_DURATIONS;
+    exports.FLUX3MAX_DEFAULT_DURATION = flux3_1.FLUX3_DEFAULT_DURATION;
+    exports.FLUX3MAX_ASPECTS = flux3_1.FLUX3_ASPECTS;
+    exports.FLUX3MAX_MAX_KEYFRAMES = flux3_1.FLUX3_MAX_KEYFRAMES;
+    exports.FLUX3MAX_FPS = flux3_1.FLUX3_ASSUMED_FPS;
+    exports.FLUX3MAX_REASONING_LEVELS = ["low", "high"];
+    exports.FLUX3MAX_DEFAULT_REASONING_LEVEL = "high";
+    exports.FLUX3MAX_SEED_MAX = 2147483647;
+    exports.FLUX3MAX_CREDITS_PER_SECOND = {
+      t2v: { "720p": 17, "1080p": 29 },
+      i2v: { "720p": 17, "1080p": 29 },
+      kf2v: { "720p": 17, "1080p": 29 }
+    };
+    exports.FLUX3MAX_BASE_COST = exports.FLUX3MAX_CREDITS_PER_SECOND.t2v[exports.FLUX3MAX_DEFAULT_RESOLUTION] * exports.FLUX3MAX_DEFAULT_DURATION;
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    var hasEndpoint = (falModelId) => typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(exports.FLUX3MAX_ENDPOINT_TO_KIND, falModelId);
+    function isFlux3MaxEndpoint(falModelId) {
+      return hasEndpoint(falModelId);
+    }
+    function flux3MaxKindFromEndpoint(falModelId) {
+      return hasEndpoint(falModelId) ? exports.FLUX3MAX_ENDPOINT_TO_KIND[falModelId] : void 0;
+    }
+    function normalizeFlux3MaxReasoningLevel(raw) {
+      return typeof raw === "string" && exports.FLUX3MAX_REASONING_LEVELS.includes(raw) ? raw : void 0;
+    }
+    function normalizeFlux3MaxSeed(raw) {
+      if (raw === void 0 || raw === null || raw === "" || typeof raw === "boolean")
+        return void 0;
+      const n = Number(raw);
+      if (!Number.isFinite(n))
+        return void 0;
+      const seed = Math.trunc(n);
+      return seed >= 0 && seed <= exports.FLUX3MAX_SEED_MAX ? seed : void 0;
+    }
+    function normalizeFlux3MaxGenerateAudio(raw) {
+      if (raw === void 0 || raw === null || raw === "")
+        return void 0;
+      return raw === true || raw === "true" || raw === 1 || raw === "1";
+    }
+    function flux3MaxLastFrameIndex(duration) {
+      return (0, flux3_1.normalizeFlux3Duration)(duration) * exports.FLUX3MAX_FPS;
+    }
+    function normalizeFlux3MaxKeyframes(raw, duration) {
+      const list = Array.isArray(raw) ? raw : raw === void 0 || raw === null || raw === "" ? [] : [raw];
+      const seconds = (0, flux3_1.normalizeFlux3Duration)(duration);
+      const last = seconds * exports.FLUX3MAX_FPS;
+      const seen = /* @__PURE__ */ new Set();
+      const out = [];
+      const clamped = (0, flux3_1.normalizeFlux3Keyframes)(list, seconds).map((k) => ({ frame_index: Math.min(k.frame_index, last), image_url: k.image_url })).sort((a, b) => a.frame_index - b.frame_index);
+      for (const frame of clamped) {
+        if (seen.has(frame.frame_index))
+          continue;
+        seen.add(frame.frame_index);
+        out.push(frame);
+      }
+      return out.slice(0, exports.FLUX3MAX_MAX_KEYFRAMES);
+    }
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach(push);
+        } else if (v && typeof v === "object") {
+          const record = v;
+          push(record.image_url);
+          push(record.url);
+        }
+      };
+      push(value);
+      return out;
+    };
+    var firstUrlOf = (inputs, keys) => {
+      for (const key of keys) {
+        const url = urlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      return void 0;
+    };
+    var KEYFRAME_KEYS = ["keyframes", "keyframe_images"];
+    var rawKeyframes = (inputs) => (0, flux3_1.readFlux3Alias)(inputs, KEYFRAME_KEYS);
+    function flux3MaxFrames(inputs) {
+      const namedStart = firstUrlOf(inputs, ["start_image", "start_image_url", "image_url"]);
+      const namedEnd = firstUrlOf(inputs, ["end_image", "end_image_url"]);
+      const positional = Array.from(/* @__PURE__ */ new Set([...urlsOf(inputs.image_urls), ...urlsOf(inputs.image)]));
+      const start = namedStart ?? positional[0] ?? namedEnd;
+      if (!start)
+        return {};
+      const named = namedStart !== void 0 || namedEnd !== void 0;
+      const end = named ? namedEnd : positional[1];
+      return { start, end: end && end !== start ? end : void 0 };
+    }
+    function resolveFlux3MaxKind(inputs = {}) {
+      if (normalizeFlux3MaxKeyframes(rawKeyframes(inputs), inputs.duration).length > 0)
+        return "kf2v";
+      return flux3MaxFrames(inputs).start ? "i2v" : "t2v";
+    }
+    function flux3MaxBuilderInputs(params) {
+      const { imageUrls = [], dynamicInputs = {} } = params;
+      return {
+        ...dynamicInputs,
+        image_urls: Array.from(/* @__PURE__ */ new Set([...urlsOf(imageUrls), ...urlsOf(dynamicInputs.image_urls)]))
+      };
+    }
+    function flux3MaxCreditCost(params) {
+      const inputs = params.inputs ?? {};
+      const kind = flux3MaxKindFromEndpoint(params.falModelId) ?? resolveFlux3MaxKind(inputs);
+      const resolution = (0, flux3_1.normalizeFlux3Resolution)(params.resolution ?? inputs.resolution);
+      const duration = (0, flux3_1.normalizeFlux3Duration)(params.duration ?? inputs.duration);
+      return exports.FLUX3MAX_CREDITS_PER_SECOND[kind][resolution] * duration;
+    }
+    function buildFlux3MaxFalRequest(params) {
+      const { prompt, imageUrls, resolution, aspectRatio, dynamicInputs = {} } = params;
+      const flat = flux3MaxBuilderInputs({ imageUrls, dynamicInputs });
+      const keyframesRaw = rawKeyframes(flat);
+      const kind = resolveFlux3MaxKind(flat);
+      if (keyframesRaw !== void 0 && kind !== "kf2v" && (!Array.isArray(keyframesRaw) || keyframesRaw.length > 0)) {
+        throw refusal("FLUX 3 Max keyframes : aucune image exploitable dans la liste branch\xE9e. Branche des images (ou des { image_url, frame_index }), ou d\xE9branche l'entr\xE9e Keyframes.");
+      }
+      const duration = (0, flux3_1.normalizeFlux3Duration)(dynamicInputs.duration);
+      const input = {
+        prompt: typeof prompt === "string" ? prompt : "",
+        duration,
+        resolution: (0, flux3_1.normalizeFlux3Resolution)(resolution ?? dynamicInputs.resolution)
+      };
+      const ar = (0, flux3_1.normalizeFlux3AspectRatio)(aspectRatio ?? dynamicInputs.aspect_ratio);
+      if (ar)
+        input.aspect_ratio = ar;
+      const audio = normalizeFlux3MaxGenerateAudio(dynamicInputs.generate_audio);
+      if (audio !== void 0)
+        input.generate_audio = audio;
+      const reasoning = normalizeFlux3MaxReasoningLevel(dynamicInputs.reasoning_level);
+      if (reasoning)
+        input.reasoning_level = reasoning;
+      const seed = normalizeFlux3MaxSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      if (kind === "kf2v") {
+        input.keyframes = normalizeFlux3MaxKeyframes(keyframesRaw, duration);
+      } else if (kind === "i2v") {
+        const frames = flux3MaxFrames(flat);
+        input.image_url = frames.start;
+        if (frames.end)
+          input.end_image_url = frames.end;
+      }
+      return { falModelId: exports.FLUX3MAX_ENDPOINTS[kind], input };
+    }
+    function hardenFlux3MaxProxyInput(falModelId, input) {
+      const kind = flux3MaxKindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      delete input.safety_tolerance;
+      delete input.sync_mode;
+      input.duration = (0, flux3_1.normalizeFlux3Duration)(input.duration);
+      input.resolution = (0, flux3_1.normalizeFlux3Resolution)(input.resolution);
+      const ar = (0, flux3_1.normalizeFlux3AspectRatio)(input.aspect_ratio);
+      if (ar)
+        input.aspect_ratio = ar;
+      else
+        delete input.aspect_ratio;
+      const audio = normalizeFlux3MaxGenerateAudio(input.generate_audio);
+      if (audio !== void 0)
+        input.generate_audio = audio;
+      else
+        delete input.generate_audio;
+      const reasoning = normalizeFlux3MaxReasoningLevel(input.reasoning_level);
+      if (reasoning)
+        input.reasoning_level = reasoning;
+      else
+        delete input.reasoning_level;
+      const seed = normalizeFlux3MaxSeed(input.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      else
+        delete input.seed;
+      if (kind === "kf2v") {
+        input.keyframes = normalizeFlux3MaxKeyframes(input.keyframes, input.duration);
+        delete input.image_url;
+        delete input.end_image_url;
+      } else if (kind === "i2v") {
+        const start = urlsOf(input.image_url)[0];
+        const end = urlsOf(input.end_image_url)[0];
+        if (start)
+          input.image_url = start;
+        else
+          delete input.image_url;
+        if (end && end !== start)
+          input.end_image_url = end;
+        else
+          delete input.end_image_url;
+        delete input.keyframes;
+      } else {
+        delete input.image_url;
+        delete input.end_image_url;
+        delete input.keyframes;
+      }
+      return input;
+    }
+    function flux3MaxProxyRefusal(falModelId, input) {
+      const kind = flux3MaxKindFromEndpoint(falModelId);
+      if (!kind)
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (typeof record.prompt !== "string" || !record.prompt.trim()) {
+        return "FLUX 3 Max n\xE9cessite un prompt (texte non vide).";
+      }
+      if (kind === "i2v" && !urlsOf(record.image_url)[0]) {
+        return "FLUX 3 Max (image \u2192 vid\xE9o) n\xE9cessite une image de d\xE9part.";
+      }
+      if (kind === "kf2v" && (!Array.isArray(record.keyframes) || record.keyframes.length === 0)) {
+        return "FLUX 3 Max (keyframes \u2192 vid\xE9o) n\xE9cessite au moins une keyframe exploitable.";
+      }
+      return null;
+    }
+  }
+});
+
 // ../packages/workflow-contracts/dist/klingO34k.js
 var require_klingO34k = __commonJS({
   "../packages/workflow-contracts/dist/klingO34k.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.KLING_O3_4K_ENDPOINTS = exports.KLING_O3_4K_MAX_REF_IMAGES = exports.KLING_O3_4K_ASPECTS = exports.KLING_O3_4K_DURATIONS = exports.KLING_O3_4K_USD_PER_SECOND = exports.KLING_O3_4K_EDIT_MAX_SOURCE_SECONDS = exports.KLING_O3_4K_EDIT_SECONDS = exports.KLING_O3_4K_DEFAULT_DURATION = exports.KLING_O3_4K_CREDITS_PER_SECOND = void 0;
+    exports.KLING_O3_4K_ENDPOINTS = exports.KLING_O3_4K_MAX_REF_IMAGES = exports.KLING_O3_4K_ASPECTS = exports.KLING_O3_4K_DURATIONS = exports.KLING_O3_4K_USD_PER_SECOND = exports.KLING_O3_4K_EDIT_MAX_SOURCE_SECONDS = exports.KLING_O3_4K_DEFAULT_DURATION = exports.KLING_O3_4K_CREDITS_PER_SECOND = void 0;
     exports.normalizeKlingO34kDuration = normalizeKlingO34kDuration;
     exports.klingO34kSentDuration = klingO34kSentDuration;
     exports.normalizeKlingO34kAspectRatio = normalizeKlingO34kAspectRatio;
@@ -1975,7 +2242,6 @@ var require_klingO34k = __commonJS({
     exports.buildKlingO34kFalRequest = buildKlingO34kFalRequest;
     exports.KLING_O3_4K_CREDITS_PER_SECOND = 42;
     exports.KLING_O3_4K_DEFAULT_DURATION = 5;
-    exports.KLING_O3_4K_EDIT_SECONDS = 10;
     exports.KLING_O3_4K_EDIT_MAX_SOURCE_SECONDS = 15.05;
     exports.KLING_O3_4K_USD_PER_SECOND = 0.42;
     exports.KLING_O3_4K_DURATIONS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
@@ -2025,12 +2291,9 @@ var require_klingO34k = __commonJS({
       const inputs = params.dynamicInputs ?? {};
       const isEdit = params.kind === "edit" || params.kind === void 0 && hasKlingO34kEditVideo(inputs) && inputs.mode !== "reference";
       if (isEdit) {
-        const raw = params.duration ?? inputs.duration;
-        const known = raw !== void 0 && raw !== null && raw !== "" && raw !== "auto" && Number.isFinite(Number(raw));
-        const legacy = exports.KLING_O3_4K_CREDITS_PER_SECOND * (known ? normalizeKlingO34kDuration(raw) : exports.KLING_O3_4K_EDIT_SECONDS);
-        const measured = typeof params.sourceSeconds === "number" && Number.isFinite(params.sourceSeconds) && params.sourceSeconds >= 0 ? Math.min(exports.KLING_O3_4K_EDIT_MAX_SOURCE_SECONDS, params.sourceSeconds) : exports.KLING_O3_4K_EDIT_MAX_SOURCE_SECONDS;
+        const measured = typeof params.sourceSeconds === "number" && Number.isFinite(params.sourceSeconds) && params.sourceSeconds >= 0 ? Math.min(exports.KLING_O3_4K_EDIT_MAX_SOURCE_SECONDS, Math.ceil(params.sourceSeconds)) : exports.KLING_O3_4K_EDIT_MAX_SOURCE_SECONDS;
         const credits = Math.ceil(Math.round(exports.KLING_O3_4K_USD_PER_SECOND * measured * 100 * 1e6) / 1e6);
-        return Math.max(legacy, credits);
+        return credits;
       }
       return exports.KLING_O3_4K_CREDITS_PER_SECOND * normalizeKlingO34kDuration(params.duration ?? inputs.duration);
     }
@@ -2096,13 +2359,12 @@ var require_klingO3VideoToVideo = __commonJS({
   "../packages/workflow-contracts/dist/klingO3VideoToVideo.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.buildKlingO3VideoToVideoFalRequest = exports.klingO3VideoToVideoCreditCost = exports.normalizeKlingO34kReferenceDuration = exports.KLING_O3_4K_REFERENCE_ASPECTS = exports.KLING_O3_4K_REFERENCE_DURATIONS = exports.KLING_O3_4K_REFERENCE_DEFAULT_DURATION = exports.KLING_O3_4K_REFERENCE_CREDITS_PER_SECOND = exports.KLING_O3_V2V_MAX_SOURCE_SECONDS = exports.KLING_O3_PRO_EDIT_CREDITS_PER_SECOND = exports.KLING_O3_PRO_EDIT_MAX_SECONDS = exports.KLING_O3_VIDEO_TO_VIDEO_MAX_REFERENCE_IMAGES = exports.KLING_O3_VIDEO_TO_VIDEO_ENDPOINTS = void 0;
+    exports.buildKlingO3VideoToVideoFalRequest = exports.klingO3VideoToVideoCreditCost = exports.normalizeKlingO34kReferenceDuration = exports.KLING_O3_4K_REFERENCE_ASPECTS = exports.KLING_O3_4K_REFERENCE_DURATIONS = exports.KLING_O3_4K_REFERENCE_DEFAULT_DURATION = exports.KLING_O3_4K_REFERENCE_CREDITS_PER_SECOND = exports.KLING_O3_V2V_MAX_SOURCE_SECONDS = exports.KLING_O3_PRO_EDIT_CREDITS_PER_SECOND = exports.KLING_O3_VIDEO_TO_VIDEO_MAX_REFERENCE_IMAGES = exports.KLING_O3_VIDEO_TO_VIDEO_ENDPOINTS = void 0;
     exports.KLING_O3_VIDEO_TO_VIDEO_ENDPOINTS = {
       "pro-edit": "fal-ai/kling-video/o3/pro/video-to-video/edit",
       "4k-reference": "fal-ai/kling-video/o3/4k/video-to-video/reference"
     };
     exports.KLING_O3_VIDEO_TO_VIDEO_MAX_REFERENCE_IMAGES = 4;
-    exports.KLING_O3_PRO_EDIT_MAX_SECONDS = 10;
     exports.KLING_O3_PRO_EDIT_CREDITS_PER_SECOND = 16.8;
     exports.KLING_O3_V2V_MAX_SOURCE_SECONDS = 15.05;
     exports.KLING_O3_4K_REFERENCE_CREDITS_PER_SECOND = 42;
@@ -2145,10 +2407,9 @@ var require_klingO3VideoToVideo = __commonJS({
     ]))).slice(0, exports.KLING_O3_VIDEO_TO_VIDEO_MAX_REFERENCE_IMAGES);
     var ceilCredits = (usd) => Math.ceil(Math.round(usd * 100 * 1e6) / 1e6);
     var klingO3VideoToVideoCreditCost = (params) => {
-      const source = typeof params.sourceSeconds === "number" && Number.isFinite(params.sourceSeconds) && params.sourceSeconds >= 0 ? Math.min(exports.KLING_O3_V2V_MAX_SOURCE_SECONDS, params.sourceSeconds) : exports.KLING_O3_V2V_MAX_SOURCE_SECONDS;
+      const source = typeof params.sourceSeconds === "number" && Number.isFinite(params.sourceSeconds) && params.sourceSeconds >= 0 ? Math.min(exports.KLING_O3_V2V_MAX_SOURCE_SECONDS, Math.ceil(params.sourceSeconds)) : exports.KLING_O3_V2V_MAX_SOURCE_SECONDS;
       if (params.variant === "pro-edit") {
-        const legacy2 = exports.KLING_O3_PRO_EDIT_CREDITS_PER_SECOND * exports.KLING_O3_PRO_EDIT_MAX_SECONDS;
-        return Math.max(legacy2, ceilCredits(exports.KLING_O3_PRO_EDIT_CREDITS_PER_SECOND / 100 * source));
+        return ceilCredits(exports.KLING_O3_PRO_EDIT_CREDITS_PER_SECOND / 100 * source);
       }
       const duration = (0, exports.normalizeKlingO34kReferenceDuration)(params.duration ?? params.dynamicInputs?.duration);
       const legacy = exports.KLING_O3_4K_REFERENCE_CREDITS_PER_SECOND * duration;
@@ -2184,6 +2445,38 @@ var require_klingO3VideoToVideo = __commonJS({
       return { falModelId: exports.KLING_O3_VIDEO_TO_VIDEO_ENDPOINTS[variant], input };
     };
     exports.buildKlingO3VideoToVideoFalRequest = buildKlingO3VideoToVideoFalRequest;
+  }
+});
+
+// ../packages/workflow-contracts/dist/higgsfieldDiscounts.js
+var require_higgsfieldDiscounts = __commonJS({
+  "../packages/workflow-contracts/dist/higgsfieldDiscounts.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.setVerifiedHiggsfieldCostFactor = exports.higgsfieldCostFactor = exports.deployedHiggsfieldCostFactor = exports.HIGGSFIELD_DEPLOYED_DISCOUNT_PERCENT = void 0;
+    exports.HIGGSFIELD_DEPLOYED_DISCOUNT_PERCENT = {
+      genjutsu: 50,
+      "genjutsu-light": 50,
+      "marketing-studio-image": 15
+    };
+    var deployedHiggsfieldCostFactor = (family) => 1 - exports.HIGGSFIELD_DEPLOYED_DISCOUNT_PERCENT[family] / 100;
+    exports.deployedHiggsfieldCostFactor = deployedHiggsfieldCostFactor;
+    var verifiedFactors = /* @__PURE__ */ new Map();
+    var higgsfieldCostFactor = (family) => {
+      const verified = verifiedFactors.get(family);
+      const deployed = (0, exports.deployedHiggsfieldCostFactor)(family);
+      return verified === void 0 ? deployed : Math.max(deployed, verified);
+    };
+    exports.higgsfieldCostFactor = higgsfieldCostFactor;
+    var setVerifiedHiggsfieldCostFactor = (family, factor) => {
+      if (factor === void 0) {
+        verifiedFactors.delete(family);
+        return;
+      }
+      if (Number.isFinite(factor) && factor > 0)
+        verifiedFactors.set(family, factor);
+    };
+    exports.setVerifiedHiggsfieldCostFactor = setVerifiedHiggsfieldCostFactor;
   }
 });
 
@@ -2343,7 +2636,7 @@ var require_minimaxH3MultiAngle = __commonJS({
     exports.sampleH3CameraPreset = sampleH3CameraPreset;
     exports.defaultH3CameraTrajectory = defaultH3CameraTrajectory;
     exports.buildH3MultiAngleFalRequest = buildH3MultiAngleFalRequest;
-    exports.H3_MULTI_ANGLE_ENDPOINT = "minimax/h3-max/multi-angle/image-to-video";
+    exports.H3_MULTI_ANGLE_ENDPOINT = "minimax/h3-max/camera-controls";
     exports.H3_MULTI_ANGLE_RESOLUTIONS = [
       "480P",
       "768P",
@@ -2873,6 +3166,189 @@ var require_wan30 = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/happyHorse.js
+var require_happyHorse = __commonJS({
+  "../packages/workflow-contracts/dist/happyHorse.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.happyHorseCreditCostFromInputs = exports.HAPPY_HORSE_ALL_ENDPOINTS = exports.HAPPY_HORSE_ENDPOINT_TO_SPEC = exports.HAPPY_HORSE_MILLI_USD_PER_SECOND = exports.HAPPY_HORSE_SEED_MAX = exports.HAPPY_HORSE_MAX_PROMPT_LENGTH = exports.HAPPY_HORSE_MAX_REF_IMAGES = exports.HAPPY_HORSE_DEFAULT_ASPECT = exports.HAPPY_HORSE_ASPECTS = exports.HAPPY_HORSE_ASPECTS_V1_1 = exports.HAPPY_HORSE_ASPECTS_V1_0 = exports.HAPPY_HORSE_DURATIONS = exports.HAPPY_HORSE_DEFAULT_DURATION = exports.HAPPY_HORSE_MAX_DURATION = exports.HAPPY_HORSE_MIN_DURATION = exports.HAPPY_HORSE_DEFAULT_RESOLUTION = exports.HAPPY_HORSE_RESOLUTIONS = exports.HAPPY_HORSE_ENDPOINTS = exports.HAPPY_HORSE_MODEL_IDS = void 0;
+    exports.isHappyHorseEndpoint = isHappyHorseEndpoint;
+    exports.normalizeHappyHorseResolution = normalizeHappyHorseResolution;
+    exports.normalizeHappyHorseDuration = normalizeHappyHorseDuration;
+    exports.normalizeHappyHorseAspectRatio = normalizeHappyHorseAspectRatio;
+    exports.happyHorseCreditCost = happyHorseCreditCost;
+    exports.resolveHappyHorseKind = resolveHappyHorseKind;
+    exports.buildHappyHorseFalRequest = buildHappyHorseFalRequest;
+    exports.hardenHappyHorseProxyInput = hardenHappyHorseProxyInput;
+    exports.HAPPY_HORSE_MODEL_IDS = {
+      "1.0": "happy-horse-1-0-video",
+      "1.1": "happy-horse-1-1-video"
+    };
+    exports.HAPPY_HORSE_ENDPOINTS = {
+      "1.0": {
+        t2v: "alibaba/happy-horse/text-to-video",
+        i2v: "alibaba/happy-horse/image-to-video",
+        r2v: "alibaba/happy-horse/reference-to-video"
+      },
+      "1.1": {
+        t2v: "alibaba/happy-horse/v1.1/text-to-video",
+        i2v: "alibaba/happy-horse/v1.1/image-to-video",
+        r2v: "alibaba/happy-horse/v1.1/reference-to-video"
+      }
+    };
+    exports.HAPPY_HORSE_RESOLUTIONS = ["1080p", "720p"];
+    exports.HAPPY_HORSE_DEFAULT_RESOLUTION = "1080p";
+    exports.HAPPY_HORSE_MIN_DURATION = 3;
+    exports.HAPPY_HORSE_MAX_DURATION = 15;
+    exports.HAPPY_HORSE_DEFAULT_DURATION = 5;
+    exports.HAPPY_HORSE_DURATIONS = Array.from({ length: exports.HAPPY_HORSE_MAX_DURATION - exports.HAPPY_HORSE_MIN_DURATION + 1 }, (_, i) => i + exports.HAPPY_HORSE_MIN_DURATION);
+    exports.HAPPY_HORSE_ASPECTS_V1_0 = ["16:9", "9:16", "1:1", "4:3", "3:4"];
+    exports.HAPPY_HORSE_ASPECTS_V1_1 = [
+      "16:9",
+      "9:16",
+      "1:1",
+      "4:3",
+      "3:4",
+      "21:9",
+      "9:21",
+      "5:4",
+      "4:5"
+    ];
+    exports.HAPPY_HORSE_ASPECTS = {
+      "1.0": exports.HAPPY_HORSE_ASPECTS_V1_0,
+      "1.1": exports.HAPPY_HORSE_ASPECTS_V1_1
+    };
+    exports.HAPPY_HORSE_DEFAULT_ASPECT = "16:9";
+    exports.HAPPY_HORSE_MAX_REF_IMAGES = 9;
+    exports.HAPPY_HORSE_MAX_PROMPT_LENGTH = 2500;
+    exports.HAPPY_HORSE_SEED_MAX = 2147483647;
+    exports.HAPPY_HORSE_MILLI_USD_PER_SECOND = {
+      "1.0": { "720p": 140, "1080p": 280 },
+      "1.1": { "720p": 140, "1080p": 180 }
+    };
+    exports.HAPPY_HORSE_ENDPOINT_TO_SPEC = Object.fromEntries(Object.keys(exports.HAPPY_HORSE_ENDPOINTS).flatMap((version) => Object.keys(exports.HAPPY_HORSE_ENDPOINTS[version]).map((kind) => [
+      exports.HAPPY_HORSE_ENDPOINTS[version][kind],
+      { version, kind }
+    ])));
+    exports.HAPPY_HORSE_ALL_ENDPOINTS = Object.keys(exports.HAPPY_HORSE_ENDPOINT_TO_SPEC);
+    var toUrlArray = (value) => {
+      const collected = [];
+      const push = (v) => {
+        if (typeof v === "string" && v.trim())
+          collected.push(v.trim());
+        else if (Array.isArray(v))
+          v.forEach(push);
+      };
+      push(value);
+      return Array.from(new Set(collected));
+    };
+    function isHappyHorseEndpoint(falModelId) {
+      return typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(exports.HAPPY_HORSE_ENDPOINT_TO_SPEC, falModelId);
+    }
+    function normalizeHappyHorseResolution(raw) {
+      return raw === "720p" ? "720p" : exports.HAPPY_HORSE_DEFAULT_RESOLUTION;
+    }
+    function normalizeHappyHorseDuration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.HAPPY_HORSE_DEFAULT_DURATION;
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.HAPPY_HORSE_DEFAULT_DURATION;
+      return Math.min(exports.HAPPY_HORSE_MAX_DURATION, Math.max(exports.HAPPY_HORSE_MIN_DURATION, Math.trunc(parsed)));
+    }
+    function normalizeHappyHorseAspectRatio(version, raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return exports.HAPPY_HORSE_ASPECTS[version].includes(value) ? value : exports.HAPPY_HORSE_DEFAULT_ASPECT;
+    }
+    function happyHorseCreditCost(version, resolution, duration) {
+      const res = normalizeHappyHorseResolution(resolution);
+      const seconds = normalizeHappyHorseDuration(duration);
+      return Math.ceil(exports.HAPPY_HORSE_MILLI_USD_PER_SECOND[version][res] * seconds / 10);
+    }
+    var happyHorseCreditCostFromInputs = (version) => (inputs) => happyHorseCreditCost(version, inputs.resolution, inputs.duration);
+    exports.happyHorseCreditCostFromInputs = happyHorseCreditCostFromInputs;
+    var readMedia = (imageUrls, dynamicInputs) => ({
+      start: toUrlArray(dynamicInputs.start_image ?? dynamicInputs.start_image_url ?? dynamicInputs.image_url)[0],
+      references: toUrlArray([
+        dynamicInputs.reference_image_urls,
+        dynamicInputs.reference_images,
+        dynamicInputs.reference_image,
+        dynamicInputs.reference_image_url
+      ]),
+      positional: toUrlArray(imageUrls)
+    });
+    function resolveHappyHorseKind(params) {
+      const media = readMedia(params.imageUrls, params.dynamicInputs ?? {});
+      if (media.references.length > 0)
+        return "r2v";
+      if (media.start || media.positional[0])
+        return "i2v";
+      return "t2v";
+    }
+    function optionalSeed(raw) {
+      if (raw === void 0 || raw === null || raw === "")
+        return void 0;
+      const seed = Number(raw);
+      if (!Number.isFinite(seed))
+        return void 0;
+      const trunc = Math.trunc(seed);
+      if (trunc < 0 || trunc > exports.HAPPY_HORSE_SEED_MAX)
+        return void 0;
+      return trunc;
+    }
+    function buildHappyHorseFalRequest(params) {
+      const { version, prompt, imageUrls = [], resolution, aspectRatio, dynamicInputs = {} } = params;
+      const endpoints = exports.HAPPY_HORSE_ENDPOINTS[version];
+      const media = readMedia(imageUrls, dynamicInputs);
+      const kind = resolveHappyHorseKind({ imageUrls, dynamicInputs });
+      const common = {
+        resolution: normalizeHappyHorseResolution(resolution ?? dynamicInputs.resolution),
+        duration: normalizeHappyHorseDuration(dynamicInputs.duration)
+      };
+      const seed = optionalSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        common.seed = seed;
+      const aspect = () => normalizeHappyHorseAspectRatio(version, aspectRatio ?? (typeof dynamicInputs.aspect_ratio === "string" ? dynamicInputs.aspect_ratio : null));
+      if (kind === "r2v") {
+        const start = media.start ?? media.positional[0];
+        const images = Array.from(new Set([start, ...media.references, ...media.positional].filter((u) => Boolean(u)))).slice(0, exports.HAPPY_HORSE_MAX_REF_IMAGES);
+        return {
+          falModelId: endpoints.r2v,
+          input: { prompt, image_urls: images, aspect_ratio: aspect(), ...common }
+        };
+      }
+      if (kind === "i2v") {
+        const start = media.start ?? media.positional[0];
+        const input = { image_url: start, ...common };
+        if (typeof prompt === "string" && prompt.trim())
+          input.prompt = prompt;
+        return { falModelId: endpoints.i2v, input };
+      }
+      return {
+        falModelId: endpoints.t2v,
+        input: { prompt, aspect_ratio: aspect(), ...common }
+      };
+    }
+    function hardenHappyHorseProxyInput(falModelId, input) {
+      const spec = exports.HAPPY_HORSE_ENDPOINT_TO_SPEC[falModelId];
+      if (!spec || !input || typeof input !== "object" || Array.isArray(input))
+        return false;
+      delete input.sync_mode;
+      input.duration = normalizeHappyHorseDuration(input.duration);
+      input.resolution = normalizeHappyHorseResolution(input.resolution);
+      if (spec.kind === "i2v") {
+        delete input.aspect_ratio;
+      } else {
+        input.aspect_ratio = normalizeHappyHorseAspectRatio(spec.version, input.aspect_ratio);
+      }
+      if (spec.kind === "r2v") {
+        input.image_urls = toUrlArray(input.image_urls).slice(0, exports.HAPPY_HORSE_MAX_REF_IMAGES);
+      }
+      return true;
+    }
+  }
+});
+
 // ../packages/workflow-contracts/dist/seedance25.js
 var require_seedance25 = __commonJS({
   "../packages/workflow-contracts/dist/seedance25.js"(exports) {
@@ -3355,6 +3831,1592 @@ var require_klingV3Turbo = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/viduQ4.js
+var require_viduQ4 = __commonJS({
+  "../packages/workflow-contracts/dist/viduQ4.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.VIDU_Q4_MISSING_IMAGE_MESSAGE = exports.VIDU_Q4_MILLI_USD_PER_SECOND = exports.VIDU_Q4_ALL_ENDPOINTS = exports.VIDU_Q4_ENDPOINT = exports.VIDU_Q4_MAX_PROMPT_LENGTH = exports.VIDU_Q4_DURATIONS = exports.VIDU_Q4_DEFAULT_DURATION = exports.VIDU_Q4_MAX_DURATION = exports.VIDU_Q4_MIN_DURATION = exports.VIDU_Q4_DEFAULT_RESOLUTION = exports.VIDU_Q4_RESOLUTIONS = void 0;
+    exports.normalizeViduQ4Resolution = normalizeViduQ4Resolution;
+    exports.normalizeViduQ4Duration = normalizeViduQ4Duration;
+    exports.isViduQ4Endpoint = isViduQ4Endpoint;
+    exports.viduQ4CreditCost = viduQ4CreditCost;
+    exports.viduQ4CreditCostFromInputs = viduQ4CreditCostFromInputs;
+    exports.resolveViduQ4StartImage = resolveViduQ4StartImage;
+    exports.buildViduQ4FalRequest = buildViduQ4FalRequest;
+    exports.hardenViduQ4ProxyInput = hardenViduQ4ProxyInput;
+    exports.viduQ4ProxyRefusal = viduQ4ProxyRefusal;
+    exports.VIDU_Q4_RESOLUTIONS = ["720p", "540p", "1080p", "2K", "4K"];
+    exports.VIDU_Q4_DEFAULT_RESOLUTION = "720p";
+    exports.VIDU_Q4_MIN_DURATION = 3;
+    exports.VIDU_Q4_MAX_DURATION = 16;
+    exports.VIDU_Q4_DEFAULT_DURATION = 5;
+    exports.VIDU_Q4_DURATIONS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    exports.VIDU_Q4_MAX_PROMPT_LENGTH = 5e3;
+    exports.VIDU_Q4_ENDPOINT = "fal-ai/vidu/q4/image-to-video";
+    exports.VIDU_Q4_ALL_ENDPOINTS = [exports.VIDU_Q4_ENDPOINT];
+    exports.VIDU_Q4_MILLI_USD_PER_SECOND = {
+      "540p": 45,
+      "720p": 95,
+      "1080p": 120,
+      "2K": 190,
+      "4K": 390
+    };
+    exports.VIDU_Q4_MISSING_IMAGE_MESSAGE = "Vidu Q4 n\xE9cessite une image en entr\xE9e (image de d\xE9part) : image \u2192 vid\xE9o seulement, ni texte seul ni r\xE9f\xE9rences.";
+    var RESOLUTION_SET = new Set(exports.VIDU_Q4_RESOLUTIONS);
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    var toUrlArray = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string" && v.trim())
+          out.push(v.trim());
+        else if (Array.isArray(v))
+          v.forEach(push);
+      };
+      push(value);
+      return Array.from(new Set(out));
+    };
+    var readAlias = (inputs, keys) => {
+      for (const key of keys) {
+        const v = inputs[key];
+        if (v !== void 0 && v !== null && v !== "")
+          return v;
+      }
+      return void 0;
+    };
+    var START_KEYS = ["image_url", "start_image", "start_image_url"];
+    function normalizeViduQ4Resolution(raw) {
+      if (typeof raw !== "string")
+        return exports.VIDU_Q4_DEFAULT_RESOLUTION;
+      const value = raw.trim();
+      return RESOLUTION_SET.has(value) ? value : exports.VIDU_Q4_DEFAULT_RESOLUTION;
+    }
+    function normalizeViduQ4Duration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.VIDU_Q4_DEFAULT_DURATION;
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.VIDU_Q4_DEFAULT_DURATION;
+      return Math.min(exports.VIDU_Q4_MAX_DURATION, Math.max(exports.VIDU_Q4_MIN_DURATION, Math.trunc(parsed)));
+    }
+    function isViduQ4Endpoint(falModelId) {
+      return falModelId === exports.VIDU_Q4_ENDPOINT;
+    }
+    function viduQ4CreditCost(params) {
+      const resolution = normalizeViduQ4Resolution(params.resolution);
+      const seconds = normalizeViduQ4Duration(params.duration);
+      return Math.ceil(exports.VIDU_Q4_MILLI_USD_PER_SECOND[resolution] * seconds / 10);
+    }
+    function viduQ4CreditCostFromInputs(inputs) {
+      return viduQ4CreditCost({ resolution: inputs.resolution, duration: inputs.duration });
+    }
+    function resolveViduQ4StartImage(params) {
+      const named = toUrlArray(readAlias(params.dynamicInputs ?? {}, START_KEYS))[0];
+      return named ?? toUrlArray(params.imageUrls)[0];
+    }
+    var optionalSeed = (raw) => {
+      if (raw === void 0 || raw === null || raw === "")
+        return void 0;
+      const seed = Number(raw);
+      return Number.isFinite(seed) ? Math.trunc(seed) : void 0;
+    };
+    function buildViduQ4FalRequest(params) {
+      const { prompt, imageUrls, resolution, dynamicInputs = {} } = params;
+      const start = resolveViduQ4StartImage({ imageUrls, dynamicInputs });
+      if (!start)
+        throw refusal(exports.VIDU_Q4_MISSING_IMAGE_MESSAGE);
+      const input = {
+        duration: normalizeViduQ4Duration(dynamicInputs.duration),
+        resolution: normalizeViduQ4Resolution(resolution ?? dynamicInputs.resolution)
+      };
+      const text = typeof prompt === "string" ? prompt.trim() : "";
+      if (text)
+        input.prompt = prompt;
+      const seed = optionalSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      return { falModelId: exports.VIDU_Q4_ENDPOINT, input: { ...input, image_url: start } };
+    }
+    function hardenViduQ4ProxyInput(falModelId, input) {
+      if (!isViduQ4Endpoint(falModelId) || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      input.duration = normalizeViduQ4Duration(input.duration);
+      input.resolution = normalizeViduQ4Resolution(input.resolution);
+      const start = toUrlArray(input.image_url)[0];
+      if (start)
+        input.image_url = start;
+      else
+        delete input.image_url;
+      delete input.sync_mode;
+      delete input.aspect_ratio;
+      delete input.audio;
+      delete input.reference_image_urls;
+      delete input.reference_audio_urls;
+      return input;
+    }
+    function viduQ4ProxyRefusal(falModelId, input) {
+      if (!isViduQ4Endpoint(falModelId))
+        return null;
+      if (!input || typeof input !== "object" || Array.isArray(input))
+        return exports.VIDU_Q4_MISSING_IMAGE_MESSAGE;
+      return toUrlArray(input.image_url)[0] ? null : exports.VIDU_Q4_MISSING_IMAGE_MESSAGE;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/kandinsky6.js
+var require_kandinsky6 = __commonJS({
+  "../packages/workflow-contracts/dist/kandinsky6.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.KANDINSKY6_IMAGE_KEYS = exports.isKandinsky6ModelId = exports.KANDINSKY6_CENTS = exports.KANDINSKY6_ALL_ENDPOINTS = exports.KANDINSKY6_ENDPOINTS = exports.KANDINSKY6_T2V_DEFAULT_ASPECT = exports.KANDINSKY6_ASPECTS = exports.KANDINSKY6_T2V_ASPECTS = exports.KANDINSKY6_STEPS = exports.KANDINSKY6_DURATIONS = exports.KANDINSKY6_DURATION_SECONDS = exports.KANDINSKY6_UPSCALE_FACTOR = exports.KANDINSKY6_DEFAULT_RESOLUTION = exports.KANDINSKY6_RESOLUTIONS = exports.KANDINSKY6_MODEL_ID = void 0;
+    exports.isKandinsky6Endpoint = isKandinsky6Endpoint;
+    exports.kandinsky6KindFromEndpoint = kandinsky6KindFromEndpoint;
+    exports.normalizeKandinsky6Resolution = normalizeKandinsky6Resolution;
+    exports.kandinsky6ResolutionFromUpscale = kandinsky6ResolutionFromUpscale;
+    exports.kandinsky6CreditCost = kandinsky6CreditCost;
+    exports.resolveKandinsky6StartImage = resolveKandinsky6StartImage;
+    exports.resolveKandinsky6Kind = resolveKandinsky6Kind;
+    exports.kandinsky6CreditCostFromInputs = kandinsky6CreditCostFromInputs;
+    exports.kandinsky6BaseCost = kandinsky6BaseCost;
+    exports.normalizeKandinsky6AspectRatio = normalizeKandinsky6AspectRatio;
+    exports.buildKandinsky6FalRequest = buildKandinsky6FalRequest;
+    exports.hardenKandinsky6ProxyInput = hardenKandinsky6ProxyInput;
+    exports.KANDINSKY6_MODEL_ID = "kandinsky-6-lite-video";
+    exports.KANDINSKY6_RESOLUTIONS = ["480p", "1080p", "4K"];
+    exports.KANDINSKY6_DEFAULT_RESOLUTION = "480p";
+    exports.KANDINSKY6_UPSCALE_FACTOR = {
+      "480p": null,
+      "1080p": 2.25,
+      "4K": 4
+    };
+    exports.KANDINSKY6_DURATION_SECONDS = 5;
+    exports.KANDINSKY6_DURATIONS = [exports.KANDINSKY6_DURATION_SECONDS];
+    exports.KANDINSKY6_STEPS = 10;
+    exports.KANDINSKY6_T2V_ASPECTS = ["16:9", "9:16", "1:1", "4:3", "3:4"];
+    exports.KANDINSKY6_ASPECTS = ["auto", ...exports.KANDINSKY6_T2V_ASPECTS];
+    exports.KANDINSKY6_T2V_DEFAULT_ASPECT = "16:9";
+    exports.KANDINSKY6_ENDPOINTS = {
+      t2v: "fal-ai/kandinsky6-lite/text-to-video",
+      i2v: "fal-ai/kandinsky6-lite/image-to-video"
+    };
+    exports.KANDINSKY6_ALL_ENDPOINTS = [exports.KANDINSKY6_ENDPOINTS.t2v, exports.KANDINSKY6_ENDPOINTS.i2v];
+    exports.KANDINSKY6_CENTS = {
+      t2v: { "480p": 16, "1080p": 32, "4K": 65 },
+      i2v: { "480p": 17, "1080p": 34, "4K": 69 }
+    };
+    var RESOLUTION_RANK = { "480p": 0, "1080p": 1, "4K": 2 };
+    var RESOLUTION_SET = new Set(exports.KANDINSKY6_RESOLUTIONS);
+    var T2V_ASPECT_SET = new Set(exports.KANDINSKY6_T2V_ASPECTS);
+    var isKandinsky6ModelId = (modelId) => modelId === exports.KANDINSKY6_MODEL_ID;
+    exports.isKandinsky6ModelId = isKandinsky6ModelId;
+    function isKandinsky6Endpoint(falModelId) {
+      return typeof falModelId === "string" && exports.KANDINSKY6_ALL_ENDPOINTS.includes(falModelId);
+    }
+    function kandinsky6KindFromEndpoint(falModelId) {
+      if (!isKandinsky6Endpoint(falModelId))
+        return void 0;
+      return falModelId.endsWith("/image-to-video") ? "i2v" : "t2v";
+    }
+    function normalizeKandinsky6Resolution(raw) {
+      if (typeof raw !== "string")
+        return exports.KANDINSKY6_DEFAULT_RESOLUTION;
+      const value = raw.trim();
+      return RESOLUTION_SET.has(value) ? value : exports.KANDINSKY6_DEFAULT_RESOLUTION;
+    }
+    function kandinsky6ResolutionFromUpscale(raw) {
+      if (raw === void 0 || raw === null || raw === "")
+        return "480p";
+      const n = Number(raw);
+      if (n === 4)
+        return "4K";
+      if (n === 2 || n === 2.25)
+        return "1080p";
+      return "480p";
+    }
+    function kandinsky6CreditCost(params) {
+      const fromLabel = normalizeKandinsky6Resolution(params.resolution);
+      const fromFactor = kandinsky6ResolutionFromUpscale(params.upscaleFactor);
+      const resolution = RESOLUTION_RANK[fromFactor] > RESOLUTION_RANK[fromLabel] ? fromFactor : fromLabel;
+      return exports.KANDINSKY6_CENTS[params.kind][resolution];
+    }
+    exports.KANDINSKY6_IMAGE_KEYS = [
+      "start_image",
+      "start_image_url",
+      "image_url",
+      "image_urls",
+      "image",
+      "images",
+      "reference_image_urls",
+      "reference_image_url",
+      "reference_images",
+      "reference_image",
+      "image_style_references",
+      "end_image",
+      "end_image_url"
+    ];
+    var NAMED_START_KEYS = ["start_image", "start_image_url", "image_url"];
+    var imageUrlsOf = (value) => {
+      const out = [];
+      const push = (v, depth) => {
+        if (depth > 4)
+          return;
+        if (typeof v === "string" && v.trim())
+          out.push(v.trim());
+        else if (Array.isArray(v))
+          v.forEach((x) => push(x, depth + 1));
+        else if (v && typeof v === "object") {
+          const record = v;
+          push(record.image_url, depth + 1);
+          push(record.url, depth + 1);
+        }
+      };
+      push(value, 0);
+      return Array.from(new Set(out));
+    };
+    function resolveKandinsky6StartImage(params) {
+      const inputs = params.inputs ?? {};
+      for (const key of NAMED_START_KEYS) {
+        const url = imageUrlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      const positional = imageUrlsOf(params.imageUrls)[0];
+      if (positional)
+        return positional;
+      for (const key of exports.KANDINSKY6_IMAGE_KEYS) {
+        const url = imageUrlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      return void 0;
+    }
+    function resolveKandinsky6Kind(params) {
+      return resolveKandinsky6StartImage(params) ? "i2v" : "t2v";
+    }
+    function kandinsky6CreditCostFromInputs(inputs) {
+      const fromSlug = kandinsky6KindFromEndpoint(inputs.falModelId);
+      const kind = fromSlug ?? resolveKandinsky6Kind({ imageUrls: inputs.imageUrls, inputs });
+      return kandinsky6CreditCost({
+        kind,
+        resolution: inputs.resolution,
+        upscaleFactor: fromSlug ? inputs.upscale_factor : void 0
+      });
+    }
+    function kandinsky6BaseCost() {
+      return exports.KANDINSKY6_CENTS.i2v["480p"];
+    }
+    var optionalSeed = (raw) => {
+      if (raw === void 0 || raw === null || raw === "")
+        return void 0;
+      const seed = Number(raw);
+      return Number.isFinite(seed) ? Math.trunc(seed) : void 0;
+    };
+    function normalizeKandinsky6AspectRatio(raw, kind) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      if (T2V_ASPECT_SET.has(value))
+        return value;
+      return kind === "i2v" ? "auto" : exports.KANDINSKY6_T2V_DEFAULT_ASPECT;
+    }
+    function buildKandinsky6FalRequest(params) {
+      const { prompt, imageUrls, resolution, aspectRatio, dynamicInputs = {} } = params;
+      const start = resolveKandinsky6StartImage({ imageUrls, inputs: dynamicInputs });
+      const kind = start ? "i2v" : "t2v";
+      const billed = normalizeKandinsky6Resolution(resolution ?? dynamicInputs.resolution);
+      const factor = exports.KANDINSKY6_UPSCALE_FACTOR[billed];
+      const audioRaw = dynamicInputs.generate_audio;
+      const input = {
+        prompt,
+        aspect_ratio: normalizeKandinsky6AspectRatio(aspectRatio ?? dynamicInputs.aspect_ratio, kind),
+        generate_audio: !(audioRaw === false || audioRaw === "false"),
+        num_inference_steps: exports.KANDINSKY6_STEPS
+      };
+      if (factor !== null)
+        input.upscale_factor = factor;
+      const seed = optionalSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      if (kind === "i2v")
+        input.image_url = start;
+      return { falModelId: exports.KANDINSKY6_ENDPOINTS[kind], input };
+    }
+    function hardenKandinsky6ProxyInput(falModelId, input) {
+      const kind = kandinsky6KindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      input.num_inference_steps = exports.KANDINSKY6_STEPS;
+      const factor = exports.KANDINSKY6_UPSCALE_FACTOR[kandinsky6ResolutionFromUpscale(input.upscale_factor)];
+      if (factor === null)
+        delete input.upscale_factor;
+      else
+        input.upscale_factor = factor;
+      input.aspect_ratio = normalizeKandinsky6AspectRatio(input.aspect_ratio, kind);
+      if (input.generate_audio !== void 0)
+        input.generate_audio = !(input.generate_audio === false || input.generate_audio === "false");
+      delete input.sync_mode;
+      delete input.enable_prompt_expansion;
+      delete input.guidance_scale;
+      delete input.negative_prompt;
+      if (kind === "t2v")
+        delete input.image_url;
+      return input;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/lumaRay32.js
+var require_lumaRay32 = __commonJS({
+  "../packages/workflow-contracts/dist/lumaRay32.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.LUMA_RAY32_IMAGE_KEYS = exports.LUMA_RAY32_USD_CENTS = exports.LUMA_RAY32_ALL_ENDPOINTS = exports.LUMA_RAY32_ENDPOINTS = exports.LUMA_RAY32_MAX_PROMPT_LENGTH = exports.LUMA_RAY32_DEFAULT_ASPECT = exports.LUMA_RAY32_ASPECTS = exports.LUMA_RAY32_DEFAULT_DURATION = exports.LUMA_RAY32_I2V_DURATIONS = exports.LUMA_RAY32_DURATIONS = exports.LUMA_RAY32_DEFAULT_RESOLUTION = exports.LUMA_RAY32_RESOLUTIONS = void 0;
+    exports.normalizeLumaRay32Resolution = normalizeLumaRay32Resolution;
+    exports.normalizeLumaRay32Duration = normalizeLumaRay32Duration;
+    exports.lumaRay32BilledDuration = lumaRay32BilledDuration;
+    exports.lumaRay32SentDuration = lumaRay32SentDuration;
+    exports.normalizeLumaRay32AspectRatio = normalizeLumaRay32AspectRatio;
+    exports.isLumaRay32Endpoint = isLumaRay32Endpoint;
+    exports.lumaRay32KindFromEndpoint = lumaRay32KindFromEndpoint;
+    exports.lumaRay32CreditCost = lumaRay32CreditCost;
+    exports.lumaRay32Frames = lumaRay32Frames;
+    exports.lumaRay32KindFromInputs = lumaRay32KindFromInputs;
+    exports.lumaRay32BuilderInputs = lumaRay32BuilderInputs;
+    exports.resolveLumaRay32Frames = resolveLumaRay32Frames;
+    exports.buildLumaRay32FalRequest = buildLumaRay32FalRequest;
+    exports.hardenLumaRay32ProxyInput = hardenLumaRay32ProxyInput;
+    exports.LUMA_RAY32_RESOLUTIONS = ["540p", "720p", "1080p"];
+    exports.LUMA_RAY32_DEFAULT_RESOLUTION = "540p";
+    exports.LUMA_RAY32_DURATIONS = [5, 10];
+    exports.LUMA_RAY32_I2V_DURATIONS = [5];
+    exports.LUMA_RAY32_DEFAULT_DURATION = 5;
+    exports.LUMA_RAY32_ASPECTS = ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"];
+    exports.LUMA_RAY32_DEFAULT_ASPECT = "16:9";
+    exports.LUMA_RAY32_MAX_PROMPT_LENGTH = 6e3;
+    exports.LUMA_RAY32_ENDPOINTS = {
+      t2v: "luma/agent/ray/v3.2/text-to-video",
+      i2v: "luma/agent/ray/v3.2/image-to-video"
+    };
+    exports.LUMA_RAY32_ALL_ENDPOINTS = [exports.LUMA_RAY32_ENDPOINTS.t2v, exports.LUMA_RAY32_ENDPOINTS.i2v];
+    exports.LUMA_RAY32_USD_CENTS = {
+      t2v: {
+        5: { "540p": 50, "720p": 100, "1080p": 200 },
+        10: { "540p": 100, "720p": 200, "1080p": 400 }
+      },
+      i2v: {
+        5: { "540p": 15, "720p": 30, "1080p": 120 }
+      }
+    };
+    var ASPECT_SET = new Set(exports.LUMA_RAY32_ASPECTS);
+    function normalizeLumaRay32Resolution(raw) {
+      return typeof raw === "string" && exports.LUMA_RAY32_RESOLUTIONS.includes(raw) ? raw : exports.LUMA_RAY32_DEFAULT_RESOLUTION;
+    }
+    function normalizeLumaRay32Duration(raw) {
+      if (raw === void 0 || raw === null || raw === "")
+        return exports.LUMA_RAY32_DEFAULT_DURATION;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.LUMA_RAY32_DEFAULT_DURATION;
+      return parsed <= 5 ? 5 : 10;
+    }
+    function lumaRay32BilledDuration(kind, raw) {
+      return kind === "i2v" ? 5 : normalizeLumaRay32Duration(raw);
+    }
+    function lumaRay32SentDuration(kind, raw) {
+      return `${lumaRay32BilledDuration(kind, raw)}s`;
+    }
+    function normalizeLumaRay32AspectRatio(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return ASPECT_SET.has(value) ? value : exports.LUMA_RAY32_DEFAULT_ASPECT;
+    }
+    function isLumaRay32Endpoint(falModelId) {
+      return typeof falModelId === "string" && exports.LUMA_RAY32_ALL_ENDPOINTS.includes(falModelId);
+    }
+    function lumaRay32KindFromEndpoint(falModelId) {
+      if (!isLumaRay32Endpoint(falModelId))
+        return void 0;
+      return falModelId === exports.LUMA_RAY32_ENDPOINTS.i2v ? "i2v" : "t2v";
+    }
+    function lumaRay32CreditCost(params) {
+      const resolution = normalizeLumaRay32Resolution(params.resolution);
+      const duration = lumaRay32BilledDuration(params.kind, params.duration);
+      const row = exports.LUMA_RAY32_USD_CENTS[params.kind][duration];
+      if (!row)
+        throw new Error(`Luma Ray 3.2 : aucun tarif pour ${params.kind} ${duration} s`);
+      return row[resolution];
+    }
+    exports.LUMA_RAY32_IMAGE_KEYS = [
+      "image_urls",
+      "image_url",
+      "image",
+      "images",
+      "reference_image_urls",
+      "reference_image_url",
+      "reference_images",
+      "reference_image",
+      "image_style_references",
+      "start_image",
+      "start_image_url",
+      "end_image",
+      "end_image_url"
+    ];
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach(push);
+        } else if (v && typeof v === "object") {
+          const record = v;
+          push(record.image_url);
+          push(record.url);
+        }
+      };
+      push(value);
+      return out;
+    };
+    var firstOf = (inputs, keys) => {
+      for (const key of keys) {
+        const url = urlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      return void 0;
+    };
+    function lumaRay32Frames(inputs) {
+      const namedStart = firstOf(inputs, ["start_image", "start_image_url", "image_url"]);
+      const namedEnd = firstOf(inputs, ["end_image", "end_image_url"]);
+      const positional = Array.from(/* @__PURE__ */ new Set([...urlsOf(inputs.image_urls), ...urlsOf(inputs.image)]));
+      const anyImage = firstOf(inputs, exports.LUMA_RAY32_IMAGE_KEYS);
+      const start = namedStart ?? positional[0] ?? namedEnd ?? anyImage;
+      if (!start)
+        return {};
+      const named = namedStart !== void 0 || namedEnd !== void 0;
+      const end = named ? namedEnd : positional[1];
+      return { start, end: end && end !== start ? end : void 0 };
+    }
+    function lumaRay32KindFromInputs(inputs) {
+      return lumaRay32Frames(inputs).start ? "i2v" : "t2v";
+    }
+    function lumaRay32BuilderInputs(params) {
+      const { imageUrls = [], dynamicInputs = {} } = params;
+      return {
+        ...dynamicInputs,
+        image_urls: Array.from(/* @__PURE__ */ new Set([...urlsOf(imageUrls), ...urlsOf(dynamicInputs.image_urls)]))
+      };
+    }
+    function resolveLumaRay32Frames(params) {
+      return lumaRay32Frames(lumaRay32BuilderInputs(params));
+    }
+    function buildLumaRay32FalRequest(params) {
+      const { prompt, imageUrls, resolution, aspectRatio, dynamicInputs = {} } = params;
+      const flat = lumaRay32BuilderInputs({ imageUrls, dynamicInputs });
+      const frames = lumaRay32Frames(flat);
+      const kind = lumaRay32KindFromInputs(flat);
+      const input = {
+        prompt: typeof prompt === "string" ? prompt : "",
+        aspect_ratio: normalizeLumaRay32AspectRatio(aspectRatio ?? dynamicInputs.aspect_ratio),
+        resolution: normalizeLumaRay32Resolution(resolution ?? dynamicInputs.resolution),
+        duration: lumaRay32SentDuration(kind, dynamicInputs.duration)
+      };
+      if (kind === "i2v") {
+        input.image_url = frames.start;
+        if (frames.end)
+          input.end_image_url = frames.end;
+      }
+      return { falModelId: exports.LUMA_RAY32_ENDPOINTS[kind], input };
+    }
+    var LUMA_RAY32_STRIPPED_FIELDS = [
+      "hdr",
+      "exr_export",
+      "keyframes",
+      "keyframe_indexes",
+      "loop",
+      "enable_safety_checker",
+      "sync_mode"
+    ];
+    function hardenLumaRay32ProxyInput(falModelId, input) {
+      const kind = lumaRay32KindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      for (const key of LUMA_RAY32_STRIPPED_FIELDS)
+        delete input[key];
+      input.resolution = normalizeLumaRay32Resolution(input.resolution);
+      input.duration = lumaRay32SentDuration(kind, input.duration);
+      input.aspect_ratio = normalizeLumaRay32AspectRatio(input.aspect_ratio);
+      if (kind === "t2v") {
+        delete input.image_url;
+        delete input.end_image_url;
+      }
+      return input;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/berniniR.js
+var require_berniniR = __commonJS({
+  "../packages/workflow-contracts/dist/berniniR.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.BERNINI_R_CENTS_PER_SECOND = exports.BERNINI_R_ALL_ENDPOINTS = exports.BERNINI_R_ENDPOINTS = exports.BERNINI_R_DEFAULT_ASPECT = exports.BERNINI_R_ASPECTS = exports.BERNINI_R_SEED_MAX = exports.BERNINI_R_MAX_REFERENCE_IMAGES = exports.BERNINI_R_DEFAULT_DURATION = exports.BERNINI_R_MAX_DURATION = exports.BERNINI_R_MIN_DURATION = exports.BERNINI_R_DURATIONS = exports.BERNINI_R_DEFAULT_FRAMES = exports.BERNINI_R_MAX_FRAMES = exports.BERNINI_R_MIN_FRAMES = exports.BERNINI_R_MAX_FPS = exports.BERNINI_R_MIN_FPS = exports.BERNINI_R_FPS = exports.BERNINI_R_DEFAULT_IMAGE_SIZE = exports.BERNINI_R_MAX_IMAGE_SIZE_PX = exports.BERNINI_R_MIN_IMAGE_SIZE = exports.BERNINI_R_MAX_IMAGE_SIZE = exports.BERNINI_R_DEFAULT_RESOLUTION = exports.BERNINI_R_RESOLUTIONS = void 0;
+    exports.normalizeBerniniRResolution = normalizeBerniniRResolution;
+    exports.normalizeBerniniRDuration = normalizeBerniniRDuration;
+    exports.berniniRNumFrames = berniniRNumFrames;
+    exports.normalizeBerniniRAspectRatio = normalizeBerniniRAspectRatio;
+    exports.berniniRCentsPerSecond = berniniRCentsPerSecond;
+    exports.isBerniniREndpoint = isBerniniREndpoint;
+    exports.berniniRKindFromEndpoint = berniniRKindFromEndpoint;
+    exports.berniniRPayloadImageSize = berniniRPayloadImageSize;
+    exports.berniniRPayloadSeconds = berniniRPayloadSeconds;
+    exports.berniniRCreditCost = berniniRCreditCost;
+    exports.berniniRCreditCostFromInputs = berniniRCreditCostFromInputs;
+    exports.collectBerniniRReferences = collectBerniniRReferences;
+    exports.buildBerniniRFalRequest = buildBerniniRFalRequest;
+    exports.hardenBerniniRProxyInput = hardenBerniniRProxyInput;
+    exports.BERNINI_R_RESOLUTIONS = ["480p", "720p"];
+    exports.BERNINI_R_DEFAULT_RESOLUTION = "480p";
+    exports.BERNINI_R_MAX_IMAGE_SIZE = {
+      "480p": 848,
+      "720p": 1280
+    };
+    exports.BERNINI_R_MIN_IMAGE_SIZE = 256;
+    exports.BERNINI_R_MAX_IMAGE_SIZE_PX = 1280;
+    exports.BERNINI_R_DEFAULT_IMAGE_SIZE = 848;
+    exports.BERNINI_R_FPS = 16;
+    exports.BERNINI_R_MIN_FPS = 4;
+    exports.BERNINI_R_MAX_FPS = 30;
+    exports.BERNINI_R_MIN_FRAMES = 5;
+    exports.BERNINI_R_MAX_FRAMES = 121;
+    exports.BERNINI_R_DEFAULT_FRAMES = 81;
+    exports.BERNINI_R_DURATIONS = [2, 3, 4, 5, 6, 7];
+    exports.BERNINI_R_MIN_DURATION = 2;
+    exports.BERNINI_R_MAX_DURATION = 7;
+    exports.BERNINI_R_DEFAULT_DURATION = 5;
+    exports.BERNINI_R_MAX_REFERENCE_IMAGES = 5;
+    exports.BERNINI_R_SEED_MAX = 2147483647;
+    exports.BERNINI_R_ASPECTS = ["16:9", "9:16", "1:1"];
+    exports.BERNINI_R_DEFAULT_ASPECT = "16:9";
+    exports.BERNINI_R_ENDPOINTS = {
+      t2v: "fal-ai/bernini-r/text-to-video",
+      r2v: "fal-ai/bernini-r/reference-to-video"
+    };
+    exports.BERNINI_R_ALL_ENDPOINTS = [exports.BERNINI_R_ENDPOINTS.t2v, exports.BERNINI_R_ENDPOINTS.r2v];
+    exports.BERNINI_R_CENTS_PER_SECOND = { upTo576: 4, upTo848: 8, upTo1280: 16 };
+    var ASPECT_SET = new Set(exports.BERNINI_R_ASPECTS);
+    var isBlank = (value) => value === void 0 || value === null || value === "";
+    var toUrlArray = (value) => {
+      const collected = [];
+      const push = (v) => {
+        if (typeof v === "string" && v.trim())
+          collected.push(v.trim());
+        else if (Array.isArray(v))
+          v.forEach(push);
+      };
+      push(value);
+      return collected;
+    };
+    function normalizeBerniniRResolution(raw) {
+      return typeof raw === "string" && exports.BERNINI_R_RESOLUTIONS.includes(raw) ? raw : exports.BERNINI_R_DEFAULT_RESOLUTION;
+    }
+    function normalizeBerniniRDuration(raw) {
+      if (isBlank(raw) || raw === "auto")
+        return exports.BERNINI_R_DEFAULT_DURATION;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.BERNINI_R_DEFAULT_DURATION;
+      return Math.min(exports.BERNINI_R_MAX_DURATION, Math.max(exports.BERNINI_R_MIN_DURATION, Math.ceil(parsed)));
+    }
+    function berniniRNumFrames(seconds) {
+      return exports.BERNINI_R_FPS * normalizeBerniniRDuration(seconds) - 3;
+    }
+    function normalizeBerniniRAspectRatio(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return ASPECT_SET.has(value) ? value : exports.BERNINI_R_DEFAULT_ASPECT;
+    }
+    function berniniRCentsPerSecond(size) {
+      if (size <= 576)
+        return exports.BERNINI_R_CENTS_PER_SECOND.upTo576;
+      if (size <= 848)
+        return exports.BERNINI_R_CENTS_PER_SECOND.upTo848;
+      return exports.BERNINI_R_CENTS_PER_SECOND.upTo1280;
+    }
+    function isBerniniREndpoint(falModelId) {
+      return typeof falModelId === "string" && exports.BERNINI_R_ALL_ENDPOINTS.includes(falModelId);
+    }
+    function berniniRKindFromEndpoint(falModelId) {
+      if (!isBerniniREndpoint(falModelId))
+        return void 0;
+      return falModelId === exports.BERNINI_R_ENDPOINTS.r2v ? "r2v" : "t2v";
+    }
+    var finiteNumber = (raw) => {
+      if (isBlank(raw) || typeof raw === "boolean")
+        return void 0;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : void 0;
+    };
+    function berniniRPayloadImageSize(raw) {
+      if (isBlank(raw))
+        return exports.BERNINI_R_DEFAULT_IMAGE_SIZE;
+      const n = finiteNumber(raw);
+      if (n === void 0)
+        return exports.BERNINI_R_MAX_IMAGE_SIZE_PX;
+      return Math.min(exports.BERNINI_R_MAX_IMAGE_SIZE_PX, Math.max(exports.BERNINI_R_MIN_IMAGE_SIZE, n));
+    }
+    function berniniRPayloadSeconds(numFrames, fps) {
+      const frames = isBlank(numFrames) ? exports.BERNINI_R_DEFAULT_FRAMES : finiteNumber(numFrames) ?? exports.BERNINI_R_MAX_FRAMES;
+      const rate = isBlank(fps) ? exports.BERNINI_R_FPS : finiteNumber(fps) ?? exports.BERNINI_R_MIN_FPS;
+      const boundedFrames = Math.min(exports.BERNINI_R_MAX_FRAMES, Math.max(exports.BERNINI_R_MIN_FRAMES, frames));
+      const boundedRate = Math.min(exports.BERNINI_R_MAX_FPS, Math.max(exports.BERNINI_R_MIN_FPS, rate));
+      return Math.ceil(boundedFrames / boundedRate);
+    }
+    function berniniRCreditCost(params) {
+      return Math.ceil(berniniRCentsPerSecond(params.imageSize) * params.seconds);
+    }
+    function berniniRCreditCostFromInputs(inputs) {
+      if (typeof inputs.falModelId === "string" && inputs.falModelId.length > 0) {
+        return berniniRCreditCost({
+          imageSize: berniniRPayloadImageSize(inputs.max_image_size),
+          seconds: berniniRPayloadSeconds(inputs.num_frames, inputs.frames_per_second)
+        });
+      }
+      return berniniRCreditCost({
+        imageSize: exports.BERNINI_R_MAX_IMAGE_SIZE[normalizeBerniniRResolution(inputs.resolution)],
+        seconds: normalizeBerniniRDuration(inputs.duration)
+      });
+    }
+    function collectBerniniRReferences(params) {
+      const { imageUrls = [], dynamicInputs = {} } = params;
+      const all = [
+        ...toUrlArray(dynamicInputs.reference_image_urls),
+        ...toUrlArray(dynamicInputs.reference_images),
+        ...toUrlArray(dynamicInputs.reference_image),
+        ...toUrlArray(dynamicInputs.reference_image_url),
+        ...toUrlArray(imageUrls)
+      ];
+      return Array.from(new Set(all)).slice(0, exports.BERNINI_R_MAX_REFERENCE_IMAGES);
+    }
+    function optionalSeed(raw) {
+      const n = finiteNumber(raw);
+      if (n === void 0)
+        return void 0;
+      const seed = Math.trunc(n);
+      return seed >= 0 && seed <= exports.BERNINI_R_SEED_MAX ? seed : void 0;
+    }
+    function buildBerniniRFalRequest(params) {
+      const { prompt, imageUrls, resolution, aspectRatio, dynamicInputs = {} } = params;
+      const references = collectBerniniRReferences({ imageUrls, dynamicInputs });
+      const input = {
+        prompt: typeof prompt === "string" ? prompt : "",
+        aspect_ratio: normalizeBerniniRAspectRatio(aspectRatio ?? dynamicInputs.aspect_ratio),
+        max_image_size: exports.BERNINI_R_MAX_IMAGE_SIZE[normalizeBerniniRResolution(resolution ?? dynamicInputs.resolution)],
+        num_frames: berniniRNumFrames(normalizeBerniniRDuration(dynamicInputs.duration)),
+        frames_per_second: exports.BERNINI_R_FPS
+      };
+      const seed = optionalSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      if (typeof dynamicInputs.negative_prompt === "string" && dynamicInputs.negative_prompt.trim()) {
+        input.negative_prompt = dynamicInputs.negative_prompt;
+      }
+      if (references.length > 0) {
+        return { falModelId: exports.BERNINI_R_ENDPOINTS.r2v, input: { ...input, reference_image_urls: references } };
+      }
+      return { falModelId: exports.BERNINI_R_ENDPOINTS.t2v, input };
+    }
+    var BERNINI_R_STRIPPED_FIELDS = [
+      "num_inference_steps",
+      "acceleration",
+      "enable_prompt_expansion",
+      "enable_safety_checker",
+      "sync_mode"
+    ];
+    function hardenBerniniRProxyInput(falModelId, input) {
+      const kind = berniniRKindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      for (const key of BERNINI_R_STRIPPED_FIELDS)
+        delete input[key];
+      const size = berniniRPayloadImageSize(input.max_image_size);
+      input.max_image_size = size <= 848 ? 848 : 1280;
+      const requestedFrames = isBlank(input.num_frames) ? exports.BERNINI_R_DEFAULT_FRAMES : finiteNumber(input.num_frames) ?? exports.BERNINI_R_MAX_FRAMES;
+      const seconds = normalizeBerniniRDuration(Math.ceil((Math.max(exports.BERNINI_R_MIN_FRAMES, requestedFrames) + 3) / exports.BERNINI_R_FPS));
+      input.num_frames = berniniRNumFrames(seconds);
+      input.frames_per_second = exports.BERNINI_R_FPS;
+      input.aspect_ratio = normalizeBerniniRAspectRatio(input.aspect_ratio);
+      if (kind === "r2v") {
+        const refs = Array.from(new Set(toUrlArray(input.reference_image_urls))).slice(0, exports.BERNINI_R_MAX_REFERENCE_IMAGES);
+        input.reference_image_urls = refs;
+      } else {
+        delete input.reference_image_urls;
+      }
+      return input;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/pixverseC1.js
+var require_pixverseC1 = __commonJS({
+  "../packages/workflow-contracts/dist/pixverseC1.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.PIXVERSE_C1_END_WITHOUT_START_MESSAGE = exports.PIXVERSE_C1_MILLI_USD_PER_SECOND = exports.PIXVERSE_C1_SEED_MAX = exports.PIXVERSE_C1_MAX_PROMPT_BYTES = exports.pixverseC1ReferenceName = exports.PIXVERSE_C1_MAX_REFERENCES = exports.PIXVERSE_C1_DEFAULT_ASPECT = exports.PIXVERSE_C1_ASPECTS = exports.PIXVERSE_C1_DURATIONS = exports.PIXVERSE_C1_DEFAULT_DURATION = exports.PIXVERSE_C1_MAX_DURATION = exports.PIXVERSE_C1_MIN_DURATION = exports.PIXVERSE_C1_DEFAULT_RESOLUTION = exports.PIXVERSE_C1_RESOLUTIONS = exports.PIXVERSE_C1_ALL_ENDPOINTS = exports.PIXVERSE_C1_ENDPOINT_TO_KIND = exports.PIXVERSE_C1_ENDPOINTS = exports.PIXVERSE_C1_MODEL_ID = void 0;
+    exports.isPixverseC1Endpoint = isPixverseC1Endpoint;
+    exports.pixverseC1KindFromEndpoint = pixverseC1KindFromEndpoint;
+    exports.normalizePixverseC1Resolution = normalizePixverseC1Resolution;
+    exports.normalizePixverseC1Duration = normalizePixverseC1Duration;
+    exports.normalizePixverseC1AspectRatio = normalizePixverseC1AspectRatio;
+    exports.pixverseC1AudioEnabled = pixverseC1AudioEnabled;
+    exports.pixverseC1CreditCost = pixverseC1CreditCost;
+    exports.pixverseC1CreditCostFromInputs = pixverseC1CreditCostFromInputs;
+    exports.pixverseC1PromptBytes = pixverseC1PromptBytes;
+    exports.clampPixverseC1Prompt = clampPixverseC1Prompt;
+    exports.resolvePixverseC1Media = resolvePixverseC1Media;
+    exports.resolvePixverseC1Kind = resolvePixverseC1Kind;
+    exports.buildPixverseC1FalRequest = buildPixverseC1FalRequest;
+    exports.hardenPixverseC1ProxyInput = hardenPixverseC1ProxyInput;
+    exports.pixverseC1ProxyRefusal = pixverseC1ProxyRefusal;
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.PIXVERSE_C1_MODEL_ID = "pixverse-c1-video";
+    exports.PIXVERSE_C1_ENDPOINTS = {
+      t2v: "fal-ai/pixverse/c1/text-to-video",
+      i2v: "fal-ai/pixverse/c1/image-to-video",
+      transition: "fal-ai/pixverse/c1/transition",
+      r2v: "fal-ai/pixverse/c1/reference-to-video"
+    };
+    exports.PIXVERSE_C1_ENDPOINT_TO_KIND = Object.fromEntries(Object.keys(exports.PIXVERSE_C1_ENDPOINTS).map((kind) => [exports.PIXVERSE_C1_ENDPOINTS[kind], kind]));
+    exports.PIXVERSE_C1_ALL_ENDPOINTS = Object.keys(exports.PIXVERSE_C1_ENDPOINT_TO_KIND);
+    exports.PIXVERSE_C1_RESOLUTIONS = ["720p", "1080p", "540p", "360p"];
+    exports.PIXVERSE_C1_DEFAULT_RESOLUTION = "720p";
+    exports.PIXVERSE_C1_MIN_DURATION = 1;
+    exports.PIXVERSE_C1_MAX_DURATION = 15;
+    exports.PIXVERSE_C1_DEFAULT_DURATION = 5;
+    exports.PIXVERSE_C1_DURATIONS = Array.from({ length: exports.PIXVERSE_C1_MAX_DURATION - exports.PIXVERSE_C1_MIN_DURATION + 1 }, (_, i) => i + exports.PIXVERSE_C1_MIN_DURATION);
+    exports.PIXVERSE_C1_ASPECTS = ["16:9", "4:3", "1:1", "3:4", "9:16", "2:3", "3:2", "21:9"];
+    exports.PIXVERSE_C1_DEFAULT_ASPECT = "16:9";
+    exports.PIXVERSE_C1_MAX_REFERENCES = 7;
+    var pixverseC1ReferenceName = (oneBasedIndex) => `image${oneBasedIndex}`;
+    exports.pixverseC1ReferenceName = pixverseC1ReferenceName;
+    exports.PIXVERSE_C1_MAX_PROMPT_BYTES = 2048;
+    exports.PIXVERSE_C1_SEED_MAX = 2147483647;
+    exports.PIXVERSE_C1_MILLI_USD_PER_SECOND = {
+      "360p": { silent: 30, audio: 40 },
+      "540p": { silent: 40, audio: 50 },
+      "720p": { silent: 50, audio: 65 },
+      "1080p": { silent: 95, audio: 120 }
+    };
+    exports.PIXVERSE_C1_END_WITHOUT_START_MESSAGE = "PixVerse C1 : la derni\xE8re image n\xE9cessite une image de d\xE9part (transition entre deux images). Ajoute l'image de d\xE9part, ou retire la derni\xE8re image.";
+    var RESOLUTION_SET = new Set(exports.PIXVERSE_C1_RESOLUTIONS);
+    var ASPECT_SET = new Set(exports.PIXVERSE_C1_ASPECTS);
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach(push);
+        } else if (v && typeof v === "object") {
+          const record = v;
+          push(record.image_url);
+          push(record.url);
+        }
+      };
+      push(value);
+      return Array.from(new Set(out));
+    };
+    var firstUrlOf = (inputs, keys) => {
+      for (const key of keys) {
+        const url = urlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      return void 0;
+    };
+    function isPixverseC1Endpoint(falModelId) {
+      return typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(exports.PIXVERSE_C1_ENDPOINT_TO_KIND, falModelId);
+    }
+    function pixverseC1KindFromEndpoint(falModelId) {
+      return isPixverseC1Endpoint(falModelId) ? exports.PIXVERSE_C1_ENDPOINT_TO_KIND[falModelId] : void 0;
+    }
+    function normalizePixverseC1Resolution(raw) {
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(typeof raw === "string" ? raw : void 0, exports.PIXVERSE_C1_RESOLUTIONS);
+      return out !== void 0 && RESOLUTION_SET.has(out) ? out : exports.PIXVERSE_C1_DEFAULT_RESOLUTION;
+    }
+    function normalizePixverseC1Duration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.PIXVERSE_C1_DEFAULT_DURATION;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.PIXVERSE_C1_DEFAULT_DURATION;
+      return Math.min(exports.PIXVERSE_C1_MAX_DURATION, Math.max(exports.PIXVERSE_C1_MIN_DURATION, Math.ceil(parsed)));
+    }
+    function normalizePixverseC1AspectRatio(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return ASPECT_SET.has(value) ? value : exports.PIXVERSE_C1_DEFAULT_ASPECT;
+    }
+    var isTruthyFlag = (raw) => raw === true || raw === "true" || raw === 1 || raw === "1";
+    function pixverseC1AudioEnabled(inputs) {
+      const source = inputs ?? {};
+      const explicit = source.generate_audio_switch;
+      if (explicit !== void 0 && explicit !== null && explicit !== "")
+        return isTruthyFlag(explicit);
+      return isTruthyFlag(source.generate_audio);
+    }
+    function pixverseC1CreditCost(params) {
+      const resolution = normalizePixverseC1Resolution(params.resolution);
+      const seconds = normalizePixverseC1Duration(params.duration);
+      const rate = exports.PIXVERSE_C1_MILLI_USD_PER_SECOND[resolution][params.audio ? "audio" : "silent"];
+      return Math.ceil(rate * seconds / 10);
+    }
+    function pixverseC1CreditCostFromInputs(inputs) {
+      return pixverseC1CreditCost({
+        resolution: inputs.resolution,
+        duration: inputs.duration,
+        audio: pixverseC1AudioEnabled(inputs)
+      });
+    }
+    var utf8Bytes = (codePoint) => codePoint < 128 ? 1 : codePoint < 2048 ? 2 : codePoint < 65536 ? 3 : 4;
+    function pixverseC1PromptBytes(prompt) {
+      let bytes = 0;
+      for (const ch of prompt)
+        bytes += utf8Bytes(ch.codePointAt(0) ?? 0);
+      return bytes;
+    }
+    function clampPixverseC1Prompt(prompt) {
+      const text = typeof prompt === "string" ? prompt : "";
+      if (pixverseC1PromptBytes(text) <= exports.PIXVERSE_C1_MAX_PROMPT_BYTES)
+        return text;
+      let bytes = 0;
+      let cut = "";
+      for (const ch of text) {
+        const next = bytes + utf8Bytes(ch.codePointAt(0) ?? 0);
+        if (next > exports.PIXVERSE_C1_MAX_PROMPT_BYTES)
+          break;
+        bytes = next;
+        cut += ch;
+      }
+      const boundary = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\n"));
+      return (boundary >= Math.floor(cut.length * 0.85) ? cut.slice(0, boundary) : cut).trim();
+    }
+    var REFERENCE_KEYS = [
+      "reference_image_urls",
+      "reference_images",
+      "reference_image",
+      "reference_image_url",
+      "image_references"
+    ];
+    var START_KEYS = ["start_image", "start_image_url", "first_image_url", "image_url"];
+    var END_KEYS = ["end_image", "end_image_url"];
+    function resolvePixverseC1Media(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const references = urlsOf(REFERENCE_KEYS.map((key) => dynamicInputs[key]));
+      const namedStart = firstUrlOf(dynamicInputs, START_KEYS);
+      const namedEnd = firstUrlOf(dynamicInputs, END_KEYS);
+      const named = namedStart !== void 0 || namedEnd !== void 0;
+      const positional = urlsOf(params.imageUrls);
+      const positionalFrames = positional.filter((url) => !references.includes(url));
+      const start = named ? namedStart : positionalFrames[0];
+      const rawEnd = named ? namedEnd : positionalFrames[1];
+      const end = rawEnd && rawEnd !== start ? rawEnd : void 0;
+      if (references.length > 0) {
+        const images = Array.from(new Set([...references, start, end].filter((u) => Boolean(u)))).slice(0, exports.PIXVERSE_C1_MAX_REFERENCES);
+        return { kind: "r2v", references: images, endWithoutStart: false };
+      }
+      if (!start) {
+        return { kind: "t2v", references: [], endWithoutStart: end !== void 0 };
+      }
+      if (end)
+        return { kind: "transition", start, end, references: [], endWithoutStart: false };
+      return { kind: "i2v", start, references: [], endWithoutStart: false };
+    }
+    function resolvePixverseC1Kind(params) {
+      return resolvePixverseC1Media(params).kind;
+    }
+    var optionalSeed = (raw) => {
+      if (raw === void 0 || raw === null || raw === "")
+        return void 0;
+      const seed = Number(raw);
+      if (!Number.isFinite(seed))
+        return void 0;
+      const trunc = Math.trunc(seed);
+      if (trunc < 0 || trunc > exports.PIXVERSE_C1_SEED_MAX)
+        return void 0;
+      return trunc;
+    };
+    var toImageReferences = (urls) => urls.slice(0, exports.PIXVERSE_C1_MAX_REFERENCES).map((image_url, i) => ({
+      image_url,
+      ref_name: (0, exports.pixverseC1ReferenceName)(i + 1),
+      type: "subject"
+    }));
+    function buildPixverseC1FalRequest(params) {
+      const { prompt, imageUrls = [], resolution, aspectRatio, dynamicInputs = {} } = params;
+      const media = resolvePixverseC1Media({ imageUrls, dynamicInputs });
+      if (media.endWithoutStart)
+        throw refusal(exports.PIXVERSE_C1_END_WITHOUT_START_MESSAGE);
+      const input = {
+        prompt: clampPixverseC1Prompt(prompt),
+        resolution: normalizePixverseC1Resolution(resolution ?? dynamicInputs.resolution),
+        duration: normalizePixverseC1Duration(dynamicInputs.duration),
+        generate_audio_switch: pixverseC1AudioEnabled(dynamicInputs)
+      };
+      const seed = optionalSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      const aspect = () => normalizePixverseC1AspectRatio(aspectRatio ?? (typeof dynamicInputs.aspect_ratio === "string" ? dynamicInputs.aspect_ratio : null));
+      switch (media.kind) {
+        case "r2v":
+          return {
+            falModelId: exports.PIXVERSE_C1_ENDPOINTS.r2v,
+            input: { ...input, aspect_ratio: aspect(), image_references: toImageReferences(media.references) }
+          };
+        case "transition":
+          return {
+            falModelId: exports.PIXVERSE_C1_ENDPOINTS.transition,
+            input: { ...input, aspect_ratio: aspect(), first_image_url: media.start, end_image_url: media.end }
+          };
+        case "i2v":
+          return { falModelId: exports.PIXVERSE_C1_ENDPOINTS.i2v, input: { ...input, image_url: media.start } };
+        default:
+          return { falModelId: exports.PIXVERSE_C1_ENDPOINTS.t2v, input: { ...input, aspect_ratio: aspect() } };
+      }
+    }
+    var PIXVERSE_C1_STRIPPED_FIELDS = ["enable_safety_checker", "sync_mode", "generate_audio"];
+    var MEDIA_FIELDS_BY_KIND = {
+      t2v: [],
+      i2v: ["image_url"],
+      transition: ["first_image_url", "end_image_url"],
+      r2v: ["image_references"]
+    };
+    var ALL_MEDIA_FIELDS = ["image_url", "first_image_url", "end_image_url", "image_references"];
+    function hardenPixverseC1ProxyInput(falModelId, input) {
+      const kind = pixverseC1KindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      input.generate_audio_switch = pixverseC1AudioEnabled(input);
+      for (const key of PIXVERSE_C1_STRIPPED_FIELDS)
+        delete input[key];
+      if (typeof input.prompt === "string")
+        input.prompt = clampPixverseC1Prompt(input.prompt);
+      input.resolution = normalizePixverseC1Resolution(input.resolution);
+      input.duration = normalizePixverseC1Duration(input.duration);
+      const seed = optionalSeed(input.seed);
+      if (seed === void 0)
+        delete input.seed;
+      else
+        input.seed = seed;
+      if (kind === "i2v")
+        delete input.aspect_ratio;
+      else
+        input.aspect_ratio = normalizePixverseC1AspectRatio(input.aspect_ratio);
+      const kept = new Set(MEDIA_FIELDS_BY_KIND[kind]);
+      for (const key of ALL_MEDIA_FIELDS) {
+        if (!kept.has(key))
+          delete input[key];
+      }
+      for (const key of ["image_url", "first_image_url", "end_image_url"]) {
+        if (!kept.has(key))
+          continue;
+        const url = urlsOf(input[key])[0];
+        if (url)
+          input[key] = url;
+        else
+          delete input[key];
+      }
+      if (kind === "r2v") {
+        const entries = Array.isArray(input.image_references) ? input.image_references : [];
+        const seen = /* @__PURE__ */ new Set();
+        const refs = [];
+        for (const entry of entries) {
+          const url = urlsOf(entry)[0];
+          if (!url || seen.has(url))
+            continue;
+          seen.add(url);
+          const rawType = entry && typeof entry === "object" ? entry.type : void 0;
+          refs.push({
+            image_url: url,
+            ref_name: (0, exports.pixverseC1ReferenceName)(refs.length + 1),
+            type: rawType === "background" ? "background" : "subject"
+          });
+          if (refs.length >= exports.PIXVERSE_C1_MAX_REFERENCES)
+            break;
+        }
+        if (refs.length > 0)
+          input.image_references = refs;
+        else
+          delete input.image_references;
+      }
+      return input;
+    }
+    function pixverseC1ProxyRefusal(falModelId, input) {
+      const kind = pixverseC1KindFromEndpoint(falModelId);
+      if (!kind)
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (typeof record.prompt !== "string" || !record.prompt.trim()) {
+        return "PixVerse C1 n\xE9cessite un prompt (texte non vide).";
+      }
+      if (kind === "t2v")
+        return null;
+      if (kind === "i2v" && !urlsOf(record.image_url)[0]) {
+        return "PixVerse C1 (image \u2192 vid\xE9o) n\xE9cessite une image en entr\xE9e (image de d\xE9part).";
+      }
+      if (kind === "transition" && (!urlsOf(record.first_image_url)[0] || !urlsOf(record.end_image_url)[0])) {
+        return "PixVerse C1 (transition) n\xE9cessite une image de d\xE9part et une derni\xE8re image.";
+      }
+      if (kind === "r2v" && urlsOf(record.image_references).length === 0) {
+        return "PixVerse C1 (r\xE9f\xE9rences) n\xE9cessite au moins une image de r\xE9f\xE9rence.";
+      }
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/klingV4.js
+var require_klingV4 = __commonJS({
+  "../packages/workflow-contracts/dist/klingV4.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.KLING_V4_EDIT_BASE_COST = exports.KLING_V4_BASE_COST = exports.KLING_V4_CLOSED_MESSAGE = exports.KLING_V4_MILLI_USD_PER_SECOND = exports.KLING_V4_MIN_INPUT_VIDEO_SECONDS = exports.KLING_V4_MAX_INPUT_VIDEO_SECONDS = exports.KLING_V4_MAX_SHOT_DURATION = exports.KLING_V4_MIN_SHOT_DURATION = exports.KLING_V4_MAX_SHOT_PROMPT_LENGTH = exports.KLING_V4_MAX_ELEMENT_VIEWS = exports.KLING_V4_MAX_VIDEO_ELEMENTS = exports.KLING_V4_MAX_ELEMENTS = exports.KLING_V4_MAX_REFERENCE_VIDEOS = exports.KLING_V4_MAX_REFERENCE_IMAGES = exports.KLING_V4_MAX_PROMPT_LENGTH = exports.KLING_V4_DEFAULT_ASPECT = exports.KLING_V4_R2V_ASPECTS = exports.KLING_V4_T2V_ASPECTS = exports.KLING_V4_DURATIONS = exports.KLING_V4_DEFAULT_DURATION = exports.KLING_V4_MAX_DURATION = exports.KLING_V4_MIN_DURATION = exports.KLING_V4_DEFAULT_RESOLUTION = exports.KLING_V4_RESOLUTIONS = exports.KLING_V4_FAL_MODEL_TO_ID = exports.KLING_V4_ALL_ENDPOINTS = exports.KLING_V4_ENDPOINT_TO_KIND = exports.KLING_V4_ENDPOINTS = exports.KLING_V4_MODEL_IDS = exports.KLING_V4_EDIT_MODEL_ID = exports.KLING_V4_MODEL_ID = exports.KLING_V4_API_OPEN = void 0;
+    exports.klingV4ClosedRejection = klingV4ClosedRejection;
+    exports.assertKlingV4Open = assertKlingV4Open;
+    exports.isKlingV4Endpoint = isKlingV4Endpoint;
+    exports.klingV4KindFromEndpoint = klingV4KindFromEndpoint;
+    exports.normalizeKlingV4Resolution = normalizeKlingV4Resolution;
+    exports.normalizeKlingV4Duration = normalizeKlingV4Duration;
+    exports.normalizeKlingV4EditDuration = normalizeKlingV4EditDuration;
+    exports.normalizeKlingV4T2vAspectRatio = normalizeKlingV4T2vAspectRatio;
+    exports.normalizeKlingV4R2vAspectRatio = normalizeKlingV4R2vAspectRatio;
+    exports.clampKlingV4Prompt = clampKlingV4Prompt;
+    exports.klingV4ReferenceVideos = klingV4ReferenceVideos;
+    exports.normalizeKlingV4Elements = normalizeKlingV4Elements;
+    exports.klingV4HasElementVideo = klingV4HasElementVideo;
+    exports.normalizeKlingV4MultiPrompt = normalizeKlingV4MultiPrompt;
+    exports.resolveKlingV4Media = resolveKlingV4Media;
+    exports.resolveKlingV4EditMedia = resolveKlingV4EditMedia;
+    exports.klingV4BilledSeconds = klingV4BilledSeconds;
+    exports.klingV4CreditCost = klingV4CreditCost;
+    exports.klingV4CreditCostFromInputs = klingV4CreditCostFromInputs;
+    exports.buildKlingV4FalRequest = buildKlingV4FalRequest;
+    exports.hardenKlingV4ProxyInput = hardenKlingV4ProxyInput;
+    exports.klingV4ProxyRefusal = klingV4ProxyRefusal;
+    exports.klingV4MeasuredRefusal = klingV4MeasuredRefusal;
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.KLING_V4_API_OPEN = true;
+    exports.KLING_V4_MODEL_ID = "kling-v4-video";
+    exports.KLING_V4_EDIT_MODEL_ID = "kling-v4-v2v-edit";
+    exports.KLING_V4_MODEL_IDS = [exports.KLING_V4_MODEL_ID, exports.KLING_V4_EDIT_MODEL_ID];
+    exports.KLING_V4_ENDPOINTS = {
+      t2v: "kling/v4/text-to-video",
+      i2v: "kling/v4/image-to-video",
+      r2v: "kling/v4/reference-to-video",
+      edit: "kling/v4/video-to-video/edit"
+    };
+    exports.KLING_V4_ENDPOINT_TO_KIND = Object.fromEntries(Object.keys(exports.KLING_V4_ENDPOINTS).map((kind) => [exports.KLING_V4_ENDPOINTS[kind], kind]));
+    exports.KLING_V4_ALL_ENDPOINTS = Object.keys(exports.KLING_V4_ENDPOINT_TO_KIND);
+    exports.KLING_V4_FAL_MODEL_TO_ID = {
+      [exports.KLING_V4_ENDPOINTS.t2v]: exports.KLING_V4_MODEL_ID,
+      [exports.KLING_V4_ENDPOINTS.i2v]: exports.KLING_V4_MODEL_ID,
+      [exports.KLING_V4_ENDPOINTS.r2v]: exports.KLING_V4_MODEL_ID,
+      [exports.KLING_V4_ENDPOINTS.edit]: exports.KLING_V4_EDIT_MODEL_ID
+    };
+    exports.KLING_V4_RESOLUTIONS = ["1080p", "720p"];
+    exports.KLING_V4_DEFAULT_RESOLUTION = "1080p";
+    exports.KLING_V4_MIN_DURATION = 3;
+    exports.KLING_V4_MAX_DURATION = 30;
+    exports.KLING_V4_DEFAULT_DURATION = 5;
+    exports.KLING_V4_DURATIONS = Array.from({ length: exports.KLING_V4_MAX_DURATION - exports.KLING_V4_MIN_DURATION + 1 }, (_, i) => i + exports.KLING_V4_MIN_DURATION);
+    exports.KLING_V4_T2V_ASPECTS = ["16:9", "9:16", "1:1", "21:9"];
+    exports.KLING_V4_R2V_ASPECTS = ["auto", "16:9", "9:16", "1:1", "21:9"];
+    exports.KLING_V4_DEFAULT_ASPECT = "16:9";
+    exports.KLING_V4_MAX_PROMPT_LENGTH = 26e3;
+    exports.KLING_V4_MAX_REFERENCE_IMAGES = 10;
+    exports.KLING_V4_MAX_REFERENCE_VIDEOS = 5;
+    exports.KLING_V4_MAX_ELEMENTS = 7;
+    exports.KLING_V4_MAX_VIDEO_ELEMENTS = 3;
+    exports.KLING_V4_MAX_ELEMENT_VIEWS = 3;
+    exports.KLING_V4_MAX_SHOT_PROMPT_LENGTH = 512;
+    exports.KLING_V4_MIN_SHOT_DURATION = 1;
+    exports.KLING_V4_MAX_SHOT_DURATION = 30;
+    exports.KLING_V4_MAX_INPUT_VIDEO_SECONDS = 30.05;
+    exports.KLING_V4_MIN_INPUT_VIDEO_SECONDS = 3;
+    exports.KLING_V4_MILLI_USD_PER_SECOND = {
+      standard: { "720p": 157, "1080p": 235 },
+      video: { "720p": 94, "1080p": 141 }
+    };
+    var RESOLUTION_SET = new Set(exports.KLING_V4_RESOLUTIONS);
+    var T2V_ASPECT_SET = new Set(exports.KLING_V4_T2V_ASPECTS);
+    var R2V_ASPECT_SET = new Set(exports.KLING_V4_R2V_ASPECTS);
+    exports.KLING_V4_CLOSED_MESSAGE = "Kling 4.0 n'est pas encore disponible : le fournisseur n'a pas ouvert son API. Choisis un autre mod\xE8le vid\xE9o.";
+    function klingV4ClosedRejection(modelId, open = exports.KLING_V4_API_OPEN) {
+      if (open || typeof modelId !== "string")
+        return null;
+      return exports.KLING_V4_MODEL_IDS.includes(modelId.trim()) ? exports.KLING_V4_CLOSED_MESSAGE : null;
+    }
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    function assertKlingV4Open(open = exports.KLING_V4_API_OPEN) {
+      if (!open)
+        throw refusal(exports.KLING_V4_CLOSED_MESSAGE);
+    }
+    function isKlingV4Endpoint(falModelId) {
+      return typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(exports.KLING_V4_ENDPOINT_TO_KIND, falModelId);
+    }
+    function klingV4KindFromEndpoint(falModelId) {
+      return isKlingV4Endpoint(falModelId) ? exports.KLING_V4_ENDPOINT_TO_KIND[falModelId] : void 0;
+    }
+    function normalizeKlingV4Resolution(raw) {
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(typeof raw === "string" ? raw : void 0, exports.KLING_V4_RESOLUTIONS);
+      return out !== void 0 && RESOLUTION_SET.has(out) ? out : exports.KLING_V4_DEFAULT_RESOLUTION;
+    }
+    var isBlank = (raw) => raw === void 0 || raw === null || raw === "";
+    function normalizeKlingV4Duration(raw) {
+      if (isBlank(raw) || raw === "auto")
+        return exports.KLING_V4_DEFAULT_DURATION;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.KLING_V4_DEFAULT_DURATION;
+      return Math.min(exports.KLING_V4_MAX_DURATION, Math.max(exports.KLING_V4_MIN_DURATION, Math.ceil(parsed)));
+    }
+    function normalizeKlingV4EditDuration(raw) {
+      if (isBlank(raw) || raw === "auto")
+        return void 0;
+      return normalizeKlingV4Duration(raw);
+    }
+    function normalizeKlingV4T2vAspectRatio(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return T2V_ASPECT_SET.has(value) ? value : exports.KLING_V4_DEFAULT_ASPECT;
+    }
+    function normalizeKlingV4R2vAspectRatio(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return R2V_ASPECT_SET.has(value) ? value : exports.KLING_V4_DEFAULT_ASPECT;
+    }
+    function clampKlingV4Prompt(prompt) {
+      const text = typeof prompt === "string" ? prompt : "";
+      if (text.length <= exports.KLING_V4_MAX_PROMPT_LENGTH)
+        return text;
+      const hard = text.slice(0, exports.KLING_V4_MAX_PROMPT_LENGTH);
+      const boundary = Math.max(hard.lastIndexOf(" "), hard.lastIndexOf("\n"));
+      return (boundary >= Math.floor(exports.KLING_V4_MAX_PROMPT_LENGTH * 0.85) ? hard.slice(0, boundary) : hard).trim();
+    }
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach(push);
+        } else if (v && typeof v === "object") {
+          const record = v;
+          push(record.image_url);
+          push(record.url);
+        }
+      };
+      push(value);
+      return Array.from(new Set(out));
+    };
+    var firstUrlOf = (inputs, keys) => {
+      for (const key of keys) {
+        const url = urlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      return void 0;
+    };
+    var REFERENCE_IMAGE_KEYS = ["reference_image_urls", "reference_images", "reference_image", "reference_image_url"];
+    var REFERENCE_VIDEO_KEYS = [
+      "video_urls",
+      "reference_video_urls",
+      "reference_videos",
+      "reference_video",
+      "reference_video_url"
+    ];
+    var START_KEYS = ["start_image", "start_image_url", "image_url"];
+    var END_KEYS = ["end_image", "end_image_url"];
+    var SOURCE_VIDEO_KEYS = ["video_url", "video_urls", "video", "videos"];
+    function klingV4ReferenceVideos(inputs = {}) {
+      return urlsOf(REFERENCE_VIDEO_KEYS.map((key) => inputs[key])).slice(0, exports.KLING_V4_MAX_REFERENCE_VIDEOS);
+    }
+    function normalizeKlingV4Elements(raw, kind) {
+      if (isBlank(raw))
+        return { elements: [] };
+      if (!Array.isArray(raw))
+        return { elements: [], problem: "Kling 4.0 : `elements` doit \xEAtre une liste d'\xE9l\xE9ments." };
+      const elements = [];
+      let videos = 0;
+      for (let i = 0; i < raw.length; i += 1) {
+        if (elements.length >= exports.KLING_V4_MAX_ELEMENTS)
+          break;
+        const entry = raw[i];
+        const record = entry && typeof entry === "object" && !Array.isArray(entry) ? entry : null;
+        const frontal = record ? urlsOf(record.frontal_image_url)[0] : void 0;
+        const views = record ? urlsOf(record.reference_image_urls).filter((u) => u !== frontal).slice(0, exports.KLING_V4_MAX_ELEMENT_VIEWS) : [];
+        const video = kind === "r2v" && record ? urlsOf(record.video_url)[0] : void 0;
+        if (kind === "edit" && (!frontal || views.length === 0)) {
+          return {
+            elements: [],
+            problem: `Kling 4.0 (\xE9dition) : l'\xE9l\xE9ment ${i + 1} doit avoir une image de face (frontal_image_url) et 1 \xE0 3 vues (reference_image_urls).`
+          };
+        }
+        if (kind === "r2v" && !frontal && !video) {
+          return {
+            elements: [],
+            problem: `Kling 4.0 : l'\xE9l\xE9ment ${i + 1} doit avoir une image de face (frontal_image_url) ou une vid\xE9o (video_url).`
+          };
+        }
+        if (video) {
+          if (videos >= exports.KLING_V4_MAX_VIDEO_ELEMENTS)
+            break;
+          videos += 1;
+        }
+        const element = {};
+        if (frontal)
+          element.frontal_image_url = frontal;
+        if (views.length > 0)
+          element.reference_image_urls = views;
+        if (video)
+          element.video_url = video;
+        elements.push(element);
+      }
+      return { elements };
+    }
+    function klingV4HasElementVideo(elements) {
+      return elements.some((element) => Boolean(element.video_url));
+    }
+    function normalizeKlingV4MultiPrompt(raw) {
+      if (isBlank(raw) || Array.isArray(raw) && raw.length === 0)
+        return {};
+      if (!Array.isArray(raw))
+        return { problem: "Kling 4.0 : `multi_prompt` doit \xEAtre une liste de plans { prompt, duration }." };
+      const shots = [];
+      let total = 0;
+      for (let i = 0; i < raw.length; i += 1) {
+        const entry = raw[i];
+        const record = entry && typeof entry === "object" && !Array.isArray(entry) ? entry : null;
+        const text = record && typeof record.prompt === "string" ? record.prompt.trim() : "";
+        if (!text)
+          return { problem: `Kling 4.0 : le plan ${i + 1} du storyboard n'a pas de prompt.` };
+        const remaining = exports.KLING_V4_MAX_DURATION - total;
+        if (remaining <= 0)
+          break;
+        const rawDuration = record ? Number(record.duration) : Number.NaN;
+        const wanted = Number.isFinite(rawDuration) && rawDuration > 0 ? Math.min(exports.KLING_V4_MAX_SHOT_DURATION, Math.max(exports.KLING_V4_MIN_SHOT_DURATION, Math.ceil(rawDuration))) : exports.KLING_V4_DEFAULT_DURATION;
+        const duration = Math.min(wanted, remaining);
+        shots.push({ prompt: text.slice(0, exports.KLING_V4_MAX_SHOT_PROMPT_LENGTH), duration });
+        total += duration;
+      }
+      if (total < exports.KLING_V4_MIN_DURATION) {
+        const last = shots[shots.length - 1];
+        last.duration += exports.KLING_V4_MIN_DURATION - total;
+        total = exports.KLING_V4_MIN_DURATION;
+      }
+      return { shots, seconds: total };
+    }
+    function resolveKlingV4Media(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const references = urlsOf(REFERENCE_IMAGE_KEYS.map((key) => dynamicInputs[key]));
+      const videos = klingV4ReferenceVideos(dynamicInputs);
+      const { elements, problem } = normalizeKlingV4Elements(dynamicInputs.elements, "r2v");
+      const namedStart = firstUrlOf(dynamicInputs, START_KEYS);
+      const namedEnd = firstUrlOf(dynamicInputs, END_KEYS);
+      const named = namedStart !== void 0 || namedEnd !== void 0;
+      const positional = urlsOf(params.imageUrls).filter((url) => !references.includes(url));
+      const rawStart = named ? namedStart : positional[0];
+      const rawEnd = named ? namedEnd : positional[1];
+      const start = rawStart ?? rawEnd;
+      const end = rawStart && rawEnd && rawEnd !== rawStart ? rawEnd : void 0;
+      if (references.length > 0 || videos.length > 0 || elements.length > 0 || problem) {
+        const room = exports.KLING_V4_MAX_REFERENCE_IMAGES - (start ? 1 : 0);
+        const images = Array.from(/* @__PURE__ */ new Set([...references, ...end ? [end] : []])).filter((url) => url !== start).slice(0, room);
+        return { kind: "r2v", start, images, videos, elements, ...problem ? { problem } : {} };
+      }
+      if (start)
+        return { kind: "i2v", start, end, images: [], videos: [], elements: [] };
+      return { kind: "t2v", images: [], videos: [], elements: [] };
+    }
+    function resolveKlingV4EditMedia(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const source = urlsOf(SOURCE_VIDEO_KEYS.map((key) => dynamicInputs[key]))[0];
+      const images = urlsOf([
+        ...REFERENCE_IMAGE_KEYS.map((key) => dynamicInputs[key]),
+        dynamicInputs.image_urls,
+        params.imageUrls
+      ]).slice(0, exports.KLING_V4_MAX_REFERENCE_IMAGES);
+      const { elements, problem } = normalizeKlingV4Elements(dynamicInputs.elements, "edit");
+      return { source, images, elements, ...problem ? { problem } : {} };
+    }
+    var creditsFor = (milliUsdPerSecond, seconds) => Math.ceil(Math.round(milliUsdPerSecond * seconds / 10 * 1e6) / 1e6);
+    var measuredSeconds = (raw) => typeof raw === "number" && Number.isFinite(raw) && raw >= 0 ? raw : void 0;
+    function klingV4BilledSeconds(params) {
+      const { videoPriced, outputSeconds, inputSeconds } = params;
+      if (!videoPriced)
+        return outputSeconds;
+      return Math.max(inputSeconds + outputSeconds, 2 * outputSeconds);
+    }
+    function klingV4CreditCost(params) {
+      const resolution = normalizeKlingV4Resolution(params.resolution);
+      const rate = exports.KLING_V4_MILLI_USD_PER_SECOND[params.videoPriced ? "video" : "standard"][resolution];
+      return creditsFor(rate, klingV4BilledSeconds(params));
+    }
+    function klingV4CreditCostFromInputs(inputs, modelId) {
+      const fromSlug = klingV4KindFromEndpoint(inputs.falModelId);
+      const isEdit = fromSlug ? fromSlug === "edit" : modelId === exports.KLING_V4_EDIT_MODEL_ID;
+      const measured = measuredSeconds(inputs.inputVideoSeconds);
+      const resolution = normalizeKlingV4Resolution(inputs.resolution);
+      if (isEdit) {
+        const source = measured ?? exports.KLING_V4_MAX_INPUT_VIDEO_SECONDS;
+        const requested = normalizeKlingV4EditDuration(inputs.duration);
+        return klingV4CreditCost({
+          resolution,
+          videoPriced: true,
+          outputSeconds: requested ?? source,
+          inputSeconds: source
+        });
+      }
+      const storyboard = normalizeKlingV4MultiPrompt(inputs.multi_prompt);
+      const outputSeconds = storyboard.seconds ?? normalizeKlingV4Duration(inputs.duration);
+      const media = fromSlug ? { kind: fromSlug, videos: klingV4ReferenceVideos(inputs), elements: normalizeKlingV4Elements(inputs.elements, "r2v").elements } : resolveKlingV4Media({ imageUrls: inputs.image_urls, dynamicInputs: inputs });
+      const elementVideo = media.kind === "r2v" && klingV4HasElementVideo(media.elements);
+      const videoPriced = media.kind === "r2v" && (media.videos.length > 0 || elementVideo);
+      const inputSeconds = !videoPriced ? 0 : elementVideo ? Math.max(measured ?? 0, exports.KLING_V4_MAX_INPUT_VIDEO_SECONDS) : measured ?? exports.KLING_V4_MAX_INPUT_VIDEO_SECONDS;
+      return klingV4CreditCost({ resolution, videoPriced, outputSeconds, inputSeconds });
+    }
+    exports.KLING_V4_BASE_COST = klingV4CreditCost({
+      resolution: exports.KLING_V4_DEFAULT_RESOLUTION,
+      videoPriced: false,
+      outputSeconds: exports.KLING_V4_DEFAULT_DURATION,
+      inputSeconds: 0
+    });
+    exports.KLING_V4_EDIT_BASE_COST = klingV4CreditCost({
+      resolution: exports.KLING_V4_DEFAULT_RESOLUTION,
+      videoPriced: true,
+      outputSeconds: exports.KLING_V4_MAX_INPUT_VIDEO_SECONDS,
+      inputSeconds: exports.KLING_V4_MAX_INPUT_VIDEO_SECONDS
+    });
+    var timedInput = (prompt, dynamicInputs) => {
+      const text = clampKlingV4Prompt(prompt);
+      const storyboard = normalizeKlingV4MultiPrompt(dynamicInputs.multi_prompt);
+      if (storyboard.problem)
+        throw refusal(storyboard.problem);
+      if (!text.trim() && !storyboard.shots) {
+        throw refusal("Kling 4.0 n\xE9cessite un prompt (ou un storyboard multi_prompt).");
+      }
+      const input = {};
+      if (text.trim())
+        input.prompt = text;
+      if (storyboard.shots) {
+        input.multi_prompt = storyboard.shots;
+        input.duration = storyboard.seconds;
+      } else {
+        input.duration = normalizeKlingV4Duration(dynamicInputs.duration);
+      }
+      return input;
+    };
+    function buildKlingV4FalRequest(params) {
+      const { modelId, prompt, imageUrls = [], resolution, aspectRatio, dynamicInputs = {} } = params;
+      const palier = normalizeKlingV4Resolution(resolution ?? dynamicInputs.resolution);
+      const requestedAspect = aspectRatio ?? (typeof dynamicInputs.aspect_ratio === "string" ? dynamicInputs.aspect_ratio : null);
+      if (modelId === exports.KLING_V4_EDIT_MODEL_ID) {
+        const media2 = resolveKlingV4EditMedia({ imageUrls, dynamicInputs });
+        if (media2.problem)
+          throw refusal(media2.problem);
+        if (!media2.source)
+          throw refusal("Kling 4.0 (\xE9dition) n\xE9cessite une vid\xE9o \xE0 \xE9diter (video_url).");
+        const text = clampKlingV4Prompt(prompt);
+        if (!text.trim())
+          throw refusal("Kling 4.0 (\xE9dition) n\xE9cessite une consigne (prompt).");
+        const input2 = { prompt: text, video_url: media2.source, resolution: palier };
+        const duration = normalizeKlingV4EditDuration(dynamicInputs.duration);
+        if (duration !== void 0)
+          input2.duration = duration;
+        if (media2.images.length > 0)
+          input2.image_urls = media2.images;
+        if (media2.elements.length > 0)
+          input2.elements = media2.elements;
+        return { falModelId: exports.KLING_V4_ENDPOINTS.edit, input: input2 };
+      }
+      const media = resolveKlingV4Media({ imageUrls, dynamicInputs });
+      if (media.problem)
+        throw refusal(media.problem);
+      const input = { ...timedInput(prompt, dynamicInputs), resolution: palier };
+      if (media.kind === "r2v") {
+        input.aspect_ratio = normalizeKlingV4R2vAspectRatio(requestedAspect);
+        if (media.start)
+          input.start_image_url = media.start;
+        if (media.images.length > 0)
+          input.image_urls = media.images;
+        if (media.videos.length > 0)
+          input.video_urls = media.videos;
+        if (media.elements.length > 0)
+          input.elements = media.elements;
+        return { falModelId: exports.KLING_V4_ENDPOINTS.r2v, input };
+      }
+      if (media.kind === "i2v") {
+        input.start_image_url = media.start;
+        if (media.end)
+          input.end_image_url = media.end;
+        return { falModelId: exports.KLING_V4_ENDPOINTS.i2v, input };
+      }
+      input.aspect_ratio = normalizeKlingV4T2vAspectRatio(requestedAspect);
+      return { falModelId: exports.KLING_V4_ENDPOINTS.t2v, input };
+    }
+    var MEDIA_FIELDS_BY_KIND = {
+      t2v: [],
+      i2v: ["start_image_url", "end_image_url"],
+      r2v: ["start_image_url", "image_urls", "video_urls", "elements"],
+      edit: ["video_url", "image_urls", "elements"]
+    };
+    var ALL_MEDIA_FIELDS = ["start_image_url", "end_image_url", "image_urls", "video_urls", "video_url", "elements"];
+    function hardenKlingV4ProxyInput(falModelId, input) {
+      const kind = klingV4KindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      delete input.sync_mode;
+      if (typeof input.prompt === "string")
+        input.prompt = clampKlingV4Prompt(input.prompt);
+      else
+        delete input.prompt;
+      input.resolution = normalizeKlingV4Resolution(input.resolution);
+      if (kind === "edit") {
+        delete input.multi_prompt;
+        delete input.aspect_ratio;
+        const duration = normalizeKlingV4EditDuration(input.duration);
+        if (duration === void 0)
+          delete input.duration;
+        else
+          input.duration = duration;
+      } else {
+        const storyboard = normalizeKlingV4MultiPrompt(input.multi_prompt);
+        if (storyboard.shots) {
+          input.multi_prompt = storyboard.shots;
+          input.duration = storyboard.seconds;
+        } else {
+          if (!storyboard.problem)
+            delete input.multi_prompt;
+          input.duration = normalizeKlingV4Duration(input.duration);
+        }
+        if (kind === "t2v")
+          input.aspect_ratio = normalizeKlingV4T2vAspectRatio(input.aspect_ratio);
+        else if (kind === "r2v")
+          input.aspect_ratio = normalizeKlingV4R2vAspectRatio(input.aspect_ratio);
+        else
+          delete input.aspect_ratio;
+      }
+      const kept = new Set(MEDIA_FIELDS_BY_KIND[kind]);
+      for (const key of ALL_MEDIA_FIELDS)
+        if (!kept.has(key))
+          delete input[key];
+      for (const key of ["start_image_url", "end_image_url", "video_url"]) {
+        if (!kept.has(key))
+          continue;
+        const url = urlsOf(input[key])[0];
+        if (url)
+          input[key] = url;
+        else
+          delete input[key];
+      }
+      if (kind === "i2v" && input.end_image_url === input.start_image_url)
+        delete input.end_image_url;
+      if (kind === "r2v" || kind === "edit") {
+        const start = typeof input.start_image_url === "string" ? input.start_image_url : void 0;
+        const room = exports.KLING_V4_MAX_REFERENCE_IMAGES - (start ? 1 : 0);
+        const images = urlsOf(input.image_urls).filter((url) => url !== start).slice(0, room);
+        if (images.length > 0)
+          input.image_urls = images;
+        else
+          delete input.image_urls;
+        const normalized = normalizeKlingV4Elements(input.elements, kind);
+        if (!normalized.problem) {
+          if (normalized.elements.length > 0)
+            input.elements = normalized.elements;
+          else
+            delete input.elements;
+        }
+      }
+      if (kind === "r2v") {
+        const videos = urlsOf(input.video_urls).slice(0, exports.KLING_V4_MAX_REFERENCE_VIDEOS);
+        if (videos.length > 0)
+          input.video_urls = videos;
+        else
+          delete input.video_urls;
+      }
+      return input;
+    }
+    function klingV4ProxyRefusal(falModelId, input) {
+      const kind = klingV4KindFromEndpoint(falModelId);
+      if (!kind)
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      const hasPrompt = typeof record.prompt === "string" && record.prompt.trim().length > 0;
+      if (kind === "edit") {
+        if (!hasPrompt)
+          return "Kling 4.0 (\xE9dition) n\xE9cessite une consigne (prompt).";
+        if (!urlsOf(record.video_url)[0])
+          return "Kling 4.0 (\xE9dition) n\xE9cessite une vid\xE9o \xE0 \xE9diter (video_url).";
+        return normalizeKlingV4Elements(record.elements, "edit").problem ?? null;
+      }
+      const storyboard = normalizeKlingV4MultiPrompt(record.multi_prompt);
+      if (storyboard.problem)
+        return storyboard.problem;
+      if (!hasPrompt && !storyboard.shots)
+        return "Kling 4.0 n\xE9cessite un prompt (ou un storyboard multi_prompt).";
+      if (kind === "i2v" && !urlsOf(record.start_image_url)[0]) {
+        return "Kling 4.0 (image \u2192 vid\xE9o) n\xE9cessite une image de d\xE9part.";
+      }
+      if (kind === "r2v")
+        return normalizeKlingV4Elements(record.elements, "r2v").problem ?? null;
+      return null;
+    }
+    var SECONDS_TOLERANCE = 1e-3;
+    var MAX_SECONDS_MARGIN_PER_CLIP = 0.25;
+    function klingV4MeasuredRefusal(falModelId, payload, videoSeconds) {
+      const kind = klingV4KindFromEndpoint(falModelId);
+      if (!kind || typeof videoSeconds !== "number" || !Number.isFinite(videoSeconds) || videoSeconds < 0)
+        return null;
+      const record = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+      const seconds = (n) => `${(Math.round(n * 100) / 100).toString().replace(".", ",")} s`;
+      if (kind === "edit") {
+        if (!urlsOf(record.video_url)[0])
+          return null;
+        if (videoSeconds < exports.KLING_V4_MIN_INPUT_VIDEO_SECONDS - SECONDS_TOLERANCE) {
+          return `Kling 4.0 (\xE9dition) : la vid\xE9o \xE0 \xE9diter doit durer au moins 3 s (ici ${seconds(videoSeconds)}).`;
+        }
+        if (videoSeconds > exports.KLING_V4_MAX_INPUT_VIDEO_SECONDS + MAX_SECONDS_MARGIN_PER_CLIP) {
+          return `Kling 4.0 (\xE9dition) : la vid\xE9o \xE0 \xE9diter doit durer au plus 30 s (ici ${seconds(videoSeconds)}) : raccourcis-la.`;
+        }
+        return null;
+      }
+      if (kind !== "r2v")
+        return null;
+      const videos = urlsOf(record.video_urls);
+      if (videos.length === 0)
+        return null;
+      if (videoSeconds < exports.KLING_V4_MIN_INPUT_VIDEO_SECONDS * videos.length - SECONDS_TOLERANCE) {
+        return `Kling 4.0 : chaque vid\xE9o de r\xE9f\xE9rence doit durer au moins 3 s (${videos.length} vid\xE9os, ${seconds(videoSeconds)} au total).`;
+      }
+      const elementVideos = normalizeKlingV4Elements(record.elements, "r2v").elements.filter((e) => e.video_url).length;
+      const atLeast = videoSeconds + exports.KLING_V4_MIN_INPUT_VIDEO_SECONDS * elementVideos;
+      if (atLeast > exports.KLING_V4_MAX_INPUT_VIDEO_SECONDS + MAX_SECONDS_MARGIN_PER_CLIP * videos.length) {
+        return `Kling 4.0 : les vid\xE9os de r\xE9f\xE9rence durent au plus 30 s cumul\xE9es, vid\xE9os d'\xE9l\xE9ments comprises (ici ${seconds(videoSeconds)}${elementVideos > 0 ? ` + ${elementVideos} \xE9l\xE9ment(s) vid\xE9o` : ""}) : raccourcis-les.`;
+      }
+      return null;
+    }
+  }
+});
+
 // ../packages/workflow-contracts/dist/klingV3.js
 var require_klingV3 = __commonJS({
   "../packages/workflow-contracts/dist/klingV3.js"(exports) {
@@ -3433,7 +5495,7 @@ var require_klingV3 = __commonJS({
       delete input.sync_mode;
       delete input.resolution;
       if (hadStoryboard && !(typeof input.prompt === "string" && input.prompt.trim())) {
-        return "Kling V3 : le storyboard multi-plans (multi_prompt) n'est pas pris en charge ; envoyez un prompt.";
+        return "Kling V3 : le storyboard multi-plans (multi_prompt) n'est pas pris en charge ; envoie un prompt.";
       }
       return null;
     }
@@ -4068,6 +6130,608 @@ var require_flux3Image = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/nanoBanana21.js
+var require_nanoBanana21 = __commonJS({
+  "../packages/workflow-contracts/dist/nanoBanana21.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.hardenNanoBanana21Input = exports.buildNanoBanana21FalRequest = exports.NANO_BANANA_21_BASE_COST = exports.nanoBanana21CreditCost = exports.nanoBanana21UsdPerImage = exports.nanoBanana21InputImageCount = exports.clampNanoBanana21Prompt = exports.NANO_BANANA_21_INPUT_TEXT_ALLOWANCE_TOKENS = exports.nanoBanana21PromptBytes = exports.NANO_BANANA_21_MAX_PROMPT_BYTES = exports.NANO_BANANA_21_OUTPUT_TEXT_ALLOWANCE_TOKENS = exports.NANO_BANANA_21_INPUT_IMAGE_TOKENS = exports.NANO_BANANA_21_OUTPUT_IMAGE_TOKENS = exports.NANO_BANANA_21_USD_PER_MILLION_TOKENS = exports.NANO_BANANA_21_SYSTEM_PROMPT = exports.NANO_BANANA_21_THINKING_LEVEL = exports.normalizeNanoBanana21AspectRatio = exports.NANO_BANANA_21_ASPECT_RATIOS = exports.normalizeNanoBanana21Resolution = exports.NANO_BANANA_21_DEFAULT_RESOLUTION = exports.NANO_BANANA_21_RESOLUTIONS = exports.NANO_BANANA_21_MAX_INPUT_IMAGES = exports.NANO_BANANA_21_ENDPOINTS = exports.NANO_BANANA_21_EDIT_ENDPOINT = exports.NANO_BANANA_21_T2I_ENDPOINT = void 0;
+    exports.NANO_BANANA_21_T2I_ENDPOINT = "google/nano-banana-2.1";
+    exports.NANO_BANANA_21_EDIT_ENDPOINT = "google/nano-banana-2.1/edit";
+    exports.NANO_BANANA_21_ENDPOINTS = /* @__PURE__ */ new Set([
+      exports.NANO_BANANA_21_T2I_ENDPOINT,
+      exports.NANO_BANANA_21_EDIT_ENDPOINT
+    ]);
+    exports.NANO_BANANA_21_MAX_INPUT_IMAGES = 14;
+    exports.NANO_BANANA_21_RESOLUTIONS = ["1K", "2K", "4K"];
+    exports.NANO_BANANA_21_DEFAULT_RESOLUTION = "1K";
+    var normalizeNanoBanana21Resolution = (value) => {
+      const res = typeof value === "string" ? value.trim() : "";
+      return exports.NANO_BANANA_21_RESOLUTIONS.includes(res) ? res : exports.NANO_BANANA_21_DEFAULT_RESOLUTION;
+    };
+    exports.normalizeNanoBanana21Resolution = normalizeNanoBanana21Resolution;
+    exports.NANO_BANANA_21_ASPECT_RATIOS = [
+      "auto",
+      "21:9",
+      "16:9",
+      "3:2",
+      "4:3",
+      "5:4",
+      "1:1",
+      "4:5",
+      "3:4",
+      "2:3",
+      "9:16",
+      "4:1",
+      "1:4",
+      "8:1",
+      "1:8"
+    ];
+    var normalizeNanoBanana21AspectRatio = (value) => {
+      const ar = typeof value === "string" ? value.trim() : "";
+      return exports.NANO_BANANA_21_ASPECT_RATIOS.includes(ar) ? ar : "auto";
+    };
+    exports.normalizeNanoBanana21AspectRatio = normalizeNanoBanana21AspectRatio;
+    exports.NANO_BANANA_21_THINKING_LEVEL = "minimal";
+    exports.NANO_BANANA_21_SYSTEM_PROMPT = "Generate the requested image. Reply with at most one short sentence of text; never write long text, lists or stories.";
+    exports.NANO_BANANA_21_USD_PER_MILLION_TOKENS = {
+      input: 1.764,
+      outputText: 8.823,
+      outputImage: 35.294
+    };
+    exports.NANO_BANANA_21_OUTPUT_IMAGE_TOKENS = {
+      "1K": 1120,
+      "2K": 1680,
+      "4K": 3780
+    };
+    exports.NANO_BANANA_21_INPUT_IMAGE_TOKENS = 1290;
+    exports.NANO_BANANA_21_OUTPUT_TEXT_ALLOWANCE_TOKENS = 1500;
+    exports.NANO_BANANA_21_MAX_PROMPT_BYTES = 4e3;
+    var utf8Bytes = (codePoint) => codePoint < 128 ? 1 : codePoint < 2048 ? 2 : codePoint < 65536 ? 3 : 4;
+    var nanoBanana21PromptBytes = (prompt) => {
+      let bytes = 0;
+      for (const ch of prompt)
+        bytes += utf8Bytes(ch.codePointAt(0) ?? 0);
+      return bytes;
+    };
+    exports.nanoBanana21PromptBytes = nanoBanana21PromptBytes;
+    exports.NANO_BANANA_21_INPUT_TEXT_ALLOWANCE_TOKENS = exports.NANO_BANANA_21_MAX_PROMPT_BYTES + 500 + (0, exports.nanoBanana21PromptBytes)(exports.NANO_BANANA_21_SYSTEM_PROMPT);
+    var clampNanoBanana21Prompt = (prompt) => {
+      if ((0, exports.nanoBanana21PromptBytes)(prompt) <= exports.NANO_BANANA_21_MAX_PROMPT_BYTES)
+        return prompt;
+      let bytes = 0;
+      let cut = "";
+      for (const ch of prompt) {
+        const next = bytes + utf8Bytes(ch.codePointAt(0) ?? 0);
+        if (next > exports.NANO_BANANA_21_MAX_PROMPT_BYTES)
+          break;
+        bytes = next;
+        cut += ch;
+      }
+      const boundary = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\n"));
+      return (boundary >= Math.floor(cut.length * 0.85) ? cut.slice(0, boundary) : cut).trim();
+    };
+    exports.clampNanoBanana21Prompt = clampNanoBanana21Prompt;
+    var nonEmptyUrl = (value) => typeof value === "string" && value.trim().length > 0;
+    var collectUrls = (value, into) => {
+      if (nonEmptyUrl(value))
+        into.add(value.trim());
+      else if (Array.isArray(value))
+        value.forEach((entry) => collectUrls(entry, into));
+    };
+    var nanoBanana21InputImageCount = (inputs) => {
+      const rec = inputs ?? {};
+      const urls = /* @__PURE__ */ new Set();
+      for (const key of ["image_urls", "image_url", "image", "images"])
+        collectUrls(rec[key], urls);
+      const declared = Math.trunc(Number(rec.imageInputCount));
+      const n = Math.max(urls.size, Number.isFinite(declared) ? declared : 0);
+      return Math.min(exports.NANO_BANANA_21_MAX_INPUT_IMAGES, Math.max(1, n));
+    };
+    exports.nanoBanana21InputImageCount = nanoBanana21InputImageCount;
+    var nanoBanana21UsdPerImage = (resolution, inputImages) => {
+      const prices = exports.NANO_BANANA_21_USD_PER_MILLION_TOKENS;
+      const tier = (0, exports.normalizeNanoBanana21Resolution)(resolution);
+      const inputTokens = exports.NANO_BANANA_21_INPUT_TEXT_ALLOWANCE_TOKENS + Math.max(0, Math.trunc(inputImages)) * exports.NANO_BANANA_21_INPUT_IMAGE_TOKENS;
+      return (exports.NANO_BANANA_21_OUTPUT_IMAGE_TOKENS[tier] * prices.outputImage + exports.NANO_BANANA_21_OUTPUT_TEXT_ALLOWANCE_TOKENS * prices.outputText + inputTokens * prices.input) / 1e6;
+    };
+    exports.nanoBanana21UsdPerImage = nanoBanana21UsdPerImage;
+    var creditsFromUsd = (usd) => Math.ceil(Math.round(usd * 100 * 1e6) / 1e6);
+    var nanoBanana21CreditCost = (inputs, variant) => {
+      const images = variant === "edit" ? (0, exports.nanoBanana21InputImageCount)(inputs) : 0;
+      return creditsFromUsd((0, exports.nanoBanana21UsdPerImage)(inputs?.resolution, images));
+    };
+    exports.nanoBanana21CreditCost = nanoBanana21CreditCost;
+    exports.NANO_BANANA_21_BASE_COST = creditsFromUsd((0, exports.nanoBanana21UsdPerImage)(exports.NANO_BANANA_21_DEFAULT_RESOLUTION, 0));
+    var normalizeOutputFormat = (value) => {
+      const format = String(value ?? "").trim().toLowerCase();
+      return format === "jpeg" || format === "webp" ? format : "png";
+    };
+    var finiteSeed = (value) => {
+      if (value === void 0 || value === null || value === "")
+        return void 0;
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.trunc(n) : void 0;
+    };
+    var buildNanoBanana21FalRequest = (params) => {
+      const images = [...new Set((params.imageUrls ?? []).filter(nonEmptyUrl).map((u) => u.trim()))];
+      if (params.edit && images.length === 0) {
+        throw new Error("Nano Banana 2.1 (\xE9dition) n\xE9cessite au moins une image en entr\xE9e.");
+      }
+      const seed = finiteSeed(params.seed);
+      const input = {
+        prompt: (0, exports.clampNanoBanana21Prompt)(params.prompt),
+        ...params.edit ? { image_urls: images.slice(0, exports.NANO_BANANA_21_MAX_INPUT_IMAGES) } : {},
+        num_images: 1,
+        resolution: (0, exports.normalizeNanoBanana21Resolution)(params.resolution),
+        aspect_ratio: (0, exports.normalizeNanoBanana21AspectRatio)(params.aspectRatio),
+        output_format: normalizeOutputFormat(params.outputFormat),
+        safety_tolerance: "6",
+        limit_generations: true,
+        thinking_level: exports.NANO_BANANA_21_THINKING_LEVEL,
+        system_prompt: exports.NANO_BANANA_21_SYSTEM_PROMPT,
+        ...seed !== void 0 ? { seed } : {}
+      };
+      return {
+        falModelId: params.edit ? exports.NANO_BANANA_21_EDIT_ENDPOINT : exports.NANO_BANANA_21_T2I_ENDPOINT,
+        input
+      };
+    };
+    exports.buildNanoBanana21FalRequest = buildNanoBanana21FalRequest;
+    var hardenNanoBanana21Input = (input) => {
+      if (typeof input.prompt === "string")
+        input.prompt = (0, exports.clampNanoBanana21Prompt)(input.prompt);
+      input.resolution = (0, exports.normalizeNanoBanana21Resolution)(input.resolution);
+      if (input.aspect_ratio !== void 0 && input.aspect_ratio !== null) {
+        input.aspect_ratio = (0, exports.normalizeNanoBanana21AspectRatio)(input.aspect_ratio);
+      }
+      if (input.output_format !== void 0)
+        input.output_format = normalizeOutputFormat(input.output_format);
+      if (Array.isArray(input.image_urls)) {
+        input.image_urls = [...new Set(input.image_urls.filter(nonEmptyUrl).map((u) => u.trim()))].slice(0, exports.NANO_BANANA_21_MAX_INPUT_IMAGES);
+      }
+      input.num_images = 1;
+      input.limit_generations = true;
+      input.thinking_level = exports.NANO_BANANA_21_THINKING_LEVEL;
+      input.system_prompt = exports.NANO_BANANA_21_SYSTEM_PROMPT;
+      delete input.enable_web_search;
+      delete input.video_url;
+      delete input.pdf_url;
+      delete input.sync_mode;
+      return input;
+    };
+    exports.hardenNanoBanana21Input = hardenNanoBanana21Input;
+  }
+});
+
+// ../packages/workflow-contracts/dist/krea3.js
+var require_krea3 = __commonJS({
+  "../packages/workflow-contracts/dist/krea3.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.hardenKrea3Input = exports.buildKrea3FalRequest = exports.clampKrea3Prompt = exports.KREA3_BASE_COST = exports.krea3CreditCost = exports.krea3Usd = exports.krea3OutputMegapixels = exports.krea3InputImageCount = exports.normalizeKrea3ImageSize = exports.krea3ImageSize = exports.normalizeKrea3AspectRatio = exports.KREA3_ASPECT_RATIOS = exports.normalizeKrea3Resolution = exports.KREA3_DEFAULT_RESOLUTION = exports.KREA3_RESOLUTIONS = exports.KREA3_MAX_PROMPT_LENGTH = exports.KREA3_MIN_SIDE = exports.KREA3_MAX_SIDE = exports.KREA3_MAX_AREA = exports.KREA3_HIGH_REASONING_MEGAPIXELS = exports.KREA3_USD_PER_MEGAPIXEL = exports.KREA3_MAX_INPUT_IMAGES = exports.KREA3_ENDPOINTS = exports.KREA3_EDIT_ENDPOINT = exports.KREA3_T2I_ENDPOINT = void 0;
+    exports.KREA3_T2I_ENDPOINT = "krea/v3/text-to-image";
+    exports.KREA3_EDIT_ENDPOINT = "krea/v3/edit";
+    exports.KREA3_ENDPOINTS = /* @__PURE__ */ new Set([exports.KREA3_T2I_ENDPOINT, exports.KREA3_EDIT_ENDPOINT]);
+    exports.KREA3_MAX_INPUT_IMAGES = 8;
+    exports.KREA3_USD_PER_MEGAPIXEL = 0.025;
+    exports.KREA3_HIGH_REASONING_MEGAPIXELS = 5;
+    exports.KREA3_MAX_AREA = 4220160;
+    exports.KREA3_MAX_SIDE = 3200;
+    exports.KREA3_MIN_SIDE = 256;
+    var MULTIPLE = 16;
+    exports.KREA3_MAX_PROMPT_LENGTH = 5e3;
+    exports.KREA3_RESOLUTIONS = ["1K", "2K"];
+    exports.KREA3_DEFAULT_RESOLUTION = "1K";
+    var TIER_PIXELS = {
+      "1K": 1024 * 1024,
+      "2K": 2048 * 2048
+    };
+    var normalizeKrea3Resolution = (value) => {
+      const res = typeof value === "string" ? value.trim() : "";
+      return exports.KREA3_RESOLUTIONS.includes(res) ? res : exports.KREA3_DEFAULT_RESOLUTION;
+    };
+    exports.normalizeKrea3Resolution = normalizeKrea3Resolution;
+    exports.KREA3_ASPECT_RATIOS = ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "21:9", "4:5", "5:4"];
+    var normalizeKrea3AspectRatio = (value) => {
+      const ar = typeof value === "string" ? value.trim() : "";
+      return exports.KREA3_ASPECT_RATIOS.includes(ar) ? ar : "1:1";
+    };
+    exports.normalizeKrea3AspectRatio = normalizeKrea3AspectRatio;
+    var krea3ImageSize = (resolution, aspectRatio) => {
+      const target = TIER_PIXELS[(0, exports.normalizeKrea3Resolution)(resolution)];
+      const [w, h] = (0, exports.normalizeKrea3AspectRatio)(aspectRatio).split(":").map(Number);
+      const unit = Math.sqrt(target / (w * h));
+      const side = (n) => Math.min(exports.KREA3_MAX_SIDE, Math.max(exports.KREA3_MIN_SIDE, Math.floor(unit * n / MULTIPLE + 1e-9) * MULTIPLE));
+      return { width: side(w), height: side(h) };
+    };
+    exports.krea3ImageSize = krea3ImageSize;
+    var PRESETS = {
+      square_hd: { width: 1024, height: 1024 },
+      square: { width: 512, height: 512 },
+      portrait_4_3: { width: 768, height: 1024 },
+      portrait_16_9: { width: 576, height: 1024 },
+      landscape_4_3: { width: 1024, height: 768 },
+      landscape_16_9: { width: 1024, height: 576 }
+    };
+    var ceilTo = (n) => Math.ceil(n / MULTIPLE) * MULTIPLE;
+    var floorTo = (n) => Math.floor(n / MULTIPLE) * MULTIPLE;
+    var normalizeKrea3ImageSize = (value) => {
+      if (typeof value === "string") {
+        const preset = PRESETS[value.trim()];
+        return preset ? (0, exports.normalizeKrea3ImageSize)({ ...preset }) : "auto";
+      }
+      if (!value || typeof value !== "object")
+        return "auto";
+      const { width, height } = value;
+      const w0 = Number(width);
+      const h0 = Number(height);
+      if (!Number.isFinite(w0) || !Number.isFinite(h0) || w0 <= 0 || h0 <= 0)
+        return "auto";
+      let w = Math.min(exports.KREA3_MAX_SIDE, Math.max(exports.KREA3_MIN_SIDE, ceilTo(w0)));
+      let h = Math.min(exports.KREA3_MAX_SIDE, Math.max(exports.KREA3_MIN_SIDE, ceilTo(h0)));
+      if (w * h > exports.KREA3_MAX_AREA) {
+        const k = Math.sqrt(exports.KREA3_MAX_AREA / (w * h));
+        w = Math.max(exports.KREA3_MIN_SIDE, floorTo(w * k));
+        h = Math.max(exports.KREA3_MIN_SIDE, floorTo(h * k));
+      }
+      return { width: w, height: h };
+    };
+    exports.normalizeKrea3ImageSize = normalizeKrea3ImageSize;
+    var sizePixels = (size) => {
+      if (typeof size === "string") {
+        const preset = PRESETS[size];
+        return preset ? preset.width * preset.height : exports.KREA3_MAX_AREA;
+      }
+      return size.width * size.height;
+    };
+    var megapixelsCeil = (pixels) => Math.max(1, Math.ceil(Math.round(pixels / 1048576 * 1e6) / 1e6));
+    var nonEmptyUrl = (value) => typeof value === "string" && value.trim().length > 0;
+    var collectUrls = (value, into) => {
+      if (nonEmptyUrl(value))
+        into.add(value.trim());
+      else if (Array.isArray(value))
+        value.forEach((entry) => collectUrls(entry, into));
+    };
+    var krea3InputImageCount = (inputs) => {
+      const rec = inputs ?? {};
+      const urls = /* @__PURE__ */ new Set();
+      for (const key of ["image_urls", "image_url", "image", "images"])
+        collectUrls(rec[key], urls);
+      const declared = Math.trunc(Number(rec.imageInputCount));
+      const n = Math.max(urls.size, Number.isFinite(declared) ? declared : 0);
+      return Math.min(exports.KREA3_MAX_INPUT_IMAGES, Math.max(1, n));
+    };
+    exports.krea3InputImageCount = krea3InputImageCount;
+    var krea3OutputMegapixels = (inputs, payloadView) => {
+      const rec = inputs ?? {};
+      if (payloadView)
+        return megapixelsCeil(sizePixels((0, exports.normalizeKrea3ImageSize)(rec.image_size)));
+      return megapixelsCeil(TIER_PIXELS[(0, exports.normalizeKrea3Resolution)(rec.resolution)]);
+    };
+    exports.krea3OutputMegapixels = krea3OutputMegapixels;
+    var krea3Usd = (outputMegapixels, references, highReasoning = false) => exports.KREA3_USD_PER_MEGAPIXEL * (outputMegapixels * (1 + Math.max(0, Math.trunc(references))) + (highReasoning ? exports.KREA3_HIGH_REASONING_MEGAPIXELS : 0));
+    exports.krea3Usd = krea3Usd;
+    var creditsFromUsd = (usd) => Math.ceil(Math.round(usd * 100 * 1e6) / 1e6);
+    var krea3CreditCost = (inputs, variant, payloadView = false) => {
+      const output = (0, exports.krea3OutputMegapixels)(inputs, payloadView);
+      const references = variant === "edit" ? (0, exports.krea3InputImageCount)(inputs) : 0;
+      const highReasoning = String(inputs?.reasoning_level ?? "").trim().toLowerCase() === "high";
+      return creditsFromUsd((0, exports.krea3Usd)(output, references, highReasoning));
+    };
+    exports.krea3CreditCost = krea3CreditCost;
+    exports.KREA3_BASE_COST = creditsFromUsd((0, exports.krea3Usd)(1, 0));
+    var normalizeOutputFormat = (value) => String(value ?? "").trim().toLowerCase() === "jpeg" ? "jpeg" : "png";
+    var finiteSeed = (value) => {
+      if (value === void 0 || value === null || value === "")
+        return void 0;
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.trunc(n) : void 0;
+    };
+    var clampKrea3Prompt = (prompt) => {
+      const chars = Array.from(prompt);
+      return chars.length <= exports.KREA3_MAX_PROMPT_LENGTH ? prompt : chars.slice(0, exports.KREA3_MAX_PROMPT_LENGTH).join("");
+    };
+    exports.clampKrea3Prompt = clampKrea3Prompt;
+    var buildKrea3FalRequest = (params) => {
+      const images = [...new Set((params.imageUrls ?? []).filter(nonEmptyUrl).map((u) => u.trim()))];
+      if (params.edit && images.length === 0) {
+        throw new Error("Krea 3 (\xE9dition) n\xE9cessite au moins une image en entr\xE9e.");
+      }
+      const seed = finiteSeed(params.seed);
+      const input = {
+        prompt: (0, exports.clampKrea3Prompt)(params.prompt),
+        ...params.edit ? { image_urls: images.slice(0, exports.KREA3_MAX_INPUT_IMAGES) } : {},
+        image_size: (0, exports.krea3ImageSize)(params.resolution, params.aspectRatio),
+        output_format: normalizeOutputFormat(params.outputFormat),
+        ...seed !== void 0 ? { seed } : {}
+      };
+      return { falModelId: params.edit ? exports.KREA3_EDIT_ENDPOINT : exports.KREA3_T2I_ENDPOINT, input };
+    };
+    exports.buildKrea3FalRequest = buildKrea3FalRequest;
+    var hardenKrea3Input = (input) => {
+      if (typeof input.prompt === "string")
+        input.prompt = (0, exports.clampKrea3Prompt)(input.prompt);
+      if (input.image_size !== void 0 && input.image_size !== null) {
+        input.image_size = (0, exports.normalizeKrea3ImageSize)(input.image_size);
+      }
+      if (Array.isArray(input.image_urls)) {
+        input.image_urls = [...new Set(input.image_urls.filter(nonEmptyUrl).map((u) => u.trim()))].slice(0, exports.KREA3_MAX_INPUT_IMAGES);
+      }
+      if (input.output_format !== void 0)
+        input.output_format = normalizeOutputFormat(input.output_format);
+      const reasoning = String(input.reasoning_level ?? "").trim();
+      if (reasoning !== "low" && reasoning !== "medium")
+        delete input.reasoning_level;
+      delete input.sync_mode;
+      delete input.num_images;
+      return input;
+    };
+    exports.hardenKrea3Input = hardenKrea3Input;
+  }
+});
+
+// ../packages/workflow-contracts/dist/flux3Klein.js
+var require_flux3Klein = __commonJS({
+  "../packages/workflow-contracts/dist/flux3Klein.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.hardenFlux3KleinInput = exports.buildFlux3KleinFalRequest = exports.FLUX3_KLEIN_BASE_COST = exports.flux3KleinCreditCost = exports.normalizeFlux3KleinNumImages = exports.flux3KleinBilledInputImages = exports.flux3KleinReferenceUrls = exports.flux3KleinImageUsd = exports.flux3KleinLiveUsd = exports.flux3KleinInputMegapixels = exports.flux3KleinOutputMegapixels = exports.FLUX3_KLEIN_USD_PER_MEGAPIXEL = exports.flux3KleinPlannedUsd = exports.flux3KleinPlannedTier = exports.flux3KleinPlannedTierByLongSide = exports.flux3KleinPlannedTierByArea = exports.FLUX3_KLEIN_PLANNED_TIERS = exports.flux3KleinMegapixelsCeil = exports.flux3KleinBilledOutput = exports.FLUX3_KLEIN_AUTO_EDIT_OUTPUT = exports.flux3KleinSizeOutput = exports.flux3KleinBuilderImageSize = exports.normalizeFlux3KleinImageSize = exports.FLUX3_KLEIN_AUTO_EDIT_BILLED_MEGAPIXELS = exports.FLUX3_KLEIN_AUTO_EDIT_OUTPUT_PIXELS = exports.FLUX3_KLEIN_DEFAULT_T2I_SIZE = exports.FLUX3_KLEIN_SIZE_PRESETS = exports.normalizeFlux3KleinAspectRatio = exports.FLUX3_KLEIN_ASPECT_RATIOS = exports.normalizeFlux3KleinResolution = exports.FLUX3_KLEIN_DEFAULT_RESOLUTION = exports.FLUX3_KLEIN_RESOLUTIONS = exports.FLUX3_KLEIN_MAX_SIDE = exports.FLUX3_KLEIN_MIN_SIDE = exports.FLUX3_KLEIN_MAX_OUTPUTS = exports.FLUX3_KLEIN_MAX_INPUT_IMAGES = exports.flux3KleinEndpointSpec = exports.isFlux3KleinEndpoint = exports.FLUX3_KLEIN_ENDPOINTS = exports.FLUX3_KLEIN_ENDPOINTS_BY_VARIANT = exports.FLUX3_KLEIN_BASE_EDIT_ENDPOINT = exports.FLUX3_KLEIN_BASE_T2I_ENDPOINT = exports.FLUX3_KLEIN_EDIT_ENDPOINT = exports.FLUX3_KLEIN_T2I_ENDPOINT = void 0;
+    exports.FLUX3_KLEIN_T2I_ENDPOINT = "blackforestlabs/flux-3/klein/text-to-image";
+    exports.FLUX3_KLEIN_EDIT_ENDPOINT = "blackforestlabs/flux-3/klein/edit-image";
+    exports.FLUX3_KLEIN_BASE_T2I_ENDPOINT = "blackforestlabs/flux-3/klein/base/text-to-image";
+    exports.FLUX3_KLEIN_BASE_EDIT_ENDPOINT = "blackforestlabs/flux-3/klein/base/edit-image";
+    exports.FLUX3_KLEIN_ENDPOINTS_BY_VARIANT = {
+      klein: { t2i: exports.FLUX3_KLEIN_T2I_ENDPOINT, edit: exports.FLUX3_KLEIN_EDIT_ENDPOINT },
+      base: { t2i: exports.FLUX3_KLEIN_BASE_T2I_ENDPOINT, edit: exports.FLUX3_KLEIN_BASE_EDIT_ENDPOINT }
+    };
+    var ENDPOINT_SPECS = {
+      [exports.FLUX3_KLEIN_T2I_ENDPOINT]: { variant: "klein", mode: "t2i" },
+      [exports.FLUX3_KLEIN_EDIT_ENDPOINT]: { variant: "klein", mode: "edit" },
+      [exports.FLUX3_KLEIN_BASE_T2I_ENDPOINT]: { variant: "base", mode: "t2i" },
+      [exports.FLUX3_KLEIN_BASE_EDIT_ENDPOINT]: { variant: "base", mode: "edit" }
+    };
+    exports.FLUX3_KLEIN_ENDPOINTS = new Set(Object.keys(ENDPOINT_SPECS));
+    var isFlux3KleinEndpoint = (falModelId) => exports.FLUX3_KLEIN_ENDPOINTS.has(String(falModelId ?? ""));
+    exports.isFlux3KleinEndpoint = isFlux3KleinEndpoint;
+    var flux3KleinEndpointSpec = (falModelId) => ENDPOINT_SPECS[String(falModelId ?? "")] ?? null;
+    exports.flux3KleinEndpointSpec = flux3KleinEndpointSpec;
+    exports.FLUX3_KLEIN_MAX_INPUT_IMAGES = 10;
+    exports.FLUX3_KLEIN_MAX_OUTPUTS = 4;
+    exports.FLUX3_KLEIN_MIN_SIDE = 256;
+    exports.FLUX3_KLEIN_MAX_SIDE = 4096;
+    var SIZE_STEP = 16;
+    exports.FLUX3_KLEIN_RESOLUTIONS = ["1K", "2K", "4K"];
+    exports.FLUX3_KLEIN_DEFAULT_RESOLUTION = "1K";
+    var normalizeFlux3KleinResolution = (value) => exports.FLUX3_KLEIN_RESOLUTIONS.includes(value) ? value : exports.FLUX3_KLEIN_DEFAULT_RESOLUTION;
+    exports.normalizeFlux3KleinResolution = normalizeFlux3KleinResolution;
+    var TIER_TARGET_PIXELS = {
+      "1K": 1024 * 1024,
+      "2K": 2048 * 2048,
+      "4K": 4096 * 4096
+    };
+    exports.FLUX3_KLEIN_ASPECT_RATIOS = ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "21:9", "3:2", "2:3"];
+    var RATIOS = {
+      "1:1": [1, 1],
+      "16:9": [16, 9],
+      "9:16": [9, 16],
+      "4:3": [4, 3],
+      "3:4": [3, 4],
+      "21:9": [21, 9],
+      "3:2": [3, 2],
+      "2:3": [2, 3]
+    };
+    var normalizeFlux3KleinAspectRatio = (value) => {
+      const ar = String(value ?? "").trim();
+      return exports.FLUX3_KLEIN_ASPECT_RATIOS.includes(ar) ? ar : "auto";
+    };
+    exports.normalizeFlux3KleinAspectRatio = normalizeFlux3KleinAspectRatio;
+    exports.FLUX3_KLEIN_SIZE_PRESETS = {
+      square_hd: { width: 1024, height: 1024 },
+      square: { width: 512, height: 512 },
+      portrait_4_3: { width: 768, height: 1024 },
+      portrait_16_9: { width: 576, height: 1024 },
+      landscape_4_3: { width: 1024, height: 768 },
+      landscape_16_9: { width: 1024, height: 576 }
+    };
+    exports.FLUX3_KLEIN_DEFAULT_T2I_SIZE = "square_hd";
+    exports.FLUX3_KLEIN_AUTO_EDIT_OUTPUT_PIXELS = 4 * 1024 * 1024;
+    exports.FLUX3_KLEIN_AUTO_EDIT_BILLED_MEGAPIXELS = 5;
+    var roundToStep = (n) => Math.round(n / SIZE_STEP) * SIZE_STEP;
+    var clampSide = (n) => Math.min(exports.FLUX3_KLEIN_MAX_SIDE, Math.max(exports.FLUX3_KLEIN_MIN_SIDE, n));
+    var normalizeFlux3KleinImageSize = (value) => {
+      if (typeof value === "string") {
+        const key = value.trim();
+        return Object.prototype.hasOwnProperty.call(exports.FLUX3_KLEIN_SIZE_PRESETS, key) ? (0, exports.normalizeFlux3KleinImageSize)({ ...exports.FLUX3_KLEIN_SIZE_PRESETS[key] }) : void 0;
+      }
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        const { width, height } = value;
+        const w = Number(width);
+        const h = Number(height);
+        if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0)
+          return void 0;
+        return { width: clampSide(roundToStep(w)), height: clampSide(roundToStep(h)) };
+      }
+      return void 0;
+    };
+    exports.normalizeFlux3KleinImageSize = normalizeFlux3KleinImageSize;
+    var flux3KleinBuilderImageSize = (resolution, aspectRatio, mode) => {
+      const ar = (0, exports.normalizeFlux3KleinAspectRatio)(aspectRatio);
+      if (ar === "auto" && mode === "edit")
+        return void 0;
+      const [rw, rh] = RATIOS[ar] ?? RATIOS["1:1"];
+      const target = TIER_TARGET_PIXELS[(0, exports.normalizeFlux3KleinResolution)(resolution)];
+      const unit = Math.sqrt(target / (rw * rh));
+      let width = roundToStep(unit * rw);
+      let height = roundToStep(unit * rh);
+      if (width > exports.FLUX3_KLEIN_MAX_SIDE) {
+        height = roundToStep(height * exports.FLUX3_KLEIN_MAX_SIDE / width);
+        width = exports.FLUX3_KLEIN_MAX_SIDE;
+      }
+      if (height > exports.FLUX3_KLEIN_MAX_SIDE) {
+        width = roundToStep(width * exports.FLUX3_KLEIN_MAX_SIDE / height);
+        height = exports.FLUX3_KLEIN_MAX_SIDE;
+      }
+      const ratio = rw / rh;
+      while (width * height > target && width > exports.FLUX3_KLEIN_MIN_SIDE && height > exports.FLUX3_KLEIN_MIN_SIDE) {
+        if (width / height >= ratio)
+          width -= SIZE_STEP;
+        else
+          height -= SIZE_STEP;
+      }
+      return { width: clampSide(width), height: clampSide(height) };
+    };
+    exports.flux3KleinBuilderImageSize = flux3KleinBuilderImageSize;
+    var flux3KleinSizeOutput = (size) => {
+      const dims = typeof size === "string" ? exports.FLUX3_KLEIN_SIZE_PRESETS[size] : size;
+      return { pixels: dims.width * dims.height, longSide: Math.max(dims.width, dims.height) };
+    };
+    exports.flux3KleinSizeOutput = flux3KleinSizeOutput;
+    exports.FLUX3_KLEIN_AUTO_EDIT_OUTPUT = {
+      pixels: exports.FLUX3_KLEIN_AUTO_EDIT_OUTPUT_PIXELS,
+      longSide: exports.FLUX3_KLEIN_MAX_SIDE,
+      megapixels: exports.FLUX3_KLEIN_AUTO_EDIT_BILLED_MEGAPIXELS
+    };
+    var flux3KleinBilledOutput = (inputs, mode, payloadView) => {
+      const rec = inputs ?? {};
+      if (payloadView) {
+        const sent = (0, exports.normalizeFlux3KleinImageSize)(rec.image_size);
+        if (sent !== void 0)
+          return (0, exports.flux3KleinSizeOutput)(sent);
+        return mode === "t2i" ? (0, exports.flux3KleinSizeOutput)(exports.FLUX3_KLEIN_DEFAULT_T2I_SIZE) : exports.FLUX3_KLEIN_AUTO_EDIT_OUTPUT;
+      }
+      const built = (0, exports.flux3KleinBuilderImageSize)(rec.resolution, rec.aspectRatio, mode);
+      return built ? (0, exports.flux3KleinSizeOutput)(built) : exports.FLUX3_KLEIN_AUTO_EDIT_OUTPUT;
+    };
+    exports.flux3KleinBilledOutput = flux3KleinBilledOutput;
+    var flux3KleinMegapixelsCeil = (pixels) => Math.max(1, Math.ceil(Math.round(pixels / 1048576 * 1e6) / 1e6));
+    exports.flux3KleinMegapixelsCeil = flux3KleinMegapixelsCeil;
+    var tier = (label, side, klein, base) => ({
+      label,
+      maxLongSide: side,
+      maxPixels: side * side,
+      usd: { klein, base },
+      billedMegapixels: (0, exports.flux3KleinMegapixelsCeil)(side * side)
+    });
+    exports.FLUX3_KLEIN_PLANNED_TIERS = [
+      tier("768\xD7768", 768, 8e-3, 0.024),
+      tier("1K", 1024, 9e-3, 0.027),
+      tier("1.5K", 1536, 0.011, 0.033),
+      tier("2K", 2048, 0.014, 0.042),
+      tier("4K", 4096, 0.036, 0.108)
+    ];
+    var LAST_TIER = exports.FLUX3_KLEIN_PLANNED_TIERS[exports.FLUX3_KLEIN_PLANNED_TIERS.length - 1];
+    var flux3KleinPlannedTierByArea = (outputPixels) => exports.FLUX3_KLEIN_PLANNED_TIERS.find((t) => outputPixels <= t.maxPixels) ?? LAST_TIER;
+    exports.flux3KleinPlannedTierByArea = flux3KleinPlannedTierByArea;
+    var flux3KleinPlannedTierByLongSide = (longSide) => exports.FLUX3_KLEIN_PLANNED_TIERS.find((t) => longSide <= t.maxLongSide) ?? LAST_TIER;
+    exports.flux3KleinPlannedTierByLongSide = flux3KleinPlannedTierByLongSide;
+    var flux3KleinPlannedTier = (output) => {
+      const byArea = (0, exports.flux3KleinPlannedTierByArea)(output.pixels);
+      const bySide = (0, exports.flux3KleinPlannedTierByLongSide)(output.longSide);
+      return exports.FLUX3_KLEIN_PLANNED_TIERS.indexOf(bySide) > exports.FLUX3_KLEIN_PLANNED_TIERS.indexOf(byArea) ? bySide : byArea;
+    };
+    exports.flux3KleinPlannedTier = flux3KleinPlannedTier;
+    var flux3KleinPlannedUsd = (variant, output) => (0, exports.flux3KleinPlannedTier)(output).usd[variant];
+    exports.flux3KleinPlannedUsd = flux3KleinPlannedUsd;
+    exports.FLUX3_KLEIN_USD_PER_MEGAPIXEL = {
+      klein: 9e-3,
+      base: 0.027
+    };
+    var flux3KleinOutputMegapixels = (output) => output.megapixels ?? (0, exports.flux3KleinPlannedTierByArea)(output.pixels).billedMegapixels;
+    exports.flux3KleinOutputMegapixels = flux3KleinOutputMegapixels;
+    var flux3KleinInputMegapixels = (inputImagePixels) => inputImagePixels.reduce((sum, px) => sum + (0, exports.flux3KleinMegapixelsCeil)(Number.isFinite(px) && px > 0 ? px : 0), 0);
+    exports.flux3KleinInputMegapixels = flux3KleinInputMegapixels;
+    var flux3KleinLiveUsd = (variant, output, inputImagePixels) => exports.FLUX3_KLEIN_USD_PER_MEGAPIXEL[variant] * ((0, exports.flux3KleinOutputMegapixels)(output) + (0, exports.flux3KleinInputMegapixels)(inputImagePixels));
+    exports.flux3KleinLiveUsd = flux3KleinLiveUsd;
+    var flux3KleinImageUsd = (variant, output, inputImagePixels) => Math.max((0, exports.flux3KleinPlannedUsd)(variant, output), (0, exports.flux3KleinLiveUsd)(variant, output, inputImagePixels));
+    exports.flux3KleinImageUsd = flux3KleinImageUsd;
+    var ceilCredits = (usd) => Math.ceil(Math.round(usd * 100 * 1e6) / 1e6);
+    var flux3KleinReferenceUrls = (value) => {
+      const list = Array.isArray(value) ? value : [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const entry of list) {
+        if (typeof entry !== "string")
+          continue;
+        const url = entry.trim();
+        if (url)
+          seen.add(url);
+      }
+      return [...seen].slice(0, exports.FLUX3_KLEIN_MAX_INPUT_IMAGES);
+    };
+    exports.flux3KleinReferenceUrls = flux3KleinReferenceUrls;
+    var flux3KleinBilledInputImages = (mode, count) => {
+      if (mode === "t2i")
+        return 0;
+      const n = Math.trunc(Number(count));
+      if (!Number.isFinite(n) || n < 1)
+        return 1;
+      return Math.min(exports.FLUX3_KLEIN_MAX_INPUT_IMAGES, n);
+    };
+    exports.flux3KleinBilledInputImages = flux3KleinBilledInputImages;
+    var normalizeFlux3KleinNumImages = (value) => {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 1)
+        return 1;
+      return Math.min(exports.FLUX3_KLEIN_MAX_OUTPUTS, Math.trunc(n));
+    };
+    exports.normalizeFlux3KleinNumImages = normalizeFlux3KleinNumImages;
+    var flux3KleinCreditCost = (inputs, spec) => {
+      const output = (0, exports.flux3KleinBilledOutput)(inputs, spec.mode, spec.payloadView);
+      const references = spec.mode === "edit" ? spec.inputImagePixels.slice(0, exports.FLUX3_KLEIN_MAX_INPUT_IMAGES) : [];
+      const outputs = spec.payloadView ? (0, exports.normalizeFlux3KleinNumImages)(inputs?.num_images) : 1;
+      return ceilCredits((0, exports.flux3KleinImageUsd)(spec.variant, output, references)) * outputs;
+    };
+    exports.flux3KleinCreditCost = flux3KleinCreditCost;
+    exports.FLUX3_KLEIN_BASE_COST = {
+      klein: (0, exports.flux3KleinCreditCost)({}, { variant: "klein", mode: "t2i", payloadView: false, inputImagePixels: [] }),
+      base: (0, exports.flux3KleinCreditCost)({}, { variant: "base", mode: "t2i", payloadView: false, inputImagePixels: [] })
+    };
+    var OUTPUT_FORMATS = ["png", "jpeg", "webp"];
+    var normalizeOutputFormat = (value) => {
+      const f = String(value ?? "").trim().toLowerCase();
+      if (f === "jpg")
+        return "jpeg";
+      return OUTPUT_FORMATS.includes(f) ? f : "png";
+    };
+    var buildFlux3KleinFalRequest = (params) => {
+      const images = (0, exports.flux3KleinReferenceUrls)(params.imageUrls);
+      if (params.edit && images.length === 0) {
+        throw new Error("FLUX.3 Klein (\xE9dition) n\xE9cessite au moins une image en entr\xE9e.");
+      }
+      const mode = params.edit ? "edit" : "t2i";
+      const size = (0, exports.flux3KleinBuilderImageSize)(params.resolution, params.aspectRatio, mode);
+      const input = {
+        prompt: params.prompt,
+        ...params.edit ? { image_urls: images } : {},
+        ...size ? { image_size: size } : {},
+        output_format: normalizeOutputFormat(params.outputFormat)
+      };
+      return { falModelId: exports.FLUX3_KLEIN_ENDPOINTS_BY_VARIANT[params.variant][mode], input };
+    };
+    exports.buildFlux3KleinFalRequest = buildFlux3KleinFalRequest;
+    var hardenFlux3KleinInput = (falModelId, input) => {
+      const spec = (0, exports.flux3KleinEndpointSpec)(falModelId);
+      if (!spec)
+        return input;
+      const size = (0, exports.normalizeFlux3KleinImageSize)(input.image_size);
+      if (size !== void 0)
+        input.image_size = size;
+      else if (spec.mode === "t2i")
+        input.image_size = (0, exports.normalizeFlux3KleinImageSize)(exports.FLUX3_KLEIN_DEFAULT_T2I_SIZE);
+      else
+        delete input.image_size;
+      if (input.image_urls !== void 0)
+        input.image_urls = (0, exports.flux3KleinReferenceUrls)(input.image_urls);
+      if (input.num_images !== void 0)
+        input.num_images = (0, exports.normalizeFlux3KleinNumImages)(input.num_images);
+      delete input.sync_mode;
+      delete input.duration;
+      return input;
+    };
+    exports.hardenFlux3KleinInput = hardenFlux3KleinInput;
+  }
+});
+
 // ../packages/workflow-contracts/dist/museImage.js
 var require_museImage = __commonJS({
   "../packages/workflow-contracts/dist/museImage.js"(exports) {
@@ -4321,7 +6985,7 @@ var require_ideogram45 = __commonJS({
       const notMask = (url) => !maskUrl || url.trim() !== maskUrl;
       const urls = (args.imageUrls || []).filter(isNonEmptyString).filter(notMask);
       if (urls.length === 0) {
-        throw refusal(maskUrl ? "Ideogram V4.5 (\xE9dition) : un masque seul ne suffit pas, branchez aussi l\u2019image \xE0 \xE9diter." : "Ideogram V4.5 (\xE9dition) n\xE9cessite une image en entr\xE9e.");
+        throw refusal(maskUrl ? "Ideogram V4.5 (\xE9dition) : un masque seul ne suffit pas, branche aussi l\u2019image \xE0 \xE9diter." : "Ideogram V4.5 (\xE9dition) n\xE9cessite une image en entr\xE9e.");
       }
       const editPrecision = (0, exports.normalizeIdeogram45EditPrecision)(dyn.edit_precision);
       const maxRefs = maskUrl ? exports.IDEOGRAM_45_MAX_REFERENCES_WITH_MASK : exports.IDEOGRAM_45_MAX_REFERENCES;
@@ -4864,7 +7528,7 @@ var require_mediaPricing = __commonJS({
   "../packages/workflow-contracts/dist/mediaPricing.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.MEDIA_PRICING = exports.normalizeSeedanceResolution = exports.seedance2SentDuration = exports.wan27BillableDuration = exports.imageSizePixels = exports.FAL_IMAGE_SIZE_PRESETS = exports.falMegapixelsCeil = exports.billedInputImagePixels = exports.UNMEASURED_INPUT_IMAGE_PIXELS = exports.INPUT_IMAGE_MEGAPIXEL_PRICED_MODELS = exports.billedInputVideoSeconds = exports.measuredInputVideoSeconds = exports.countInputVideos = exports.countInputImages = exports.collectInputUrls = exports.INPUT_VIDEO_KEYS = exports.INPUT_IMAGE_KEYS = exports.readNumImages = exports.isPayloadView = exports.creditsFromUsd = exports.MEDIA_PRICING_VERIFIED_AT = exports.marketingStudioSentParams = exports.genjutsuSentResolution = exports.GROK_VIDEO_EDIT_UNMEASURED_SOURCE_SECONDS = exports.SEEDANCE_SENT_RESOLUTIONS = exports.seedanceSentResolution = exports.ltxReframeSentResolution = exports.wan27SentResolution = exports.wanFlashSentResolution = exports.GPT_IMAGE_25_2K_MAX_PIXELS = exports.capGptImage2Size = exports.seedream5ProBuilderImageSize = exports.seedream5BuilderImageSize = exports.preparePricingInputs = exports.CONTEXT_ONLY_PRICING_KEYS = exports.roundCostUpToHundredth = void 0;
+    exports.MEDIA_PRICING = exports.normalizeSeedanceResolution = exports.seedance2SentDuration = exports.wan27BillableDuration = exports.imageSizePixels = exports.FAL_IMAGE_SIZE_PRESETS = exports.falMegapixelsCeil = exports.billedInputImagePixels = exports.UNMEASURED_INPUT_IMAGE_PIXELS = exports.UNMEASURABLE_INPUT_IMAGE_MESSAGE = exports.STRICT_INPUT_IMAGE_MEASURED_MODELS = exports.INPUT_IMAGE_MEGAPIXEL_PRICED_MODELS = exports.billedInputVideoSeconds = exports.measuredInputVideoSeconds = exports.countInputVideos = exports.countInputImages = exports.collectInputUrls = exports.INPUT_VIDEO_KEYS = exports.INPUT_IMAGE_KEYS = exports.readNumImages = exports.isPayloadView = exports.creditsFromUsd = exports.MEDIA_PRICING_VERIFIED_AT = exports.marketingStudioSentParams = exports.genjutsuLightSourceRefusal = exports.GENJUTSU_LIGHT_MODEL_IDS = exports.genjutsuSentResolution = exports.GROK_VIDEO_EDIT_UNMEASURED_SOURCE_SECONDS = exports.SEEDANCE_SENT_RESOLUTIONS = exports.seedanceSentResolution = exports.ltxReframeSentResolution = exports.wan27SentResolution = exports.wanFlashSentResolution = exports.GPT_IMAGE_25_2K_MAX_PIXELS = exports.capGptImage2Size = exports.seedream5ProBuilderImageSize = exports.seedream5BuilderImageSize = exports.preparePricingInputs = exports.CONTEXT_ONLY_PRICING_KEYS = exports.roundCostUpToHundredth = void 0;
     var gptImage25_1 = require_gptImage25();
     var ltx25_1 = require_ltx25();
     var minimaxH3_1 = require_minimaxH3();
@@ -4872,19 +7536,31 @@ var require_mediaPricing = __commonJS({
     var geminiOmniFlash_1 = require_geminiOmniFlash();
     var geminiOmniFlashV1_1 = require_geminiOmniFlashV1();
     var flux3_1 = require_flux3();
+    var flux3Max_1 = require_flux3Max();
     var klingO34k_1 = require_klingO34k();
     var klingO3VideoToVideo_1 = require_klingO3VideoToVideo();
+    var higgsfieldDiscounts_1 = require_higgsfieldDiscounts();
     var minimaxH3MaxTurbo_1 = require_minimaxH3MaxTurbo();
     var minimaxH3MultiAngle_1 = require_minimaxH3MultiAngle();
     var wan30_1 = require_wan30();
+    var happyHorse_1 = require_happyHorse();
     var seedance25_1 = require_seedance25();
     var klingV3Turbo_1 = require_klingV3Turbo();
+    var viduQ4_1 = require_viduQ4();
+    var kandinsky6_1 = require_kandinsky6();
+    var lumaRay32_1 = require_lumaRay32();
+    var berniniR_1 = require_berniniR();
+    var pixverseC1_1 = require_pixverseC1();
+    var klingV4_1 = require_klingV4();
     var klingV3_1 = require_klingV3();
     var minimaxH3MaxExtend_1 = require_minimaxH3MaxExtend();
     var minimaxH3MaxInsert_1 = require_minimaxH3MaxInsert();
     var minimaxH3MaxStyles_1 = require_minimaxH3MaxStyles();
     var seedreamFlash_1 = require_seedreamFlash();
     var flux3Image_1 = require_flux3Image();
+    var nanoBanana21_1 = require_nanoBanana21();
+    var krea3_1 = require_krea3();
+    var flux3Klein_1 = require_flux3Klein();
     var museImage_1 = require_museImage();
     var grokImagineQuality_1 = require_grokImagineQuality();
     var ideogram45_1 = require_ideogram45();
@@ -4930,8 +7606,7 @@ var require_mediaPricing = __commonJS({
       const tier = trimmed(inputs.resolution).toUpperCase();
       const multiplier = NANO_BANANA_2_MULTIPLIER[tier] ?? 1;
       const usd = 0.08 * multiplier + (wantsWebSearch(inputs) ? 0.015 : 0) + (wantsHighThinking(inputs) ? 2e-3 : 0);
-      const legacy = tier === "4K" ? 16 : 8;
-      return Math.max(legacy, (0, exports.creditsFromUsd)(usd)) * nanoBananaOutputs(inputs);
+      return (0, exports.creditsFromUsd)(usd) * nanoBananaOutputs(inputs);
     };
     var NANO_BANANA_LITE_USD_PER_INPUT_IMAGE = 403e-6;
     var nanoBananaLiteCredits = (inputs) => {
@@ -5262,15 +7937,26 @@ var require_mediaPricing = __commonJS({
       const inputMegapixels = inputPixels.reduce((sum, px) => sum + (0, exports.falMegapixelsCeil)(px), 0);
       return 0.03 + 0.015 * (outputMegapixels - 1) + 0.015 * inputMegapixels;
     };
+    var flux2ProcessedUsd = (outputPixels, inputPixels) => 0.03 * ((0, exports.falMegapixelsCeil)(Math.min(FLUX_2_MAX_OUTPUT_PIXELS, outputPixels)) + inputPixels.reduce((sum, px) => sum + (0, exports.falMegapixelsCeil)(px), 0));
+    var flux2Credits = (outputPixels, inputPixels) => Math.max((0, exports.creditsFromUsd)(flux2Usd(outputPixels, inputPixels)), Math.min(6, (0, exports.creditsFromUsd)(flux2ProcessedUsd(outputPixels, inputPixels))));
     var flux2ProCredits = (inputs) => {
       const pixels = sentOrDerivedPixels(inputs, "landscape_4_3");
-      return Math.max(6, (0, exports.creditsFromUsd)(flux2Usd(pixels === "auto" ? FLUX_2_MAX_OUTPUT_PIXELS : pixels, [])));
+      return flux2Credits(pixels === "auto" ? FLUX_2_MAX_OUTPUT_PIXELS : pixels, []);
     };
     var flux2ProEditCredits = (inputs) => {
       const inputPixels = (0, exports.billedInputImagePixels)(inputs, Math.max(1, (0, exports.countInputImages)(inputs)));
       const sent = (0, exports.isPayloadView)(inputs) ? (0, exports.imageSizePixels)(inputs.image_size) : void 0;
       const outputPixels = typeof sent === "number" ? sent : Math.max(...inputPixels);
-      return Math.max(6, (0, exports.creditsFromUsd)(flux2Usd(outputPixels, inputPixels)));
+      return flux2Credits(outputPixels, inputPixels);
+    };
+    var flux3KleinCredits = (variant, mode) => (inputs) => {
+      const references = mode === "edit" ? (0, flux3Klein_1.flux3KleinBilledInputImages)(mode, (0, exports.countInputImages)(inputs)) : 0;
+      return (0, flux3Klein_1.flux3KleinCreditCost)(inputs, {
+        variant,
+        mode,
+        payloadView: (0, exports.isPayloadView)(inputs),
+        inputImagePixels: references > 0 ? (0, exports.billedInputImagePixels)(inputs, references) : []
+      });
     };
     var IDEOGRAM_USD_PER_MP = { TURBO: 75e-4, BALANCED: 0.015, QUALITY: 0.025 };
     var IDEOGRAM_LEGACY = { TURBO: 3, BALANCED: 6, QUALITY: 10 };
@@ -5611,12 +8297,36 @@ var require_mediaPricing = __commonJS({
       return "720p";
     };
     exports.genjutsuSentResolution = genjutsuSentResolution;
-    var genjutsuListCredits = (inputs) => {
+    var genjutsuListCredits = (discounted) => (inputs) => {
       const measured = (0, exports.measuredInputVideoSeconds)(inputs);
       const seconds = measured === void 0 ? GENJUTSU_MAX_SOURCE_SECONDS : Math.max(1, Math.ceil(Math.min(GENJUTSU_MAX_SOURCE_SECONDS, measured)));
-      const usd = GENJUTSU_LIST_USD_PER_SECOND[(0, exports.genjutsuSentResolution)(inputs.resolution)] * seconds;
+      const usd = GENJUTSU_LIST_USD_PER_SECOND[(0, exports.genjutsuSentResolution)(inputs.resolution)] * seconds * (discounted ? (0, higgsfieldDiscounts_1.higgsfieldCostFactor)("genjutsu") : 1);
       return Math.max(genjutsuCreditCost(inputs), (0, exports.creditsFromUsd)(usd));
     };
+    var GENJUTSU_LIGHT_LIST_USD_PER_SECOND = { "480p": 0.05, "720p": 0.1, "1080p": 0.2 };
+    var GENJUTSU_LIGHT_MAX_SOURCE_SECONDS = 15;
+    var genjutsuLightCredits = (inputs) => {
+      const measured = (0, exports.measuredInputVideoSeconds)(inputs);
+      const sourceSeconds = measured === void 0 ? GENJUTSU_LIGHT_MAX_SOURCE_SECONDS : Math.max(1, Math.ceil(Math.min(GENJUTSU_LIGHT_MAX_SOURCE_SECONDS, measured)));
+      const usd = GENJUTSU_LIGHT_LIST_USD_PER_SECOND[(0, exports.genjutsuSentResolution)(inputs.resolution)] * sourceSeconds * 2 * (0, higgsfieldDiscounts_1.higgsfieldCostFactor)("genjutsu-light");
+      return (0, exports.creditsFromUsd)(usd);
+    };
+    exports.GENJUTSU_LIGHT_MODEL_IDS = [
+      "higgsfield-genjutsu-light-motion-transfer",
+      "higgsfield-genjutsu-light-object-swap"
+    ];
+    var genjutsuLightSourceRefusal = (modelId, measuredSeconds) => {
+      if (!exports.GENJUTSU_LIGHT_MODEL_IDS.includes(modelId))
+        return null;
+      if (measuredSeconds === void 0 || !Number.isFinite(measuredSeconds)) {
+        return "Genjutsu Light : impossible de mesurer la dur\xE9e de ta vid\xE9o. R\xE9exporte-la en MP4 (4 \xE0 15 secondes) et importe-la dans le projet.";
+      }
+      if (measuredSeconds > GENJUTSU_LIGHT_MAX_SOURCE_SECONDS + 0.05) {
+        return `Genjutsu Light lit 15 secondes de vid\xE9o au maximum, la tienne en dure ${Math.round(measuredSeconds * 10) / 10}. Recadre-la \xE0 15 s, ou utilise Genjutsu (30 s).`;
+      }
+      return null;
+    };
+    exports.genjutsuLightSourceRefusal = genjutsuLightSourceRefusal;
     var CINEMA_STUDIO_MAX_REF_VIDEO_SECONDS = 30.2;
     var cinemaStudioListCredits = (inputs) => {
       const is480 = trimmed(inputs.resolution).toLowerCase() === "480p";
@@ -5648,19 +8358,29 @@ var require_mediaPricing = __commonJS({
         return true;
       return fallback;
     };
-    var marketingStudioSentParams = (inputs) => {
+    var MARKETING_ALPHA_QUALITIES = ["low", "medium", "high"];
+    var MARKETING_25_QUALITIES = ["low", "medium", "high", "xhigh", "max"];
+    var marketingStudioSentParams = (inputs, enhanceForcesHigh = true) => {
       const enhance = sentBoolean(inputs.enhance_prompt ?? inputs.enhancePrompt, false);
       const res = trimmed(inputs.resolution).toLowerCase();
       const resolution = ["1k", "2k", "4k"].includes(res) ? res : "2k";
+      const allowed = enhanceForcesHigh ? MARKETING_ALPHA_QUALITIES : MARKETING_25_QUALITIES;
       const rawQuality = trimmed(inputs.quality).toLowerCase();
-      const quality = enhance ? "high" : ["low", "medium", "high"].includes(rawQuality) ? rawQuality : "high";
+      const picked = enhance && enhanceForcesHigh ? "high" : allowed.includes(rawQuality) ? rawQuality : "medium";
+      const quality = picked;
       return { resolution, quality, enhance };
     };
     exports.marketingStudioSentParams = marketingStudioSentParams;
     var marketingStudioCredits = (inputs) => {
       const { resolution, quality, enhance } = (0, exports.marketingStudioSentParams)(inputs);
-      const usd = MARKETING_STUDIO_USD[`${resolution}:${quality}`] * (enhance ? 1.1 : 1);
+      const usd = MARKETING_STUDIO_USD[`${resolution}:${quality}`] * (enhance ? 1.1 : 1) * (0, higgsfieldDiscounts_1.higgsfieldCostFactor)("marketing-studio-image");
       return Math.max(2, (0, exports.creditsFromUsd)(usd));
+    };
+    var marketingStudio25Credits = (inputs) => {
+      const sent = (0, exports.marketingStudioSentParams)(inputs, false);
+      const extraRefs = Math.max(0, (0, exports.countInputImages)(inputs) - 1);
+      const usd = gptImage25_1.GPT_IMAGE_25_USD[(0, gptImage25_1.normalizeGptImage25Resolution)(sent.resolution)][(0, gptImage25_1.billedGptImage25Quality)(sent.quality)] + 0.012 * extraRefs;
+      return (0, exports.creditsFromUsd)(usd);
     };
     var soulTierAndBatch = (inputs) => {
       const res = trimmed(inputs.resolution).toLowerCase();
@@ -5760,8 +8480,14 @@ var require_mediaPricing = __commonJS({
       "flux-2-pro-edit",
       "hunyuan",
       "ideogram-v4",
-      "gpt-image-2-edit"
+      "gpt-image-2-edit",
+      // BV-388 : FLUX.3 Klein / Klein Base en édition (têtes de famille = ids
+      // d'édition ; les ids `*-t2i` n'envoient aucune référence).
+      "flux-3-klein",
+      "flux-3-klein-base"
     ];
+    exports.STRICT_INPUT_IMAGE_MEASURED_MODELS = ["flux-3-klein", "flux-3-klein-base"];
+    exports.UNMEASURABLE_INPUT_IMAGE_MESSAGE = "Une image de r\xE9f\xE9rence n'a pas pu \xEAtre lue. Ce mod\xE8le facture chaque r\xE9f\xE9rence \xE0 sa taille r\xE9elle : importe l\u2019image dans Beemm Vision, puis relance.";
     exports.UNMEASURED_INPUT_IMAGE_PIXELS = 25e6;
     var billedInputImagePixels = (inputs, count) => {
       const measured = inputs.inputImageMegapixels;
@@ -5819,6 +8545,8 @@ var require_mediaPricing = __commonJS({
     };
     var hasUrlList = (value) => Array.isArray(value) ? value.length > 0 : Boolean(value);
     var boundedVideoDuration = (value, fallback, min, max) => {
+      if (value === null || value === void 0 || value === "")
+        return fallback;
       const parsed = Number(value);
       if (!Number.isFinite(parsed))
         return fallback;
@@ -5901,12 +8629,27 @@ var require_mediaPricing = __commonJS({
       const usdPerSecond = GENJUTSU_USD_PER_SECOND[resolution] ?? GENJUTSU_USD_PER_SECOND["720p"];
       return (0, exports.roundCostUpToHundredth)(seconds * usdPerSecond * 100);
     };
+    var lumaRay32Credits = (inputs) => (0, lumaRay32_1.lumaRay32CreditCost)({
+      kind: (0, lumaRay32_1.lumaRay32KindFromEndpoint)(inputs.falModelId) ?? (0, lumaRay32_1.lumaRay32KindFromInputs)(inputs),
+      resolution: inputs.resolution,
+      duration: inputs.duration
+    });
     exports.MEDIA_PRICING = {
       "nano-banana": { baseCost: 15, calculateCost: nanoBananaProCredits },
       "nano-banana-2": { baseCost: 8, calculateCost: nanoBanana2Credits },
       "nano-banana-pro": { baseCost: 15, calculateCost: nanoBananaProCredits },
       "nano-banana-pro-t2i": { baseCost: 15, calculateCost: nanoBananaProCredits },
       "nano-banana-2-t2i": { baseCost: 8, calculateCost: nanoBanana2Credits },
+      // Nano Banana 2.1 (BV-388) : aux jetons, chaque poste à son plafond (contrat
+      // nanoBanana21.ts) ; × sorties comme toute la famille Nano Banana.
+      "nano-banana-2-1": {
+        baseCost: nanoBanana21_1.NANO_BANANA_21_BASE_COST,
+        calculateCost: (inputs) => (0, nanoBanana21_1.nanoBanana21CreditCost)(inputs, "edit") * nanoBananaOutputs(inputs)
+      },
+      "nano-banana-2-1-t2i": {
+        baseCost: nanoBanana21_1.NANO_BANANA_21_BASE_COST,
+        calculateCost: (inputs) => (0, nanoBanana21_1.nanoBanana21CreditCost)(inputs, "t2i") * nanoBananaOutputs(inputs)
+      },
       // Nano Banana Lite : sortie 1K fixe, 0,042 $/image (cf. nanoBananaLiteCredits).
       "nano-banana-lite": { baseCost: 5, calculateCost: nanoBananaLiteCredits },
       "nano-banana-lite-t2i": { baseCost: 5, calculateCost: nanoBananaLiteCredits },
@@ -5953,12 +8696,21 @@ var require_mediaPricing = __commonJS({
       "krea-2-style": { baseCost: 7 },
       "krea-2-medium": { baseCost: 3, calculateCost: (inputs) => hasStyleReferences(inputs) ? 4 : 3 },
       "krea-2-medium-style": { baseCost: 4 },
+      // Krea 3 (BV-388) : 0,025 $/MP, sortie + chaque référence à la taille de la
+      // sortie au plus (contrat krea3.ts). Vue payload : la taille qui part.
+      "krea-3": { baseCost: krea3_1.KREA3_BASE_COST, calculateCost: (inputs) => (0, krea3_1.krea3CreditCost)(inputs, "edit", (0, exports.isPayloadView)(inputs)) },
+      "krea-3-t2i": { baseCost: krea3_1.KREA3_BASE_COST, calculateCost: (inputs) => (0, krea3_1.krea3CreditCost)(inputs, "t2i", (0, exports.isPayloadView)(inputs)) },
       "soul-2": { baseCost: 2, calculateCost: soul2Credits },
       "soul-cinema": { baseCost: 10, calculateCost: soulCinemaCredits },
       // BV-341 : prix par qualité × définition (cf. marketingStudioCredits) ; 2 cr en plancher.
-      "higgsfield-marketing-studio-image": { baseCost: 23, calculateCost: marketingStudioCredits },
-      "higgsfield-genjutsu-motion-transfer": { baseCost: 2043, calculateCost: genjutsuListCredits },
-      "higgsfield-genjutsu-object-swap": { baseCost: 2043, calculateCost: genjutsuListCredits },
+      "higgsfield-marketing-studio-image": { baseCost: 7, calculateCost: marketingStudioCredits },
+      "higgsfield-marketing-studio-image-flare": { baseCost: 2, calculateCost: marketingStudio25Credits },
+      "higgsfield-marketing-studio-image-sunburst": { baseCost: 2, calculateCost: marketingStudio25Credits },
+      "higgsfield-genjutsu-motion-transfer": { baseCost: 1022, calculateCost: genjutsuListCredits(true) },
+      "higgsfield-genjutsu-object-swap": { baseCost: 2043, calculateCost: genjutsuListCredits(false) },
+      // Genjutsu Light (BV-471) : 720p, 15 s de source non mesurée, remise −50 %.
+      "higgsfield-genjutsu-light-motion-transfer": { baseCost: 150, calculateCost: genjutsuLightCredits },
+      "higgsfield-genjutsu-light-object-swap": { baseCost: 150, calculateCost: genjutsuLightCredits },
       "higgsfield-cinema-studio-4": { baseCost: 232, calculateCost: cinemaStudioListCredits },
       "krea-2-turbo": { baseCost: 1, calculateCost: kreaTurboCredits(8e-3) },
       "krea-2-turbo-style": { baseCost: 1, calculateCost: kreaTurboCredits(0.01) },
@@ -5977,10 +8729,15 @@ var require_mediaPricing = __commonJS({
       "gpt-image-2-5-flare-edit": { baseCost: gptImage25_1.GPT_IMAGE_25_BASE_COST, calculateCost: gpt25Credits(true) },
       "gpt-image-2-5-sunburst": { baseCost: gptImage25_1.GPT_IMAGE_25_BASE_COST, calculateCost: gpt25Credits(false) },
       "gpt-image-2-5-sunburst-edit": { baseCost: gptImage25_1.GPT_IMAGE_25_BASE_COST, calculateCost: gpt25Credits(true) },
-      "flux-2-pro": { baseCost: 6, calculateCost: flux2ProCredits },
+      "flux-2-pro": { baseCost: 3, calculateCost: flux2ProCredits },
       // FLUX 3 Image (BV-342) : contrat flux3Image.ts.
       "flux-3-image": { baseCost: flux3Image_1.FLUX3_IMAGE_BASE_COST, calculateCost: (inputs) => (0, flux3Image_1.flux3ImageCreditCost)(inputs, "edit") },
       "flux-3-image-t2i": { baseCost: flux3Image_1.FLUX3_IMAGE_BASE_COST, calculateCost: (inputs) => (0, flux3Image_1.flux3ImageCreditCost)(inputs, "t2i") },
+      // FLUX.3 Klein / Klein Base (BV-388) : contrat flux3Klein.ts.
+      "flux-3-klein": { baseCost: flux3Klein_1.FLUX3_KLEIN_BASE_COST.klein, calculateCost: flux3KleinCredits("klein", "edit") },
+      "flux-3-klein-t2i": { baseCost: flux3Klein_1.FLUX3_KLEIN_BASE_COST.klein, calculateCost: flux3KleinCredits("klein", "t2i") },
+      "flux-3-klein-base": { baseCost: flux3Klein_1.FLUX3_KLEIN_BASE_COST.base, calculateCost: flux3KleinCredits("base", "edit") },
+      "flux-3-klein-base-t2i": { baseCost: flux3Klein_1.FLUX3_KLEIN_BASE_COST.base, calculateCost: flux3KleinCredits("base", "t2i") },
       "recraft-v4-vector": { baseCost: 8 },
       "recraft-v4.1-pro": { baseCost: 25 },
       "recraft-v4.1-pro-vector": { baseCost: 30 },
@@ -6001,6 +8758,8 @@ var require_mediaPricing = __commonJS({
       "ideogram-v4-instant": { baseCost: ideogramV4Fast_1.IDEOGRAM_V4_INSTANT_BASE_COST, calculateCost: (inputs) => (0, ideogramV4Fast_1.ideogramV4InstantCreditCost)(inputs) },
       // Reve 2.1 : $0.25/image, tarif PLAT sur les 3 endpoints FAL.
       "reve-2-1": { baseCost: 25 },
+      // fal-ai/marigold-v2 : 0,03 $ par image, taille sans effet.
+      "marigold-v2": { baseCost: 3 },
       "reve-2-1-t2i": { baseCost: 25 },
       // Meta Muse Image (BV-342) : 0,01 $/image, t2i comme édition.
       "muse-image": { baseCost: museImage_1.MUSE_IMAGE_CREDITS, calculateCost: () => (0, museImage_1.museImageCreditCost)() },
@@ -6066,12 +8825,52 @@ var require_mediaPricing = __commonJS({
       // Kling V3 Turbo (BV-342) — palier = endpoint (slug sur aiProxy, `resolution`
       // sur le nœud, le plus cher gagne) : contrat klingV3Turbo.ts.
       "kling-v3-turbo-video": { baseCost: 56, calculateCost: (inputs) => (0, klingV3Turbo_1.klingV3TurboCreditCostFromInputs)(inputs) },
+      // Vidu Q4 (BV-388) — image → vidéo seulement, palier × seconde au tarif PLEIN
+      // (après la promo −30 %) : contrat viduQ4.ts.
+      "vidu-q4-video": { baseCost: 48, calculateCost: (inputs) => (0, viduQ4_1.viduQ4CreditCostFromInputs)(inputs) },
+      // Kandinsky 6.0 Lite (BV-388) — prix publié PAR CLIP de 5 s, steps fixés
+      // au défaut, palier d'upscale (480p / 1080p / ×4), t2v ou i2v : contrat kandinsky6.ts.
+      "kandinsky-6-lite-video": {
+        baseCost: (0, kandinsky6_1.kandinsky6BaseCost)(),
+        calculateCost: (inputs) => (0, kandinsky6_1.kandinsky6CreditCostFromInputs)(inputs)
+      },
+      // Luma Ray 3.2 (BV-388) — capacité = endpoint (slug sur aiProxy, présence
+      // d'une image sur le nœud / Generate), prix publié par palier × durée ; l'i2v
+      // est toujours 5 s. Contrat lumaRay32.ts.
+      "luma-ray-3-2-video": { baseCost: 50, calculateCost: lumaRay32Credits },
+      // Bernini-R (BV-388) — 0,08 $/s à 848 px (×2 à 1280) ; vue payload : frames ÷ fps.
+      // Contrat berniniR.ts.
+      "bernini-r-video": { baseCost: 40, calculateCost: (inputs) => (0, berniniR_1.berniniRCreditCostFromInputs)(inputs) },
+      // PixVerse C1 (BV-405) — 3 / 4 / 5 / 9,5 cr/s (360p / 540p / 720p / 1080p)
+      // sans audio, 4 / 5 / 6,5 / 12 cr/s avec, arrondi au crédit supérieur sur le
+      // TOTAL ; même tarif en t2v / i2v / transition / r2v, sans effet du nombre de
+      // références. Audio lu par `pixverseC1AudioEnabled` (la fonction du builder).
+      // Défaut (rien d'envoyé) = 720p 5 s sans audio, le défaut FAL. Contrat pixverseC1.ts.
+      "pixverse-c1-video": { baseCost: 25, calculateCost: (inputs) => (0, pixverseC1_1.pixverseC1CreditCostFromInputs)(inputs) },
+      // Kling 4.0 (BV-408) — 0,157 / 0,235 $/s (720p / 1080p) sur la SORTIE en
+      // t2v / i2v / r2v sans vidéo ; 0,094 / 0,141 $/s sur max(entrée + sortie,
+      // 2 × sortie) en r2v avec vidéo (référence ou élément) et en édition.
+      // Entrée = mesure serveur (`inputVideoSeconds`), sinon 30,05 s ; un élément
+      // vidéo (jamais mesuré) est toujours au plafond. Arrondi au crédit supérieur
+      // sur le TOTAL. Règle présente quel que soit l'interrupteur
+      // (`KLING_V4_API_OPEN`) : c'est l'exposition qui est fermée, pas le prix.
+      // Contrat klingV4.ts.
+      [klingV4_1.KLING_V4_MODEL_ID]: { baseCost: klingV4_1.KLING_V4_BASE_COST, calculateCost: (inputs) => (0, klingV4_1.klingV4CreditCostFromInputs)(inputs, klingV4_1.KLING_V4_MODEL_ID) },
+      [klingV4_1.KLING_V4_EDIT_MODEL_ID]: {
+        baseCost: klingV4_1.KLING_V4_EDIT_BASE_COST,
+        calculateCost: (inputs) => (0, klingV4_1.klingV4CreditCostFromInputs)(inputs, klingV4_1.KLING_V4_EDIT_MODEL_ID)
+      },
       "wan-v2-7": { baseCost: 75, calculateCost: wan27Credits },
       // MiniMax H3 — 5/6/13/16 cr/s (480P/768P/2K/4K). R2V : +8 cr / image au-delà de 5.
       // MiniMax H3 Max — 5/8/16 cr/s (480P/768P/1080P, tarif plein). R2V : 8 cr/s (16 en 1080P) + 2 cr / 1k jetons au-delà de 4096.
       "bytedance-seedance-2-5": { baseCost: 237, calculateCost: seedance25Credits },
       "wan-3-0": { baseCost: 100, calculateCost: wan30Credits("standard") },
       "wan-3-0-prime": { baseCost: 140, calculateCost: wan30Credits("prime") },
+      // Happy Horse 1.0 / 1.1 (Alibaba, BV-388) — 14 / 28 cr/s (1.0) et 14 / 18 cr/s
+      // (1.1) en 720p / 1080p, durée 3–15 s, même tarif en t2v / i2v / r2v :
+      // contrat happyHorse.ts. Défaut (rien d'envoyé) = 1080p 5 s, le défaut FAL.
+      "happy-horse-1-0-video": { baseCost: 140, calculateCost: (0, happyHorse_1.happyHorseCreditCostFromInputs)("1.0") },
+      "happy-horse-1-1-video": { baseCost: 90, calculateCost: (0, happyHorse_1.happyHorseCreditCostFromInputs)("1.1") },
       "minimax-h3": {
         baseCost: 65,
         calculateCost: (inputs) => (0, minimaxH3_1.h3CreditCost)({ resolution: inputs.resolution, duration: inputs.duration })
@@ -6146,6 +8945,19 @@ var require_mediaPricing = __commonJS({
           resolution: inputs.resolution,
           duration: inputs.duration,
           dynamicInputs: inputs
+        })
+      },
+      // FLUX 3 Max (BV-405) : 17 / 29 cr/s (720p / 1080p), tarif PLEIN d'après la
+      // promo −75 % (fin le 7 novembre), identique sur t2v, i2v et keyframes.
+      // Capacité lue dans le slug sur aiProxy, sinon sur les entrées (même règle
+      // que le builder) ; durée et palier par les normaliseurs de FLUX 3.
+      "flux-3-max-video": {
+        baseCost: flux3Max_1.FLUX3MAX_BASE_COST,
+        calculateCost: (inputs) => (0, flux3Max_1.flux3MaxCreditCost)({
+          falModelId: inputs.falModelId,
+          resolution: inputs.resolution,
+          duration: inputs.duration,
+          inputs
         })
       },
       // Rendu pleine qualité d'un brouillon : 29 cr/s au plafond de 20 s.
@@ -6249,6 +9061,14 @@ var require_modelFamilies = __commonJS({
         variants: { t2i: "nano-banana-2-t2i", i2i: "nano-banana-2" },
         defaultVariant: "t2i"
       },
+      // Nano Banana 2.1 (BV-388) : contrat nanoBanana21.ts, FAL seulement.
+      "nano-banana-2-1": {
+        id: "nano-banana-2-1",
+        displayName: "Nano Banana 2.1",
+        iconUrl: "/models/ggl100x100.png",
+        variants: { t2i: "nano-banana-2-1-t2i", i2i: "nano-banana-2-1" },
+        defaultVariant: "t2i"
+      },
       "nano-banana-lite": {
         id: "nano-banana-lite",
         displayName: "Nano Banana Lite",
@@ -6333,6 +9153,14 @@ var require_modelFamilies = __commonJS({
         variants: { t2i: "krea-2", i2i: "krea-2-style" },
         defaultVariant: "t2i"
       },
+      // Krea 3 (BV-388) : contrat krea3.ts. Tête = édition, comme FLUX 3 Image.
+      "krea-3": {
+        id: "krea-3",
+        displayName: "Krea 3",
+        iconUrl: "/models/krea100x100.svg",
+        variants: { t2i: "krea-3-t2i", i2i: "krea-3" },
+        defaultVariant: "t2i"
+      },
       "krea-2-medium": {
         id: "krea-2-medium",
         displayName: "Krea 2 Medium",
@@ -6375,13 +9203,12 @@ var require_modelFamilies = __commonJS({
         variants: { t2i: "reve-2-1-t2i", i2i: "reve-2-1" },
         defaultVariant: "t2i"
       },
-      // Meta n'a pas de logo dans public/models/ : `iconUrl` vide → les sélecteurs
-      // affichent leur pastille générique (couleur du thème / icône Sparkles). La
-      // marque MCP (« Meta ») est posée à part, dans mcp/src/modelLabels.ts.
+      // Les sélecteurs Generate et Board affichent l'icône de la FAMILLE, pas celle
+      // des adapters : la poser sur muse-image / muse-image-t2i (BV-359) ne suffisait pas.
       "muse-image": {
         id: "muse-image",
         displayName: "Meta Muse Image",
-        iconUrl: "",
+        iconUrl: "/models/meta100x100.png",
         variants: { t2i: "muse-image-t2i", i2i: "muse-image" },
         defaultVariant: "t2i"
       },
@@ -6411,6 +9238,22 @@ var require_modelFamilies = __commonJS({
         displayName: "FLUX 3 Image",
         iconUrl: "/models/flux100x100.png",
         variants: { t2i: "flux-3-image-t2i", i2i: "flux-3-image" },
+        defaultVariant: "t2i"
+      },
+      // BV-388 — FLUX.3 Klein et Klein Base (contrat flux3Klein.ts). IMAGE, comme
+      // `flux-3-image` : ≠ `flux-3` (vidéo) malgré le namespace partagé.
+      "flux-3-klein": {
+        id: "flux-3-klein",
+        displayName: "FLUX.3 Klein",
+        iconUrl: "/models/flux100x100.png",
+        variants: { t2i: "flux-3-klein-t2i", i2i: "flux-3-klein" },
+        defaultVariant: "t2i"
+      },
+      "flux-3-klein-base": {
+        id: "flux-3-klein-base",
+        displayName: "FLUX.3 Klein Base",
+        iconUrl: "/models/flux100x100.png",
+        variants: { t2i: "flux-3-klein-base-t2i", i2i: "flux-3-klein-base" },
         defaultVariant: "t2i"
       },
       "qwen-image-2": {
@@ -6596,9 +9439,10 @@ var createCommandAction = (options) => {
 };
 
 // src/core/localAuth.ts
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { homedir } from "node:os";
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, renameSync, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { dirname as dirname2, join as join2 } from "node:path";
+import { homedir as homedir2 } from "node:os";
 
 // src/core/configPaths.ts
 var CLI_CONFIG_DIRECTORY_NAME = "visionboard";
@@ -6614,216 +9458,6 @@ var readCliEnvVar = (env, suffix) => {
     return legacy;
   }
   return void 0;
-};
-
-// src/core/localAuth.ts
-var resolveConfigHome = (env) => {
-  if (env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME.trim()) {
-    return env.XDG_CONFIG_HOME;
-  }
-  if (env.HOME && env.HOME.trim()) {
-    return join(env.HOME, ".config");
-  }
-  return join(homedir(), ".config");
-};
-var getVisionboardAuthFilePath = (env = process.env) => {
-  const authFile = readCliEnvVar(env, "AUTH_FILE");
-  if (authFile) {
-    return authFile;
-  }
-  return join(resolveConfigHome(env), CLI_CONFIG_DIRECTORY_NAME, "auth.json");
-};
-var loadStoredAuth = (env = process.env) => {
-  const authFilePath = getVisionboardAuthFilePath(env);
-  if (!existsSync(authFilePath)) {
-    return void 0;
-  }
-  try {
-    const raw = readFileSync(authFilePath, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return void 0;
-  }
-};
-var loadStoredFirebaseIdToken = (env = process.env) => {
-  const parsed = loadStoredAuth(env);
-  return parsed && typeof parsed.firebaseIdToken === "string" && parsed.firebaseIdToken.trim() ? parsed.firebaseIdToken.trim() : void 0;
-};
-var storeAuthSession = (input, env = process.env) => {
-  const authFilePath = getVisionboardAuthFilePath(env);
-  mkdirSync(dirname(authFilePath), { recursive: true, mode: 448 });
-  const document = {
-    firebaseIdToken: input.firebaseIdToken,
-    refreshToken: input.refreshToken,
-    apiKey: input.apiKey,
-    appCheckToken: input.appCheckToken,
-    appCheckTokenExpiresAt: input.appCheckTokenExpiresAt ?? (input.appCheckToken ? readAppCheckTokenExpiry(input.appCheckToken) : void 0),
-    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-  };
-  writeFileSync(authFilePath, `${JSON.stringify(document, null, 2)}
-`, {
-    encoding: "utf8",
-    mode: 384
-  });
-  return authFilePath;
-};
-var clearStoredFirebaseIdToken = (env = process.env) => {
-  const authFilePath = getVisionboardAuthFilePath(env);
-  rmSync(authFilePath, { force: true });
-  return authFilePath;
-};
-var decodeBase64Url = (value) => {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-  return Buffer.from(padded, "base64").toString("utf8");
-};
-var readAppCheckTokenExpiry = (token) => {
-  const parts = token.split(".");
-  if (parts.length !== 3) {
-    return void 0;
-  }
-  try {
-    const payload = JSON.parse(decodeBase64Url(parts[1]));
-    if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp)) {
-      return void 0;
-    }
-    return new Date(payload.exp * 1e3).toISOString();
-  } catch {
-    return void 0;
-  }
-};
-var readStoredAppCheckCredential = (env = process.env, nowMs = Date.now()) => {
-  const stored = loadStoredAuth(env);
-  const token = typeof stored?.appCheckToken === "string" && stored.appCheckToken.trim() ? stored.appCheckToken.trim() : void 0;
-  if (!token) {
-    return { present: false, expired: false };
-  }
-  const storedExpiry = typeof stored?.appCheckTokenExpiresAt === "string" && stored.appCheckTokenExpiresAt.trim() ? stored.appCheckTokenExpiresAt.trim() : void 0;
-  const expiresAtRaw = storedExpiry ?? readAppCheckTokenExpiry(token);
-  const expiryMs = expiresAtRaw ? Date.parse(expiresAtRaw) : Number.NaN;
-  const hasExpiry = Number.isFinite(expiryMs);
-  return {
-    present: true,
-    token,
-    expiresAt: hasExpiry ? new Date(expiryMs).toISOString() : void 0,
-    expiresInSeconds: hasExpiry ? Math.floor((expiryMs - nowMs) / 1e3) : void 0,
-    expired: hasExpiry ? expiryMs <= nowMs : false
-  };
-};
-var EXPECTED_ISSUER_PREFIX = "https://securetoken.google.com/";
-var getExpectedAudience = () => {
-  return readCliEnvVar(process.env, "EXPECTED_TOKEN_AUDIENCE");
-};
-var decodeFirebaseIdTokenClaims = (token) => {
-  const parts = token.split(".");
-  if (parts.length !== 3) {
-    throw new Error("Invalid Firebase ID token format. Expected 3 parts separated by dots.");
-  }
-  let claims;
-  try {
-    claims = JSON.parse(decodeBase64Url(parts[1]));
-  } catch {
-    throw new Error("Invalid Firebase ID token: failed to decode payload.");
-  }
-  const iss = claims.iss;
-  if (typeof iss !== "string" || !iss.startsWith(EXPECTED_ISSUER_PREFIX)) {
-    throw new Error(
-      `Invalid Firebase ID token: issuer (iss) does not match expected prefix. Got: "${iss}"`
-    );
-  }
-  const projectIdFromIss = iss.slice(EXPECTED_ISSUER_PREFIX.length);
-  const aud = claims.aud;
-  if (typeof aud !== "string" || !aud.trim()) {
-    throw new Error("Invalid Firebase ID token: audience (aud) is missing.");
-  }
-  const expectedAudience = getExpectedAudience();
-  if (expectedAudience) {
-    if (aud !== expectedAudience && aud !== projectIdFromIss) {
-      throw new Error(
-        `Invalid Firebase ID token: audience (aud) "${aud}" does not match expected "${expectedAudience}" or project "${projectIdFromIss}".`
-      );
-    }
-  } else {
-    if (aud !== projectIdFromIss) {
-      throw new Error(
-        `Invalid Firebase ID token: audience (aud) "${aud}" does not match project ID from issuer "${projectIdFromIss}".`
-      );
-    }
-  }
-  const exp = claims.exp;
-  if (typeof exp !== "number") {
-    throw new Error("Invalid Firebase ID token: expiration (exp) is missing.");
-  }
-  const now = Math.floor(Date.now() / 1e3);
-  if (exp < now) {
-    throw new Error(
-      `Firebase ID token has expired. Expired at ${new Date(exp * 1e3).toISOString()}, current time is ${new Date(now * 1e3).toISOString()}.`
-    );
-  }
-  const sub = claims.sub;
-  const userId = claims.user_id;
-  if (typeof sub !== "string" && typeof userId !== "string") {
-    throw new Error("Invalid Firebase ID token: subject (sub/user_id) is missing.");
-  }
-  return claims;
-};
-var getFirebaseTokenAudience = (token) => {
-  try {
-    const claims = decodeFirebaseIdTokenClaims(token);
-    return typeof claims.aud === "string" && claims.aud.trim() ? claims.aud.trim() : void 0;
-  } catch {
-    return void 0;
-  }
-};
-var refreshFirebaseIdToken = async (env = process.env) => {
-  const authData = loadStoredAuth(env);
-  if (!authData || !authData.refreshToken || !authData.apiKey) {
-    return void 0;
-  }
-  try {
-    const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${authData.apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        refresh_token: authData.refreshToken
-      })
-    });
-    if (!response.ok) {
-      return void 0;
-    }
-    const data = await response.json();
-    if (data.id_token) {
-      storeAuthSession(
-        {
-          firebaseIdToken: data.id_token,
-          refreshToken: data.refresh_token || authData.refreshToken,
-          apiKey: authData.apiKey,
-          appCheckToken: authData.appCheckToken,
-          appCheckTokenExpiresAt: authData.appCheckTokenExpiresAt
-        },
-        env
-      );
-      return data.id_token;
-    }
-  } catch {
-    return void 0;
-  }
-  return void 0;
-};
-var getValidFirebaseIdToken = async (env = process.env) => {
-  const token = loadStoredFirebaseIdToken(env);
-  if (!token) return void 0;
-  try {
-    const claims = decodeFirebaseIdTokenClaims(token);
-    const exp = typeof claims.exp === "number" ? claims.exp : 0;
-    if (Date.now() / 1e3 > exp - 300) {
-      return await refreshFirebaseIdToken(env) || token;
-    }
-  } catch {
-    return await refreshFirebaseIdToken(env);
-  }
-  return token;
 };
 
 // src/core/errors.ts
@@ -6935,15 +9569,367 @@ var commanderErrorToCliError = (error) => {
   });
 };
 
+// src/core/appBaseUrl.ts
+var LOOPBACK_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "[::1]"]);
+var SAFE_HOSTNAME = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+var normalizeAppBaseUrl = (value) => {
+  const refuse = () => {
+    throw new CliError({
+      type: "validation_error",
+      message: `Invalid app base URL ${JSON.stringify(value)}: expected an https:// origin (http:// only for localhost or 127.0.0.1). Fix it with \`beemmvision config set --app-base-url <url>\` or BEEMMVISION_APP_BASE_URL.`,
+      exitCode: EXIT_CODES.VALIDATION
+    });
+  };
+  let url;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return refuse();
+  }
+  const loopback = LOOPBACK_HOSTS.has(url.hostname);
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
+    return refuse();
+  }
+  if (url.username || url.password) {
+    return refuse();
+  }
+  if (!loopback && !SAFE_HOSTNAME.test(url.hostname)) {
+    return refuse();
+  }
+  return url.origin;
+};
+
+// src/core/localConfig.ts
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { homedir } from "node:os";
+var resolveConfigHome = (env) => {
+  if (env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME.trim()) {
+    return env.XDG_CONFIG_HOME;
+  }
+  if (env.HOME && env.HOME.trim()) {
+    return join(env.HOME, ".config");
+  }
+  return join(homedir(), ".config");
+};
+var getVisionboardConfigFilePath = (env = process.env) => {
+  const configFile = readCliEnvVar(env, "CONFIG_FILE");
+  if (configFile) {
+    return configFile;
+  }
+  return join(resolveConfigHome(env), CLI_CONFIG_DIRECTORY_NAME, "config.json");
+};
+var loadVisionboardCliConfig = (env = process.env) => {
+  const configFilePath = getVisionboardConfigFilePath(env);
+  if (!existsSync(configFilePath)) {
+    return {};
+  }
+  try {
+    const raw = readFileSync(configFilePath, "utf8");
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+var writeVisionboardCliConfig = (patch, env = process.env) => {
+  const configFilePath = getVisionboardConfigFilePath(env);
+  const current = loadVisionboardCliConfig(env);
+  const next = {
+    ...current,
+    ...patch,
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  mkdirSync(dirname(configFilePath), { recursive: true });
+  writeFileSync(configFilePath, `${JSON.stringify(next, null, 2)}
+`, "utf8");
+  return configFilePath;
+};
+var clearVisionboardCliConfig = (env = process.env) => {
+  const configFilePath = getVisionboardConfigFilePath(env);
+  if (existsSync(configFilePath)) {
+    unlinkSync(configFilePath);
+  }
+  return configFilePath;
+};
+
+// src/core/runtimeDefaults.ts
+var DEFAULT_FUNCTIONS_BASE_URL = "https://us-central1-beemm-vision.cloudfunctions.net";
+var DEFAULT_APP_BASE_URL = "https://app.beemmvision.com";
+
+// src/core/localAuth.ts
+var resolveConfigHome2 = (env) => {
+  if (env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME.trim()) {
+    return env.XDG_CONFIG_HOME;
+  }
+  if (env.HOME && env.HOME.trim()) {
+    return join2(env.HOME, ".config");
+  }
+  return join2(homedir2(), ".config");
+};
+var getVisionboardAuthFilePath = (env = process.env) => {
+  const authFile = readCliEnvVar(env, "AUTH_FILE");
+  if (authFile) {
+    return authFile;
+  }
+  return join2(resolveConfigHome2(env), CLI_CONFIG_DIRECTORY_NAME, "auth.json");
+};
+var loadStoredAuth = (env = process.env) => {
+  const authFilePath = getVisionboardAuthFilePath(env);
+  if (!existsSync2(authFilePath)) {
+    return void 0;
+  }
+  try {
+    const raw = readFileSync2(authFilePath, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return void 0;
+  }
+};
+var loadStoredFirebaseIdToken = (env = process.env) => {
+  const parsed = loadStoredAuth(env);
+  return parsed && typeof parsed.firebaseIdToken === "string" && parsed.firebaseIdToken.trim() ? parsed.firebaseIdToken.trim() : void 0;
+};
+var storeAuthSession = (input, env = process.env) => {
+  const authFilePath = getVisionboardAuthFilePath(env);
+  mkdirSync2(dirname2(authFilePath), { recursive: true, mode: 448 });
+  const document = {
+    firebaseIdToken: input.firebaseIdToken,
+    refreshToken: input.refreshToken,
+    apiKey: input.apiKey,
+    appCheckToken: input.appCheckToken,
+    appCheckTokenExpiresAt: input.appCheckTokenExpiresAt ?? (input.appCheckToken ? readAppCheckTokenExpiry(input.appCheckToken) : void 0),
+    // Les deux ensemble ou aucun : un identifiant sans secret ne sert à rien.
+    cliGrantId: input.cliGrantId && input.cliGrantSecret ? input.cliGrantId : void 0,
+    cliGrantSecret: input.cliGrantId && input.cliGrantSecret ? input.cliGrantSecret : void 0,
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  const tempPath = `${authFilePath}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+  try {
+    writeFileSync2(tempPath, `${JSON.stringify(document, null, 2)}
+`, {
+      encoding: "utf8",
+      mode: 384
+    });
+    renameSync(tempPath, authFilePath);
+  } catch (error) {
+    rmSync(tempPath, { force: true });
+    throw error;
+  }
+  return authFilePath;
+};
+var clearStoredFirebaseIdToken = (env = process.env) => {
+  const authFilePath = getVisionboardAuthFilePath(env);
+  rmSync(authFilePath, { force: true });
+  return authFilePath;
+};
+var decodeBase64Url = (value) => {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  return Buffer.from(padded, "base64").toString("utf8");
+};
+var readStoredCliGrant = (env = process.env) => {
+  const stored = loadStoredAuth(env);
+  const grantId = typeof stored?.cliGrantId === "string" ? stored.cliGrantId.trim() : "";
+  const secret = typeof stored?.cliGrantSecret === "string" ? stored.cliGrantSecret.trim() : "";
+  return grantId && secret ? { grantId, secret } : void 0;
+};
+var readAppCheckTokenExpiry = (token) => {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return void 0;
+  }
+  try {
+    const payload = JSON.parse(decodeBase64Url(parts[1]));
+    if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp)) {
+      return void 0;
+    }
+    return new Date(payload.exp * 1e3).toISOString();
+  } catch {
+    return void 0;
+  }
+};
+var readStoredAppCheckCredential = (env = process.env, nowMs = Date.now()) => {
+  const stored = loadStoredAuth(env);
+  const token = typeof stored?.appCheckToken === "string" && stored.appCheckToken.trim() ? stored.appCheckToken.trim() : void 0;
+  if (!token) {
+    return { present: false, expired: false };
+  }
+  const storedExpiry = typeof stored?.appCheckTokenExpiresAt === "string" && stored.appCheckTokenExpiresAt.trim() ? stored.appCheckTokenExpiresAt.trim() : void 0;
+  const expiresAtRaw = storedExpiry ?? readAppCheckTokenExpiry(token);
+  const expiryMs = expiresAtRaw ? Date.parse(expiresAtRaw) : Number.NaN;
+  const hasExpiry = Number.isFinite(expiryMs);
+  return {
+    present: true,
+    token,
+    expiresAt: hasExpiry ? new Date(expiryMs).toISOString() : void 0,
+    expiresInSeconds: hasExpiry ? Math.floor((expiryMs - nowMs) / 1e3) : void 0,
+    expired: hasExpiry ? expiryMs <= nowMs : false
+  };
+};
+var EXPECTED_ISSUER_PREFIX = "https://securetoken.google.com/";
+var getExpectedAudience = () => {
+  return readCliEnvVar(process.env, "EXPECTED_TOKEN_AUDIENCE");
+};
+var decodeFirebaseIdTokenClaims = (token) => {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    throw new Error("Invalid Firebase ID token format. Expected 3 parts separated by dots.");
+  }
+  let claims;
+  try {
+    claims = JSON.parse(decodeBase64Url(parts[1]));
+  } catch {
+    throw new Error("Invalid Firebase ID token: failed to decode payload.");
+  }
+  const iss = claims.iss;
+  if (typeof iss !== "string" || !iss.startsWith(EXPECTED_ISSUER_PREFIX)) {
+    throw new Error(
+      `Invalid Firebase ID token: issuer (iss) does not match expected prefix. Got: "${iss}"`
+    );
+  }
+  const projectIdFromIss = iss.slice(EXPECTED_ISSUER_PREFIX.length);
+  const aud = claims.aud;
+  if (typeof aud !== "string" || !aud.trim()) {
+    throw new Error("Invalid Firebase ID token: audience (aud) is missing.");
+  }
+  const expectedAudience = getExpectedAudience();
+  if (expectedAudience) {
+    if (aud !== expectedAudience && aud !== projectIdFromIss) {
+      throw new Error(
+        `Invalid Firebase ID token: audience (aud) "${aud}" does not match expected "${expectedAudience}" or project "${projectIdFromIss}".`
+      );
+    }
+  } else {
+    if (aud !== projectIdFromIss) {
+      throw new Error(
+        `Invalid Firebase ID token: audience (aud) "${aud}" does not match project ID from issuer "${projectIdFromIss}".`
+      );
+    }
+  }
+  const exp = claims.exp;
+  if (typeof exp !== "number") {
+    throw new Error("Invalid Firebase ID token: expiration (exp) is missing.");
+  }
+  const now = Math.floor(Date.now() / 1e3);
+  if (exp < now) {
+    throw new Error(
+      `Firebase ID token has expired. Expired at ${new Date(exp * 1e3).toISOString()}, current time is ${new Date(now * 1e3).toISOString()}.`
+    );
+  }
+  const sub = claims.sub;
+  const userId = claims.user_id;
+  if (typeof sub !== "string" && typeof userId !== "string") {
+    throw new Error("Invalid Firebase ID token: subject (sub/user_id) is missing.");
+  }
+  return claims;
+};
+var getFirebaseTokenAudience = (token) => {
+  try {
+    const claims = decodeFirebaseIdTokenClaims(token);
+    return typeof claims.aud === "string" && claims.aud.trim() ? claims.aud.trim() : void 0;
+  } catch {
+    return void 0;
+  }
+};
+var resolveTokenRefreshReferer = (env = process.env) => {
+  let configured;
+  try {
+    configured = readCliEnvVar(env, "APP_BASE_URL") || loadVisionboardCliConfig(env).appBaseUrl;
+  } catch {
+    configured = void 0;
+  }
+  try {
+    return `${normalizeAppBaseUrl(configured || DEFAULT_APP_BASE_URL)}/`;
+  } catch {
+    return `${DEFAULT_APP_BASE_URL}/`;
+  }
+};
+var refreshFirebaseIdToken = async (env = process.env) => {
+  const authData = loadStoredAuth(env);
+  if (!authData || !authData.refreshToken || !authData.apiKey) {
+    return void 0;
+  }
+  try {
+    const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${authData.apiKey}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        // Clé Web restreinte par referrer : voir resolveTokenRefreshReferer.
+        Referer: resolveTokenRefreshReferer(env)
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: authData.refreshToken
+      })
+    });
+    if (!response.ok) {
+      return void 0;
+    }
+    const data = await response.json();
+    if (data.id_token) {
+      storeAuthSession(
+        {
+          firebaseIdToken: data.id_token,
+          refreshToken: data.refresh_token || authData.refreshToken,
+          apiKey: authData.apiKey,
+          appCheckToken: authData.appCheckToken,
+          appCheckTokenExpiresAt: authData.appCheckTokenExpiresAt,
+          // BV-491 : le grant survit au refresh, comme l'attestation.
+          cliGrantId: authData.cliGrantId,
+          cliGrantSecret: authData.cliGrantSecret
+        },
+        env
+      );
+      return data.id_token;
+    }
+  } catch {
+    return void 0;
+  }
+  return void 0;
+};
+var getValidFirebaseIdToken = async (env = process.env) => {
+  const token = loadStoredFirebaseIdToken(env);
+  if (!token) return void 0;
+  try {
+    const claims = decodeFirebaseIdTokenClaims(token);
+    const exp = typeof claims.exp === "number" ? claims.exp : 0;
+    if (Date.now() / 1e3 > exp - 300) {
+      return await refreshFirebaseIdToken(env) || token;
+    }
+  } catch {
+    return await refreshFirebaseIdToken(env);
+  }
+  return token;
+};
+
 // src/core/browserAuth.ts
 import { createServer } from "node:http";
-import { randomBytes } from "node:crypto";
+import { randomBytes as randomBytes2 } from "node:crypto";
 import { URL as URL2 } from "node:url";
-var buildBrowserAuthUrl = (baseAppUrl, state, callbackUrl, client) => {
+
+// src/core/sessionCode.ts
+import { randomInt } from "node:crypto";
+var SESSION_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+var SESSION_CODE_PATTERN = new RegExp(
+  `^[${SESSION_CODE_ALPHABET}]{3}-[${SESSION_CODE_ALPHABET}]{3}$`
+);
+var generateSessionCode = (draw = randomInt) => {
+  let raw = "";
+  for (let index = 0; index < 6; index += 1) {
+    raw += SESSION_CODE_ALPHABET[draw(SESSION_CODE_ALPHABET.length)];
+  }
+  return `${raw.slice(0, 3)}-${raw.slice(3)}`;
+};
+
+// src/core/browserAuth.ts
+var buildBrowserAuthUrl = (baseAppUrl, state, callbackUrl, client, sessionCode, supportsGrant) => {
   const trimmedBaseUrl = baseAppUrl.replace(/\/$/, "");
   const params = new URLSearchParams({ state, callbackUrl });
   const label = client?.trim().slice(0, 64);
   if (label) params.set("client", label);
+  if (sessionCode && SESSION_CODE_PATTERN.test(sessionCode)) params.set("code", sessionCode);
+  if (supportsGrant) params.set("grant", "1");
   return `${trimmedBaseUrl}/#/cli-auth?${params.toString()}`;
 };
 var createDeferred = () => {
@@ -7001,7 +9987,7 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
   const host = options.host || "127.0.0.1";
   const callbackPath = options.callbackPath || "/cli-auth/callback";
   const timeoutMs = options.timeoutMs ?? 18e4;
-  const state = randomBytes(24).toString("hex");
+  const state = randomBytes2(24).toString("hex");
   const deferredToken = createDeferred();
   let pendingError = null;
   const server = createServer(async (request, response) => {
@@ -7036,6 +10022,11 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         const refreshToken = typeof body.refreshToken === "string" ? body.refreshToken : void 0;
         const apiKey = typeof body.apiKey === "string" ? body.apiKey : void 0;
         const appCheckToken = typeof body.appCheckToken === "string" && body.appCheckToken.trim() ? body.appCheckToken.trim() : void 0;
+        const rawGrantId = typeof body.cliGrantId === "string" ? body.cliGrantId.trim() : "";
+        const rawGrantSecret = typeof body.cliGrantSecret === "string" ? body.cliGrantSecret.trim() : "";
+        const hasGrant = /^[A-Za-z0-9]{16,40}$/.test(rawGrantId) && /^[A-Za-z0-9_-]{40,48}$/.test(rawGrantSecret);
+        const cliGrantId = hasGrant ? rawGrantId : void 0;
+        const cliGrantSecret = hasGrant ? rawGrantSecret : void 0;
         if (receivedState !== state) {
           writeJson(response, 400, { ok: false, error: "Invalid state" }, baseAppUrl);
           return;
@@ -7068,13 +10059,13 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
             'color:#10B981;">Beemm Vision</p>',
             '<h1 style="margin:0 0 8px;font-size:20px;font-weight:600;">Connexion termin\xE9e</h1>',
             '<p style="margin:0;font-size:14px;color:#CCCCCC;">',
-            "Vous pouvez fermer cette fen\xEAtre et retourner au terminal.</p>",
+            "Tu peux fermer cette fen\xEAtre et retourner au terminal.</p>",
             "</div></body></html>"
           ].join(""),
           baseAppUrl
         );
         if (!deferredToken.settled) {
-          deferredToken.resolve({ firebaseIdToken, refreshToken, apiKey, appCheckToken });
+          deferredToken.resolve({ firebaseIdToken, refreshToken, apiKey, appCheckToken, cliGrantId, cliGrantSecret });
         }
         return;
       }
@@ -7094,7 +10085,7 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
     throw new Error("Unable to start local auth callback server.");
   }
   const callbackUrl = `http://${host}:${address.port}${callbackPath}`;
-  const authUrl = buildBrowserAuthUrl(baseAppUrl, state, callbackUrl, options.client);
+  const authUrl = buildBrowserAuthUrl(baseAppUrl, state, callbackUrl, options.client, options.sessionCode, options.supportsGrant);
   const timeout = setTimeout(() => {
     if (!deferredToken.settled) {
       pendingError = new Error("Browser login timed out.");
@@ -7153,34 +10144,101 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
   };
 };
 
-// src/core/appBaseUrl.ts
-var LOOPBACK_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "[::1]"]);
-var SAFE_HOSTNAME = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
-var normalizeAppBaseUrl = (value) => {
-  const refuse = () => {
-    throw new CliError({
-      type: "validation_error",
-      message: `Invalid app base URL ${JSON.stringify(value)}: expected an https:// origin (http:// only for localhost or 127.0.0.1). Fix it with \`beemmvision config set --app-base-url <url>\` or BEEMMVISION_APP_BASE_URL.`,
-      exitCode: EXIT_CODES.VALIDATION
-    });
-  };
-  let url;
+// src/core/cliAttestation.ts
+var APP_CHECK_RENEWAL_SKEW_MS = 5 * 60 * 1e3;
+var CLI_ATTESTATION_RENEWAL_TIMEOUT_MS = 3e3;
+var needsAppCheckRenewal = (credential, nowMs = Date.now()) => {
+  if (!credential.present) return true;
+  if (!credential.expiresAt) return false;
+  const expiryMs = Date.parse(credential.expiresAt);
+  return !Number.isFinite(expiryMs) || expiryMs - nowMs <= APP_CHECK_RENEWAL_SKEW_MS;
+};
+var functionUrl = (functionsBaseUrl, name) => `${functionsBaseUrl.replace(/\/+$/, "")}/${name}`;
+var renewAppCheckAttestationIfNeeded = async (options) => {
+  const grant = readStoredCliGrant(options.env);
+  if (!grant) return { renewed: false, reason: "no_grant" };
+  if (!needsAppCheckRenewal(readStoredAppCheckCredential(options.env, options.nowMs), options.nowMs)) {
+    return { renewed: false, reason: "not_needed" };
+  }
+  let response;
   try {
-    url = new URL(value.trim());
+    response = await (options.fetchImpl ?? fetch)(functionUrl(options.functionsBaseUrl, "refreshCliAttestation"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${options.firebaseIdToken}`
+      },
+      // Protocole des callables : `{ data }` en entrée, `{ result }` en sortie.
+      body: JSON.stringify({ data: { grantId: grant.grantId, secret: grant.secret } }),
+      signal: AbortSignal.timeout(CLI_ATTESTATION_RENEWAL_TIMEOUT_MS)
+    });
   } catch {
-    return refuse();
+    return { renewed: false, reason: "unavailable" };
   }
-  const loopback = LOOPBACK_HOSTS.has(url.hostname);
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
-    return refuse();
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
   }
-  if (url.username || url.password) {
-    return refuse();
+  const token = payload?.result?.token;
+  const expiresAt = payload?.result?.expiresAt;
+  if (!response.ok || typeof token !== "string" || !token || typeof expiresAt !== "string") {
+    if (payload?.error?.status === "PERMISSION_DENIED") {
+      forgetStoredCliGrant(options.env);
+      return { renewed: false, reason: "refused" };
+    }
+    return { renewed: false, reason: "unavailable" };
   }
-  if (!loopback && !SAFE_HOSTNAME.test(url.hostname)) {
-    return refuse();
+  const stored = loadStoredAuth(options.env);
+  if (!stored?.firebaseIdToken) return { renewed: false, reason: "unavailable" };
+  storeAuthSession(
+    {
+      firebaseIdToken: stored.firebaseIdToken,
+      refreshToken: stored.refreshToken,
+      apiKey: stored.apiKey,
+      appCheckToken: token,
+      appCheckTokenExpiresAt: expiresAt,
+      cliGrantId: grant.grantId,
+      cliGrantSecret: grant.secret
+    },
+    options.env
+  );
+  return { renewed: true, expiresAt };
+};
+var forgetStoredCliGrant = (env) => {
+  const stored = loadStoredAuth(env);
+  if (!stored?.firebaseIdToken) return;
+  storeAuthSession(
+    {
+      firebaseIdToken: stored.firebaseIdToken,
+      refreshToken: stored.refreshToken,
+      apiKey: stored.apiKey,
+      appCheckToken: stored.appCheckToken,
+      appCheckTokenExpiresAt: stored.appCheckTokenExpiresAt
+    },
+    env
+  );
+};
+var revokeStoredCliGrant = async (options) => {
+  const grant = readStoredCliGrant(options.env);
+  if (!grant || !options.firebaseIdToken) return false;
+  try {
+    const response = await (options.fetchImpl ?? fetch)(functionUrl(options.functionsBaseUrl, "revokeCliGrant"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${options.firebaseIdToken}`
+      },
+      body: JSON.stringify({ data: { grantId: grant.grantId } }),
+      signal: AbortSignal.timeout(CLI_ATTESTATION_RENEWAL_TIMEOUT_MS)
+    });
+    if (!response.ok) return false;
+    const payload = await response.json().catch(() => null);
+    return payload?.result?.revoked === true;
+  } catch {
+    return false;
   }
-  return url.origin;
 };
 
 // src/core/terminalText.ts
@@ -7208,7 +10266,10 @@ var AuthLoginOptionsSchema = z.object({
    * `--firebase-id-token`, et absente aussi d'un login navigateur ou App Check
    * n'etait pas actif : dans les deux cas le login reussit, en mode degrade.
    */
-  appCheckToken: z.string().optional()
+  appCheckToken: z.string().optional(),
+  /** BV-491 : grant renouvelable, transmis par la page pour le terminal. */
+  cliGrantId: z.string().optional(),
+  cliGrantSecret: z.string().optional()
 });
 var AuthWhoamiOptionsSchema = z.object({}).passthrough();
 var AuthLogoutOptionsSchema = z.object({}).passthrough();
@@ -7223,22 +10284,38 @@ var AuthLoginBrowserOptionsSchema = z.object({
 });
 var buildAuthSource = (context) => context.runtimeConfig.firebaseIdTokenSource;
 var APP_CHECK_RECONNECT_ADVICE = "Run `beemmvision auth login` to attest this CLI: the page that opens solves a real Turnstile in your browser and hands the App Check token to the CLI. It lasts one hour, like the session.";
-var describeAppCheck = (credential) => ({
+var describeAppCheck = (credential, autoRenewal = false) => ({
   present: credential.present,
   expired: credential.expired,
   expiresAt: credential.expiresAt ?? null,
   expiresInSeconds: credential.expiresInSeconds ?? null,
+  /** BV-491 : la session porte un grant, l'attestation se renouvelle seule. */
+  autoRenewal,
   advice: credential.present && !credential.expired ? null : APP_CHECK_RECONNECT_ADVICE
 });
+var describeAutoRenewal = (active) => "renouvellement automatique : " + (active ? "actif" : "inactif (relance `beemmvision auth login` pour l'activer)");
 var isSessionFullyAttested = (hasIdentityToken, appCheck) => hasIdentityToken && appCheck.present && !appCheck.expired;
 var authLoginHandler = async (options, context) => {
   const claims = decodeFirebaseIdTokenClaims(options.firebaseIdToken);
+  const previousGrant = readStoredCliGrant(context.env);
+  if (previousGrant && previousGrant.grantId !== options.cliGrantId && context.runtimeConfig.functionsBaseUrl) {
+    const revoked = await revokeStoredCliGrant({
+      env: context.env,
+      functionsBaseUrl: context.runtimeConfig.functionsBaseUrl,
+      firebaseIdToken: await getValidFirebaseIdToken(context.env)
+    });
+    console.log(
+      revoked ? "[auth.login] Previous terminal access revoked on the server." : "[auth.login] Could not revoke the previous terminal access; it expires after 30 days unused (90 days at most)."
+    );
+  }
   const authFilePath = storeAuthSession(
     {
       firebaseIdToken: options.firebaseIdToken,
       refreshToken: options.refreshToken,
       apiKey: options.apiKey,
-      appCheckToken: options.appCheckToken
+      appCheckToken: options.appCheckToken,
+      cliGrantId: options.cliGrantId,
+      cliGrantSecret: options.cliGrantSecret
     },
     context.env
   );
@@ -7259,7 +10336,7 @@ var authLoginHandler = async (options, context) => {
     subject: typeof claims.user_id === "string" ? claims.user_id : claims.sub,
     email: typeof claims.email === "string" ? claims.email : null,
     source: "cli",
-    appCheck: describeAppCheck(appCheck)
+    appCheck: describeAppCheck(appCheck, Boolean(readStoredCliGrant(context.env)))
   };
 };
 var authWhoamiHandler = async (_options, context) => {
@@ -7277,6 +10354,8 @@ var authWhoamiHandler = async (_options, context) => {
   console.log(
     appCheck.present ? `[auth.whoami] App Check token ${appCheck.expired ? "EXPIRED at" : "valid until"} ${appCheck.expiresAt ?? "unknown"}` : "[auth.whoami] No App Check token in this session (degraded: endpoints enforcing App Check will refuse)."
   );
+  const autoRenewal = Boolean(readStoredCliGrant(context.env));
+  console.log(`[auth.whoami] ${describeAutoRenewal(autoRenewal)}`);
   return {
     source: buildAuthSource(context),
     authFilePath: getVisionboardAuthFilePath(context.env),
@@ -7285,15 +10364,27 @@ var authWhoamiHandler = async (_options, context) => {
     audience: typeof claims.aud === "string" ? claims.aud : null,
     issuer: typeof claims.iss === "string" ? claims.iss : null,
     expiresAtEpochSeconds: typeof claims.exp === "number" ? claims.exp : null,
-    appCheck: describeAppCheck(appCheck)
+    appCheck: describeAppCheck(appCheck, autoRenewal)
   };
 };
 var authLogoutHandler = async (_options, context) => {
+  const hadGrant = Boolean(readStoredCliGrant(context.env));
+  const grantRevoked = hadGrant && context.runtimeConfig.functionsBaseUrl ? await revokeStoredCliGrant({
+    env: context.env,
+    functionsBaseUrl: context.runtimeConfig.functionsBaseUrl,
+    firebaseIdToken: context.runtimeConfig.firebaseIdToken
+  }) : false;
+  if (hadGrant) {
+    console.log(
+      grantRevoked ? "[auth.logout] Terminal access revoked on the server." : "[auth.logout] Could not reach the server to revoke this terminal access; it expires after 30 days unused (90 days at most)."
+    );
+  }
   const authFilePath = clearStoredFirebaseIdToken(context.env);
   console.log(`[auth.logout] Cleared stored Firebase ID token from ${authFilePath}`);
   return {
     cleared: true,
-    authFilePath
+    authFilePath,
+    grantRevoked
   };
 };
 var authRefreshHandler = async (_options, context) => {
@@ -7352,11 +10443,15 @@ var registerAuthCommands = (program, context) => {
       );
     }
     const appBaseUrl = normalizeAppBaseUrl(context.runtimeConfig.appBaseUrl);
+    const sessionCode = generateSessionCode();
     const session = await createBrowserAuthSession(appBaseUrl, {
       client: "terminal",
+      sessionCode,
+      supportsGrant: true,
       timeoutMs: (browserOptions.timeoutSeconds ?? 180) * 1e3
     });
     try {
+      console.log(`[auth.login] Code de session : ${sessionCode} \u2014 v\xE9rifie qu'il s'affiche dans le navigateur`);
       console.log(`[auth.login] Browser login URL: ${session.authUrl}`);
       console.log("[auth.login] Waiting for browser authentication...");
       if (browserOptions.open !== false) {
@@ -7372,13 +10467,17 @@ var registerAuthCommands = (program, context) => {
         firebaseIdToken: firebaseIdTokenFromBrowser,
         refreshToken,
         apiKey,
-        appCheckToken
+        appCheckToken,
+        cliGrantId,
+        cliGrantSecret
       } = await session.waitForToken();
       const parsedOptions = AuthLoginOptionsSchema.parse({
         firebaseIdToken: firebaseIdTokenFromBrowser,
         refreshToken,
         apiKey,
-        appCheckToken
+        appCheckToken,
+        cliGrantId,
+        cliGrantSecret
       });
       const result = await authLoginHandler(parsedOptions, context);
       console.log("[auth.login] Browser authentication completed successfully.");
@@ -7387,6 +10486,7 @@ var registerAuthCommands = (program, context) => {
         ...result,
         authUrl: session.authUrl,
         callbackUrl: session.callbackUrl,
+        sessionCode,
         browserFlow: true,
         tokenAudience
       }, context.output.logs);
@@ -7422,62 +10522,6 @@ var registerAuthCommands = (program, context) => {
 
 // src/commands/config.ts
 import { z as z2 } from "zod";
-
-// src/core/localConfig.ts
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2, unlinkSync } from "node:fs";
-import { dirname as dirname2, join as join2 } from "node:path";
-import { homedir as homedir2 } from "node:os";
-var resolveConfigHome2 = (env) => {
-  if (env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME.trim()) {
-    return env.XDG_CONFIG_HOME;
-  }
-  if (env.HOME && env.HOME.trim()) {
-    return join2(env.HOME, ".config");
-  }
-  return join2(homedir2(), ".config");
-};
-var getVisionboardConfigFilePath = (env = process.env) => {
-  const configFile = readCliEnvVar(env, "CONFIG_FILE");
-  if (configFile) {
-    return configFile;
-  }
-  return join2(resolveConfigHome2(env), CLI_CONFIG_DIRECTORY_NAME, "config.json");
-};
-var loadVisionboardCliConfig = (env = process.env) => {
-  const configFilePath = getVisionboardConfigFilePath(env);
-  if (!existsSync2(configFilePath)) {
-    return {};
-  }
-  try {
-    const raw = readFileSync2(configFilePath, "utf8");
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-};
-var writeVisionboardCliConfig = (patch, env = process.env) => {
-  const configFilePath = getVisionboardConfigFilePath(env);
-  const current = loadVisionboardCliConfig(env);
-  const next = {
-    ...current,
-    ...patch,
-    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-  };
-  mkdirSync2(dirname2(configFilePath), { recursive: true });
-  writeFileSync2(configFilePath, `${JSON.stringify(next, null, 2)}
-`, "utf8");
-  return configFilePath;
-};
-var clearVisionboardCliConfig = (env = process.env) => {
-  const configFilePath = getVisionboardConfigFilePath(env);
-  if (existsSync2(configFilePath)) {
-    unlinkSync(configFilePath);
-  }
-  return configFilePath;
-};
-
-// src/commands/config.ts
 import { readFileSync as readFileSync3 } from "node:fs";
 var ConfigRawOptionsSchema = z2.object({
   functionsBaseUrl: z2.string().optional(),
@@ -7646,7 +10690,9 @@ var doctorHandler = async (options, context) => {
     context.runtimeConfig.functionsBaseUrl && tokenInspection.validFormat
   );
   const appCheck = readStoredAppCheckCredential(context.env);
+  const autoRenewal = Boolean(readStoredCliGrant(context.env));
   const appCheckMessage = !appCheck.present ? "No App Check attestation in this session. Endpoints that enforce App Check (projects, workflows, credits) will answer 401. Run `beemmvision auth login` to attest this CLI through your browser." : appCheck.expired ? `App Check attestation expired at ${appCheck.expiresAt}. Run \`beemmvision auth login\` again (an attestation lasts one hour, like the session).` : `App Check attestation valid until ${appCheck.expiresAt ?? "an unreadable date"}.`;
+  const appCheckMessageWithRenewal = `${appCheckMessage} (${describeAutoRenewal(autoRenewal)})`;
   const checks = [
     {
       id: "transport-resolution",
@@ -7676,7 +10722,7 @@ var doctorHandler = async (options, context) => {
     {
       id: "app-check-token",
       ok: appCheck.present && !appCheck.expired,
-      message: appCheckMessage
+      message: appCheckMessageWithRenewal
     },
     {
       id: "callable-ready",
@@ -7734,7 +10780,8 @@ var doctorHandler = async (options, context) => {
       present: appCheck.present,
       expired: appCheck.expired,
       expiresAt: appCheck.expiresAt ?? null,
-      expiresInSeconds: appCheck.expiresInSeconds ?? null
+      expiresInSeconds: appCheck.expiresInSeconds ?? null,
+      autoRenewal
     },
     checks,
     fixesApplied
@@ -9429,10 +12476,6 @@ var createOutputController = (options) => {
   };
 };
 
-// src/core/runtimeDefaults.ts
-var DEFAULT_FUNCTIONS_BASE_URL = "https://us-central1-beemm-vision.cloudfunctions.net";
-var DEFAULT_APP_BASE_URL = "https://app.beemmvision.com";
-
 // src/core/runtimeConfig.ts
 var normalizeTransportMode = (value) => {
   if (value === "mock" || value === "callable") {
@@ -9455,7 +12498,7 @@ var applyCliRoutingOptions = (base, cliOptions) => {
   }
   return next;
 };
-var parseRuntimeConfig = async (cliOptions = {}, env = process.env) => {
+var parseRuntimeConfig = async (cliOptions = {}, env = process.env, options = {}) => {
   const storedConfig = loadVisionboardCliConfig(env);
   const transportMode = normalizeTransportMode(
     cliOptions.transport || readCliEnvVar(env, "CLI_TRANSPORT")
@@ -9472,6 +12515,9 @@ var parseRuntimeConfig = async (cliOptions = {}, env = process.env) => {
   const appBaseUrlSource = envAppBaseUrl ? "env" : storedConfig.appBaseUrl ? "config" : "default";
   const firebaseIdToken = cliFirebaseIdToken || envFirebaseIdToken || storedFirebaseIdToken || void 0;
   const firebaseIdTokenSource = cliFirebaseIdToken ? "cli" : envFirebaseIdToken ? "env" : storedFirebaseIdToken ? "stored" : "missing";
+  if (options.renewAttestation !== false && firebaseIdTokenSource === "stored" && firebaseIdToken && transportMode !== "mock") {
+    await renewAppCheckAttestationIfNeeded({ env, functionsBaseUrl, firebaseIdToken });
+  }
   return {
     transportMode,
     functionsBaseUrl,
@@ -9481,15 +12527,15 @@ var parseRuntimeConfig = async (cliOptions = {}, env = process.env) => {
     appBaseUrl,
     functionsBaseUrlSource,
     appBaseUrlSource,
-    // Relu APRES `getValidFirebaseIdToken`, qui peut avoir reecrit le fichier
-    // de session en rafraichissant le jeton d'identite.
+    // Relu APRES `getValidFirebaseIdToken` et le renouvellement d'attestation,
+    // qui peuvent avoir reecrit le fichier de session.
     appCheck: readStoredAppCheckCredential(env)
   };
 };
 
 // src/core/appCheck.ts
 var APP_CHECK_HEADER = "X-Firebase-AppCheck";
-var APP_CHECK_RECOVERY_INSTRUCTION = "Relancez `beemmvision auth login` : la page qui s'ouvre r\xE9sout un vrai Turnstile dans votre navigateur et transmet l'attestation au CLI. Elle dure une heure, comme la session.";
+var APP_CHECK_RECOVERY_INSTRUCTION = "Relance `beemmvision auth login` : la page qui s'ouvre r\xE9sout un vrai Turnstile dans ton navigateur et transmet l'attestation au CLI. Elle dure une heure, comme la session.";
 var buildCallableHeaders = (firebaseIdToken, appCheck, accept = "application/json") => {
   const headers = {
     Accept: accept,
@@ -10492,6 +13538,14 @@ var GLOBAL_OPTIONS_TAKING_A_VALUE = /* @__PURE__ */ new Set([
   "--app-base-url"
 ]);
 var LEAF_COMMANDS = /* @__PURE__ */ new Set(["doctor", "credits"]);
+var NO_RENEWAL_COMMANDS = /* @__PURE__ */ new Set(["beemmvision", "auth.login", "auth.logout", "help"]);
+var shouldRenewAttestation = (argv) => {
+  const tokens = argv.slice(2);
+  if (tokens.some((token) => token === "--help" || token === "-h" || token === "--version" || token === "-V")) {
+    return false;
+  }
+  return !NO_RENEWAL_COMMANDS.has(labelCommandFromArgv(argv));
+};
 var labelCommandFromArgv = (argv) => {
   const positionals = [];
   for (let index = 2; index < argv.length; index += 1) {
@@ -10582,7 +13636,7 @@ var createProgram = (context, captureCommanderOutput) => {
       return command.options.some((option) => !option.hidden) ? term : term.replace(" [options]", "");
     }
   });
-  program.name("beemmvision").version("0.3.2").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
+  program.name("beemmvision").version("0.4.0").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
     // Both streams are tapped, because Commander picks the stream itself:
     // `--help` writes to stdout, while a bare command group and `help
     // <unknown>` write the very same help to stderr. The capture is only
@@ -10618,7 +13672,9 @@ var createProgram = (context, captureCommanderOutput) => {
 };
 var runCli = async (argv, options) => {
   const jsonMode = detectJsonFlag(argv);
-  const runtimeConfig = await parseRuntimeConfig({}, options?.env);
+  const runtimeConfig = await parseRuntimeConfig({}, options?.env, {
+    renewAttestation: shouldRenewAttestation(argv)
+  });
   const stdoutBuffer = createOutputBuffer();
   const stderrBuffer = createOutputBuffer();
   const output = createOutputController({

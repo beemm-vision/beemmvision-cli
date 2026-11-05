@@ -1,0 +1,14 @@
+# gitleaks — exceptions du dépôt (BV-491)
+#
+# Toutes les règles par défaut restent actives (`useDefault`). Ce fichier
+# n'ajoute que des exceptions ÉTROITES, chacune limitée à une règle et à une
+# valeur qui n'est jamais un secret. Jamais d'exception par chemin : `index.js`
+# est un bundle généré, et un vrai secret y serait une fuite publique.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Nom de fonction du bundle (contrats FLUX.3 Klein), pris pour une clé par generic-api-key. Validé par l'utilisateur le 05/11/2026."
+targetRules = ["generic-api-key"]
+regexes = ['''^flux3KleinMegapixelsCeil$''']

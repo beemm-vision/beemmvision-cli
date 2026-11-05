@@ -81,13 +81,16 @@ interrompez la commande (`Ctrl+C`).
 | `--force` | Refait la connexion même si une session valide existe. |
 | `--token <jeton>` / `--firebase-id-token <jeton>` | Enregistre un jeton d'identité sans navigateur (voir plus bas). |
 
-**Durée de la session.** Une connexion par navigateur enregistre deux choses :
-votre jeton d'identité et une attestation App Check, qui prouve que la demande
-vient d'un vrai navigateur. Les deux durent environ **une heure**. Le CLI peut
-tenter de renouveler le jeton d'identité, mais jamais l'attestation : seul le
-navigateur peut en produire une. Quand une commande est refusée pour une
-attestation expirée, relancez simplement `beemmvision auth login` — le `--force`
-n'est pas nécessaire, la commande voit d'elle-même que l'attestation manque.
+**Durée de la session (depuis la 0.4.0).** Une connexion par navigateur
+autorise **ce terminal, sur cette machine**. Le CLI renouvelle ensuite seul ce
+dont il a besoin : vous restez connecté sans repasser par le navigateur, jusqu'à
+`beemmvision auth logout`. L'autorisation expire d'elle-même après 30 jours sans
+utilisation, et au plus tard 90 jours après la connexion : un nouveau
+`beemmvision auth login` la recrée. `auth whoami` et `doctor` indiquent si le
+renouvellement automatique est actif.
+
+Une session ouverte avec une version antérieure à la 0.4.0 n'a pas ce
+renouvellement : refaites `beemmvision auth login` une fois après la mise à jour.
 
 **Connexion sans navigateur.** `auth login --token <jeton>` ou la variable
 `BEEMMVISION_FIREBASE_ID_TOKEN` fournissent un jeton d'identité seul : pas
@@ -129,9 +132,9 @@ commande échoue avec le code `1`.
 | Commande | Effet |
 |---|---|
 | `auth login [options]` | Connexion par navigateur avec code de session (voir [Connexion](#connexion)). |
-| `auth whoami` | Origine de la session et état de l'attestation App Check. En `--json` : e-mail, identifiant, expiration du jeton, `appCheck`. Code `2` si aucune session. |
+| `auth whoami` | Origine de la session, état de l'attestation et du renouvellement automatique (actif/inactif). En `--json` : e-mail, identifiant, expiration du jeton, `appCheck`. Code `2` si aucune session. |
 | `auth refresh` | Tente de renouveler le jeton d'identité sans navigateur. En cas d'échec (code `2`), relancez `auth login`. |
-| `auth logout` | Supprime la session enregistrée sur cette machine. |
+| `auth logout` | Révoque l'autorisation de ce terminal côté serveur, puis supprime la session enregistrée sur cette machine. Indique si la révocation a réellement eu lieu. |
 
 ```bash
 beemmvision --json auth whoami
@@ -268,7 +271,7 @@ En `--json`, le solde est (pour l'instant) imbriqué : lisez `.data.data.credits
 
 | Commande | Effet |
 |---|---|
-| `doctor` | Contrôle la session, l'attestation App Check, les adresses configurées et le projet courant. Une ligne `OK` ou `FAIL` par contrôle. |
+| `doctor` | Contrôle la session, l'attestation, le renouvellement automatique, les adresses configurées et le projet courant. Une ligne `OK` ou `FAIL` par contrôle. |
 | `doctor --fix` | Enregistre l'adresse par défaut de l'application si aucune n'est configurée, et indique la commande à lancer pour le reste. |
 
 `doctor` sort toujours avec le code `0` : lisez `data.checks[].ok` en `--json`.
@@ -353,7 +356,7 @@ Le dossier garde l'ancien nom du CLI, volontairement.
 
 | Fichier | Contenu | Effacé par |
 |---|---|---|
-| `auth.json` | Session : jeton d'identité, attestation App Check. Permissions `0600`. | `auth logout` |
+| `auth.json` | Session : jeton d'identité, attestation, autorisation du terminal. Permissions `0600`. | `auth logout` |
 | `config.json` | Adresses de l'application et du backend. | `config clear` |
 | `project.json` | Projet courant. | `project clear` |
 
@@ -376,7 +379,7 @@ variable d'environnement, puis fichier, puis valeur par défaut.
 
 | Symptôme | Cause probable | Que faire |
 |---|---|---|
-| Code `2`, message qui parle d'App Check | Attestation expirée (au bout d'environ une heure) ou absente. | `beemmvision auth login`. |
+| Code `2`, message qui parle d'App Check | Autorisation du terminal expirée (30 jours sans usage, ou 90 jours), révoquée, ou session ouverte avant la 0.4.0. | `beemmvision auth login`. |
 | Code `2`, « You must be logged in » | Aucune session sur cette machine. | `beemmvision auth login`. |
 | `auth refresh` échoue | Le renouvellement sans navigateur n'a pas abouti. | `beemmvision auth login`. |
 | `projectId is required` | Pas de `--project-id` ni de projet courant. | `beemmvision project use --project-id <id>`. |
