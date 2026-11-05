@@ -10146,7 +10146,7 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
 
 // src/core/cliAttestation.ts
 var APP_CHECK_RENEWAL_SKEW_MS = 5 * 60 * 1e3;
-var CLI_ATTESTATION_RENEWAL_TIMEOUT_MS = 3e3;
+var CLI_ATTESTATION_RENEWAL_TIMEOUT_MS = 1e4;
 var needsAppCheckRenewal = (credential, nowMs = Date.now()) => {
   if (!credential.present) return true;
   if (!credential.expiresAt) return false;
@@ -13636,7 +13636,7 @@ var createProgram = (context, captureCommanderOutput) => {
       return command.options.some((option) => !option.hidden) ? term : term.replace(" [options]", "");
     }
   });
-  program.name("beemmvision").version("0.4.0").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
+  program.name("beemmvision").version("0.4.1").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
     // Both streams are tapped, because Commander picks the stream itself:
     // `--help` writes to stdout, while a bare command group and `help
     // <unknown>` write the very same help to stderr. The capture is only
