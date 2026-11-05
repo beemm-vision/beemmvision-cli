@@ -1,699 +1,417 @@
- # Beemm Vision CLI — Référence
+# Beemm Vision CLI
 
-> Interface en ligne de commande pour piloter projets, workflows et templates Beemm Vision, conçue pour être utilisée par des agents IA autant que par des humains.
-> Note : `beemmvision` est le nom canonique. `visionboard` reste un alias 100 % équivalent et continue de fonctionner.
+Le CLI pilote vos projets, workflows et templates Beemm Vision depuis le terminal,
+avec le même compte que l'application. Il sert aux humains comme aux agents IA :
+chaque commande accepte `--json` et répond par une enveloppe JSON stable, avec un
+code de sortie qui dit ce qui s'est passé.
+
+- Commande : `beemmvision`. Alias strictement équivalent : `visionboard`.
+- Version installée : `beemmvision --version`.
+- Aide de n'importe quelle commande : `beemmvision <commande> --help`.
 
 ---
 
-## 🚀 Quick Start
+## Sommaire
 
-### Installation
+1. [Installation](#installation)
+2. [Connexion](#connexion)
+3. [Démarrage rapide](#démarrage-rapide)
+4. [Référence des commandes](#référence-des-commandes)
+5. [Options globales](#options-globales)
+6. [Sortie `--json` (agents et scripts)](#sortie---json-agents-et-scripts)
+7. [Codes de sortie](#codes-de-sortie)
+8. [Configuration et fichiers locaux](#configuration-et-fichiers-locaux)
+9. [Dépannage](#dépannage)
+10. [Ce que le CLI ne fait pas](#ce-que-le-cli-ne-fait-pas)
+
+---
+
+## Installation
+
+Le CLI n'est **pas publié sur npm** : il s'installe depuis ce dépôt, puis se
+lie en commande globale avec `npm link`. Il faut Node.js 20 ou plus récent.
 
 ```bash
-git clone git@github.com:beemm-vision/beemmvision-cli.git
+git clone https://github.com/beemm-vision/beemmvision-cli.git
 cd beemmvision-cli
-./setup.sh          # npm install puis npm link --force
-
-beemmvision --version   # doit afficher la version installée
+./setup.sh              # npm install, puis npm link --force
+beemmvision --version
 ```
 
-Le paquet n'est pas publié sur le registre npm public : l'installation se fait depuis ce dépôt.
+`setup.sh` s'exécute sous macOS, Linux, Git Bash ou WSL. En PowerShell, lancez
+à la place `npm install` puis `npm link --force` dans le dossier cloné.
 
-Pour mettre à jour une installation existante :
+**Mettre à jour**
 
 ```bash
-cd /chemin/vers/beemmvision-cli
+cd beemmvision-cli
 git pull && npm install && npm link --force
 beemmvision --version
 ```
 
-Si plusieurs clones de ce dépôt traînent sur la machine, vérifiez lequel est réellement utilisé — c'est une source classique d'exécution d'une vieille version :
+**Désinstaller** : `npm rm -g beemmvision-cli`, puis supprimez le dossier cloné.
 
-```bash
-readlink -f "$(which beemmvision)"
-```
-
-### Authentification
-
-Avant toute utilisation, connectez-vous à votre compte BEEMM :
-
-```bash
-# Se connecter (ouvre le navigateur)
-beemmvision auth login
-
-# Vérifier le statut
-beemmvision auth whoami
-
-# Se déconnecter
-beemmvision auth logout
-```
-
-### Configuration du projet
-
-```bash
-# Lister vos projets
-beemmvision project list --type workflow
-
-# Définir le projet courant
-beemmvision project use --project-id your-project-id
-
-# Vérifier le projet courant
-beemmvision project current
-```
+> `npm link` échoue avec `EACCES` ? Donnez à npm un dossier global dans votre
+> home (`npm config set prefix ~/.npm-global`), ajoutez `~/.npm-global/bin` à
+> votre `PATH`, rouvrez le terminal et relancez `./setup.sh`.
 
 ---
 
-## 📖 Command Reference
-
-### 🔐 Auth Commands
-
-Gestion de l'authentification Firebase.
-
-#### `auth login`
-
-Démarre le flux d'authentification OAuth via le navigateur.
+## Connexion
 
 ```bash
 beemmvision auth login
 ```
 
-#### `auth whoami`
+1. Le terminal affiche un **code de session** au format `XXX-XXX` et ouvre votre
+   navigateur.
+2. La page **« Autoriser le terminal »** affiche le même code. Vérifiez que les
+   deux codes sont identiques, puis autorisez (en vous connectant d'abord à
+   votre compte si besoin).
+3. La page affiche **« Terminal connecté »** avec quelques commandes pour
+   démarrer. Le terminal confirme et enregistre la session.
 
-Affiche l'état de la connexion courante.
+**Si les codes ne correspondent pas, n'autorisez pas** : fermez la page et
+interrompez la commande (`Ctrl+C`).
 
-```bash
-beemmvision auth whoami
-```
+| Option | Effet |
+|---|---|
+| `--no-open` | N'ouvre pas le navigateur : le lien s'affiche, à ouvrir vous-même. |
+| `--timeout-seconds <n>` | Temps laissé pour autoriser dans le navigateur. Défaut 180, maximum 900. |
+| `--force` | Refait la connexion même si une session valide existe. |
+| `--token <jeton>` / `--firebase-id-token <jeton>` | Enregistre un jeton d'identité sans navigateur (voir plus bas). |
 
-**Sortie :**
-```json
-{
-  "authenticated": true,
-  "userId": "abc123",
-  "email": "user@example.com",
-  "displayName": "John Doe"
-}
-```
+**Durée de la session (depuis la 0.4.0).** Une connexion par navigateur
+autorise **ce terminal, sur cette machine**. Le CLI renouvelle ensuite seul ce
+dont il a besoin : vous restez connecté sans repasser par le navigateur, jusqu'à
+`beemmvision auth logout`. L'autorisation expire d'elle-même après 30 jours sans
+utilisation, et au plus tard 90 jours après la connexion : un nouveau
+`beemmvision auth login` la recrée. `auth whoami` et `doctor` indiquent si le
+renouvellement automatique est actif.
 
-#### `auth logout`
+Une session ouverte avec une version antérieure à la 0.4.0 n'a pas ce
+renouvellement : refaites `beemmvision auth login` une fois après la mise à jour.
 
-Déconnecte l'utilisateur courante.
-
-```bash
-beemmvision auth logout
-```
-
----
-
-### 📁 Project Commands
-
-Gestion du contexte projet local.
-
-#### `project list`
-
-Liste tous les projets accessibles par l'utilisateur.
-
-```bash
-# Tous les projets
-beemmvision project list
-
-# Uniquement les workflows
-beemmvision project list --type workflow
-
-# Uniquement les boards
-beemmvision project list --type board
-
-# Format JSON
-beemmvision project list --json
-```
-
-**Options :**
-
-| Option | Description |
-|--------|-------------|
-| `--type <type>` | Filtre par type : `board` ou `workflow` |
-| `--json` | Sortie JSON structurée |
-
-#### `project use`
-
-Stocke un ID de projet localement pour éviter de le répéter dans les commandes suivantes.
-
-```bash
-beemmvision project use --project-id your-project-id
-```
-
-**Options :**
-
-| Option | Description |
-|--------|-------------|
-| `--project-id <id>` | **Requis.** L'ID du projet à utiliser |
-
-#### `project current`
-
-Affiche le projet courant stocké localement.
-
-```bash
-beemmvision project current
-```
-
-#### `project clear`
-
-Supprime le projet stocké localement.
-
-```bash
-beemmvision project clear
-```
+**Connexion sans navigateur.** `auth login --token <jeton>` ou la variable
+`BEEMMVISION_FIREBASE_ID_TOKEN` fournissent un jeton d'identité seul : pas
+d'attestation App Check, donc les commandes dont le serveur l'exige (projets,
+workflows, crédits) sont refusées, et le jeton n'est pas renouvelable. Un jeton
+passé en argument est en outre visible des autres utilisateurs de la machine
+(`ps`) le temps de la commande ; le CLI vous en avertit.
 
 ---
 
-### 🔄 Workflow Commands
-
-Opérations principales sur les workflows.
-
-#### `workflow list`
-
-Liste tous les workflows d'un projet.
+## Démarrage rapide
 
 ```bash
-beemmvision workflow list --project-id your-project-id
-
-# Avec projet courant
-beemmvision workflow list
-
-# Format JSON
-beemmvision workflow list --json
+beemmvision auth login                                  # code de session, puis navigateur
+beemmvision project list --type workflow                # vos projets workflow
+beemmvision project use --project-id <projectId>        # projet courant
+beemmvision --json workflow list                        # ses workflows
+beemmvision workflow run --workflow-id <workflowId>     # exécuter un graphe
 ```
 
-**Sortie JSON :**
-```json
-{
-  "ok": true,
-  "transport": "functions",
-  "projectId": "your-project-id",
-  "workflowCount": 3,
-  "workflows": [
-    {
-      "workflowId": "default",
-      "name": "Mon Workflow",
-      "updatedAt": "2026-04-05T10:30:00.000Z",
-      "lastExecutedAt": "2026-04-05T09:15:00.000Z",
-      "appConfigEnabled": true
-    }
-  ]
-}
-```
-
-**Options :**
-
-| Option | Description |
-|--------|-------------|
-| `--project-id <id>` | L'ID du projet cible |
-| `--json` | Sortie JSON |
+Une fois un projet courant défini, `--project-id` devient facultatif sur toutes
+les commandes `workflow`.
 
 ---
 
-#### `workflow export`
+## Référence des commandes
 
-Exporte un workflow complet en document JSON portable.
+Dans les tableaux, **requis** signale une option obligatoire. `--project-id`
+retombe sur le projet courant quand il est omis ; sans projet courant, la
+commande échoue avec le code `1`.
+
+> **Sortie humaine.** Certaines commandes n'affichent qu'une ligne de suivi en
+> mode humain (`auth whoami`, `config show`, `project current`, `workflow list`,
+> `workflow export` sans `--output`, `workflow samy-generate`, `template *`).
+> Leur résultat complet est dans `--json`.
+
+### `auth` — session
+
+| Commande | Effet |
+|---|---|
+| `auth login [options]` | Connexion par navigateur avec code de session (voir [Connexion](#connexion)). |
+| `auth whoami` | Origine de la session, état de l'attestation et du renouvellement automatique (actif/inactif). En `--json` : e-mail, identifiant, expiration du jeton, `appCheck`. Code `2` si aucune session. |
+| `auth refresh` | Tente de renouveler le jeton d'identité sans navigateur. En cas d'échec (code `2`), relancez `auth login`. |
+| `auth logout` | Révoque l'autorisation de ce terminal côté serveur, puis supprime la session enregistrée sur cette machine. Indique si la révocation a réellement eu lieu. |
 
 ```bash
-beemmvision workflow export --project-id your-project-id --workflow-id default
-
-# Sauvegarder dans un fichier
-beemmvision workflow export --project-id X --workflow-id default > my-workflow.json
-
-# Format JSON
-beemmvision workflow export --project-id X --workflow-id default --json
+beemmvision --json auth whoami
 ```
 
-**Sortie JSON :**
-```json
-{
-  "ok": true,
-  "transport": "functions",
-  "portableWorkflow": {
-    "version": "1.0.0",
-    "workflow": {
-      "name": "Mon Workflow",
-      "camera": { "x": 0, "y": 0, "zoom": 1 },
-      "appConfig": {
-        "enabled": true,
-        "inputNodeIds": ["node-1"],
-        "outputNodeIds": ["node-3"]
-      }
-    },
-    "nodes": [
-      {
-        "id": "node-1",
-        "type": "image-generation",
-        "label": "Générer une image",
-        "position": { "x": 100, "y": 200 },
-        "inputs": {
-          "prompt": "A beautiful landscape"
-        }
-      }
-    ],
-    "edges": [
-      {
-        "id": "edge-1",
-        "source": "node-1",
-        "target": "node-2"
-      }
-    ]
-  }
-}
+### `config` — réglages persistants
+
+| Commande | Options | Effet |
+|---|---|---|
+| `config show` | — | Configuration stockée et configuration effective, avec la source de chaque valeur (`cli`, `env`, `config`, `default`). |
+| `config set` | `--app-base-url <url>`, `--functions-base-url <url>` (au moins une) | Enregistre l'adresse de l'application ou du backend. |
+| `config clear` | — | Supprime la configuration locale. Ne touche ni à la session ni au projet courant. |
+
+Pour un usage normal, rien à régler : le CLI pointe par défaut vers
+`https://app.beemmvision.com`. `--app-base-url` n'accepte qu'une origine
+`https://` (ou `http://` sur `localhost`).
+
+```bash
+beemmvision config set --app-base-url https://app.beemmvision.com
 ```
 
-**Options :**
+### `project` — projets et projet courant
 
-| Option | Description |
-|--------|-------------|
-| `--project-id <id>` | **Requis.** L'ID du projet |
-| `--workflow-id <id>` | **Requis.** L'ID du workflow |
-| `--json` | Sortie JSON |
+| Commande | Options | Effet |
+|---|---|---|
+| `project list` | `--type <board\|workflow>` | Projets accessibles. |
+| `project create` | `--name <nom>` **requis**, `--no-set-as-current` | Crée un projet et, par défaut, en fait le projet courant. |
+| `project use` | `--project-id <id>` **requis** | Enregistre le projet courant. |
+| `project current` | — | Projet courant enregistré (`data.projectId` en `--json`). |
+| `project clear` | — | Oublie le projet courant. |
+
+```bash
+beemmvision project create --name "Campagne printemps"
+```
+
+### `workflow` — graphes
+
+| Commande | Options | Effet |
+|---|---|---|
+| `workflow list` | `--project-id` | Workflows du projet : identifiant, nom, dates, app activée. |
+| `workflow export` | `--workflow-id` **requis**, `--project-id`, `--output <fichier>` | Document JSON portable du workflow. `--output` l'écrit dans un fichier. |
+| `workflow import` | `--input <fichier>` **requis**, `--project-id`, `--workflow-id`, `--name`, `--mode <replace\|append>` (défaut `replace`), `--force` | Importe un document portable. Voir le détail ci-dessous. |
+| `workflow duplicate` | `--workflow-id` **requis**, `--project-id`, `--name` | Copie un workflow dans le même projet, sous un nouvel identifiant. Nom par défaut : « (Copy) » ajouté. |
+| `workflow rename` | `--workflow-id` **requis**, `--name` **requis**, `--project-id` | Renomme un workflow. |
+| `workflow run` | `--workflow-id` **requis**, `--project-id` | Exécute le workflow côté serveur et rend ses résultats. **Consomme des crédits.** |
+| `workflow watch` | `--workflow-id` **requis**, `--project-id`, `--interval <s>` (défaut 5, max 60) | Surveille un workflow et affiche ses changements. `Ctrl+C` pour quitter. |
+| `workflow samy-generate` | voir [Génération par l'Agent](#génération-par-lagent) | Fait composer un graphe par l'Agent Vision, sans l'importer. |
+| `workflow generate-and-import` | idem | Fait composer le graphe, puis l'importe dans le workflow cible. |
+| `workflow generate-import-run` | idem | Compose, importe, puis exécute. |
+
+**`workflow import`, selon les options :**
+
+| Vous passez | Résultat |
+|---|---|
+| ni `--workflow-id` ni `--mode append` | Un **nouveau** workflow est créé (`imported-<horodatage>`). Son identifiant est dans `data.workflowId`. |
+| `--workflow-id <id>` | Le contenu de ce workflow est **remplacé**. Un avertissement s'affiche, mais l'import a lieu ; `--force` ne fait que le masquer. |
+| `--mode append` (avec ou sans `--workflow-id`) | Les nœuds s'ajoutent à droite du graphe existant, avec de nouveaux identifiants. Sans `--workflow-id`, la cible est le workflow `default`. |
+
+`--append` est un ancien alias de `--mode append`.
+
+```bash
+beemmvision workflow export --workflow-id default --output ./default.json
+beemmvision workflow import --input ./default.json --name "Variante B"
+```
+
+**`workflow run`.** En mode humain, le CLI affiche votre solde, une estimation
+du coût et, dans un terminal interactif, demande confirmation (`y`) avant de
+lancer ; puis un tableau de progression nœud par nœud et les URL des images,
+vidéos et textes produits. L'estimation est locale et partielle : c'est le
+serveur qui fixe le prix réel. **En `--json`, ni estimation ni confirmation :
+l'exécution part directement.**
+
+```bash
+beemmvision --json workflow run --workflow-id default | jq -r '.data.run.artifacts[].url'
+```
+
+**`workflow watch`** est fait pour un humain. En `--json`, rien n'est écrit tant
+que la surveillance tourne ; un agent appellera plutôt `workflow list --json` à
+intervalle régulier. Une session invalide ou un workflow introuvable arrêtent la
+surveillance avec le code de sortie correspondant ; une panne réseau passagère,
+non.
+
+### Génération par l'Agent
+
+Les trois commandes `samy-generate`, `generate-and-import` et
+`generate-import-run` demandent à l'Agent Vision de composer un graphe à partir
+d'une phrase. **Chaque génération consomme des crédits**, y compris une ronde
+où l'Agent répond par des questions.
+
+| Option | Effet |
+|---|---|
+| `--workflow-id <id>` **requis** | Workflow cible (destination de l'import pour les deux dernières commandes, qui **remplacent** son contenu). |
+| `--prompt <texte>` **requis** | Ce que le graphe doit faire. |
+| `--project-id <id>` | Projet ; sinon le projet courant. |
+| `--workflow-name <nom>` | Nom proposé pour le workflow. |
+| `--assistant-mode <mode>` | Moteur de l'Agent : `eco`, `fast`, `premium`, `pro`, `deepseek-v3`, `deepseek-v4-flash`, `deepseek-v4-pro`, `qwen3-32b`, `qwen3-72b`, `qwen25-72b`, `kimi-k3`, `glm-5.2`, `gemini-3.5-flash`, `gemini-3.6-flash`, `minimax-m3`. |
+| `--style-preset <preset>` | `default`, `editorial`, `graphic`, `cinematic`. |
+| `--generation-strategy <s>` | `standard` ou `dashboard_bootstrap`. |
+| `--answers-json <json>` | Réponses aux questions de l'Agent, en objet JSON (`{"idQuestion": "réponse"}`). |
+| `--prior-question-rounds <n>` | Nombre de rondes de questions déjà passées. |
+| `--output <fichier>` | Écrit le graphe produit dans un fichier JSON portable. |
+
+L'Agent peut répondre par des **questions** au lieu d'un graphe : en `--json`,
+`data.response.kind` (ou `data.generation.kind`) vaut alors `questions` et
+`imported` vaut `false`. Relancez la commande avec vos réponses dans
+`--answers-json` et `--prior-question-rounds 1`.
+
+```bash
+beemmvision workflow samy-generate --workflow-id brouillon \
+  --prompt "Brief produit, Any LLM, puis une image 1:1" --output ./brouillon.json
+```
+
+### `template` — templates communautaires
+
+| Commande | Options | Effet |
+|---|---|---|
+| `template list` | — | Templates approuvés. |
+| `template get` | `--template-id <id>` **requis** | Fiche du template et son document portable. |
+| `template clone` | `--template-id <id>` **requis** | Copie le template dans un **nouveau projet** ; `data.projectId` et `data.workflowId` le désignent. |
+
+```bash
+beemmvision --json template clone --template-id <templateId>
+```
+
+### `credits` — solde
+
+| Commande | Effet |
+|---|---|
+| `credits` | Solde de crédits de votre compte. Signale un solde bas sous 50. |
+
+En `--json`, le solde est (pour l'instant) imbriqué : lisez `.data.data.credits`.
+
+### `doctor` — diagnostic
+
+| Commande | Effet |
+|---|---|
+| `doctor` | Contrôle la session, l'attestation, le renouvellement automatique, les adresses configurées et le projet courant. Une ligne `OK` ou `FAIL` par contrôle. |
+| `doctor --fix` | Enregistre l'adresse par défaut de l'application si aucune n'est configurée, et indique la commande à lancer pour le reste. |
+
+`doctor` sort toujours avec le code `0` : lisez `data.checks[].ok` en `--json`.
 
 ---
 
-#### `workflow import`
+## Options globales
 
-Importe un workflow depuis un document JSON portable. Par défaut, remplace tous les nodes et edges existants.
+Elles se placent avant ou après la sous-commande.
 
-```bash
-beemmvision workflow import --project-id X --workflow-id default --input my-workflow.json
-
-# Mode append (ajoute les nodes à côté de l'existant)
-beemmvision workflow import --project-id X --workflow-id default --input my-workflow.json --mode append
-
-# Format JSON
-beemmvision workflow import --project-id X --workflow-id default --input my-workflow.json --json
-```
-
-**Options :**
-
-| Option | Description |
-|--------|-------------|
-| `--project-id <id>` | **Requis.** L'ID du projet cible |
-| `--workflow-id <id>` | **Requis.** L'ID du workflow cible (doit exister) |
-| `--input <path>` | **Requis.** Chemin vers le fichier JSON portable |
-| `--mode <mode>` | Mode d'import : `replace` (défaut) ou `append` |
-| `--json` | Sortie JSON |
-
-**Sortie réussite :**
-```json
-{
-  "ok": true,
-  "transport": "functions",
-  "importMode": "replace",
-  "workflowName": "Mon Workflow",
-  "importedNodeCount": 5,
-  "importedEdgeCount": 4
-}
-```
-
-> **Note :** Le workflow cible doit exister dans Firestore. Utilisez `workflow create` pour créer un nouveau workflow vide avant d'importer.
+| Option | Effet |
+|---|---|
+| `--json` | Sortie JSON sur stdout (voir ci-dessous). |
+| `--transport <auto\|mock\|callable>` | `auto` (défaut) : le backend dès qu'une session existe. `mock` : données fictives, sans réseau ni compte, pour tester un script. `callable` : backend imposé. |
+| `--functions-base-url <url>` | Adresse du backend (développement sur émulateurs). |
+| `--firebase-id-token <jeton>` | Jeton d'identité pour cette seule commande. |
+| `-V`, `--version` | Version installée. |
+| `-h`, `--help` | Aide. |
 
 ---
 
-#### `workflow run`
+## Sortie `--json` (agents et scripts)
 
-Exécute un workflow et collecte les résultats (artifacts, images générées, etc.).
+Avec `--json`, stdout ne contient **qu'un document JSON**, sans couleur ni
+texte de suivi.
 
-```bash
-# Execution avec affichage humain
-beemmvision workflow run --project-id X --workflow-id default
-
-# Execution avec sortie JSON
-beemmvision workflow run --project-id X --workflow-id default --json
-```
-
-**Sortie humaine :**
-```
-Workflow your-project-id/default
-- name: Mon Workflow
-- nodes: 5
-1/5 Générer une image - success - Image générée avec succès
-2/5 Ajouter un filtre - success
-3/5 Redimensionner - success
-4/5 Exporter - success
-5/5 Finaliser - success
-Completed run run-123456
-- artifacts: 1
-- warnings: 0
-image output: https://storage.beemm.ai/outputs/abc123.png
-```
-
-**Sortie JSON :**
 ```json
 {
   "ok": true,
-  "command": "workflow.run",
-  "projectId": "your-project-id",
-  "workflowId": "default",
-  "transport": "callable",
-  "run": {
-    "runId": "run-123456",
-    "workflowName": "Mon Workflow",
-    "status": "completed",
-    "startedAt": "2026-04-05T10:30:00.000Z",
-    "completedAt": "2026-04-05T10:30:45.000Z",
-    "artifacts": [
-      {
-        "kind": "image",
-        "label": "Résultat final",
-        "url": "https://storage.beemm.ai/outputs/abc123.png"
-      }
-    ],
-    "warnings": []
-  },
-  "summary": {
-    "executedNodeCount": 5,
-    "artifactCount": 1,
-    "warningCount": 0,
-    "errorCount": 0
-  }
+  "command": "workflow.list",
+  "data": { "transport": "callable", "projectId": "…", "workflowCount": 2, "workflows": [] },
+  "meta": { "timestamp": "2026-11-05T10:00:00.000Z", "logs": [] }
 }
 ```
-
-**Options :**
-
-| Option | Description |
-|--------|-------------|
-| `--project-id <id>` | **Requis.** L'ID du projet |
-| `--workflow-id <id>` | **Requis.** L'ID du workflow |
-| `--json` | Sortie JSON |
-
----
-
-#### `workflow samy-generate`
-
-Génère un workflow automatiquement à partir d'une description textuelle en utilisant l'agent AI Samy.
-
-```bash
-beemmvision workflow samy-generate \
-  --project-id X \
-  --workflow-id my-generated \
-  --prompt "Crée un workflow qui génère une image, puis la redimensionne en carré"
-
-# Avec un nom personnalisé
-beemmvision workflow samy-generate \
-  --project-id X \
-  --workflow-id my-generated \
-  --prompt "..." \
-  --name "Mon workflow généré"
-
-# Format JSON
-beemmvision workflow samy-generate --project-id X --workflow-id Y --prompt "..." --json
-```
-
-**Options :**
-
-| Option | Description |
-|--------|-------------|
-| `--project-id <id>` | **Requis.** L'ID du projet |
-| `--workflow-id <id>` | **Requis.** L'ID du workflow cible |
-| `--prompt <text>` | **Requis.** Description du workflow souhaité |
-| `--name <name>` | Nom du workflow (optionnel) |
-| `--json` | Sortie JSON |
-
----
-
-#### `workflow generate-and-import`
-
-Combine la génération AI et l'import en une seule commande.
-
-```bash
-beemmvision workflow generate-and-import \
-  --project-id X \
-  --workflow-id default \
-  --prompt "Crée un pipeline de génération d'images avec 3 styles différents"
-```
-
-**Options :**
-
-| Option | Description |
-|--------|-------------|
-| `--project-id <id>` | **Requis.** L'ID du projet |
-| `--workflow-id <id>` | **Requis.** L'ID du workflow |
-| `--prompt <text>` | **Requis.** Description du workflow |
-| `--name <name>` | Nom du workflow |
-| `--json` | Sortie JSON |
-
----
-
-#### `workflow generate-import-run`
-
-Le workflow complet en une seule commande : générer, importer, et exécuter.
-
-```bash
-beemmvision workflow generate-import-run \
-  --project-id X \
-  --workflow-id default \
-  --prompt "Génère une image de paysage"
-```
-
-**Options :**
-
-| Option | Description |
-|--------|-------------|
-| `--project-id <id>` | **Requis.** L'ID du projet |
-| `--workflow-id <id>` | **Requis.** L'ID du workflow |
-| `--prompt <text>` | **Requis.** Description du workflow |
-| `--name <name>` | Nom du workflow |
-| `--json` | Sortie JSON |
-
----
-
-### 📦 Template Commands
-
-Gestion des templates communautaires.
-
-#### `template list`
-
-Liste les templates disponibles dans la communauté.
-
-```bash
-beemmvision template list
-
-# Format JSON
-beemmvision template list --json
-```
-
-#### `template get`
-
-Récupère les détails d'un template.
-
-```bash
-beemmvision template get --template-id template-123
-
-# Format JSON
-beemmvision template get --template-id template-123 --json
-```
-
-#### `template duplicate`
-
-Duplique un template dans votre projet.
-
-```bash
-beemmvision template duplicate --template-id template-123
-
-# Format JSON
-beemmvision template duplicate --template-id template-123 --json
-```
-
----
-
-### 🩺 Diagnostic Commands
-
-#### `doctor`
-
-Vérifie la configuration et la connectivité.
-
-```bash
-beemmvision doctor
-```
-
-**Vérifie :**
-- Connexion réseau aux Functions Firebase
-- Token d'authentification valide
-- Fichiers de configuration locaux
-
----
-
-## 🔧 Global Options
-
-Toutes les commandes acceptent ces options globales :
-
-| Option | Description |
-|--------|-------------|
-| `--json` | Force la sortie en format JSON |
-| `--transport <mode>` | Mode de transport : `auto`, `mock`, `callable` |
-| `--functions-base-url <url>` | URL custom pour les Firebase Functions |
-| `--firebase-id-token <token>` | Token Firebase ID pour l'authentification |
-| `--help` | Affiche l'aide |
-| `--version` | Affiche la version |
-
----
-
-## 📋 Portable Workflow Format
-
-Le format JSON utilisé pour l'export/import des workflows.
-
-### Structure
 
 ```json
 {
-  "version": "1.0.0",
-  "workflow": {
-    "name": "Mon Workflow",
-    "camera": {
-      "x": 0,
-      "y": 0,
-      "zoom": 1
-    },
-    "appConfig": {
-      "enabled": true,
-      "inputNodeIds": ["node-input-1"],
-      "outputNodeIds": ["node-output-1"]
-    }
-  },
-  "nodes": [
-    {
-      "id": "node-unique-id",
-      "type": "image-generation",
-      "label": "Générer une image",
-      "position": {
-        "x": 100,
-        "y": 200
-      },
-      "inputs": {
-        "prompt": "A beautiful landscape",
-        "model": "nano-banana",
-        "width": 1024,
-        "height": 1024
-      }
-    }
-  ],
-  "edges": [
-    {
-      "id": "edge-unique-id",
-      "source": "node-source-id",
-      "target": "node-target-id",
-      "sourceHandle": "output",
-      "targetHandle": "input",
-      "label": "Flux d'image"
-    }
-  ]
+  "ok": false,
+  "command": "workflow.list",
+  "error": { "type": "validation_error", "message": "projectId is required. Use --project-id or configure a current project with `project use`." },
+  "meta": { "timestamp": "2026-11-05T10:00:00.000Z", "logs": [] }
 }
 ```
 
-### Node Types
+- `command` reprend le nom de la commande, avec un point : `project.create`,
+  `workflow.run`, `template.clone`…
+- `error.type` vaut `validation_error`, `auth_error` ou `api_error`, et
+  correspond au code de sortie.
+- `meta.logs` garde les lignes de suivi qu'aurait affichées le mode humain.
+- `--help` et `--version` répondent aussi par `ok: true` (`data.help`,
+  `data.version`).
 
-| Type | Description | Inputs principaux |
-|------|-------------|-------------------|
-| `image-generation` | Génère une image à partir d'un prompt | `prompt`, `model`, `width`, `height` |
-| `image-to-image` | Modifie une image existante | `image`, `prompt`, `model` |
-| `import` | Importe une image externe | `url` |
-| `export` | Exporte le résultat final | - |
-| `image-filter` | Applique un filtre | `image`, `filter` |
-| `image-resize` | Redimensionne une image | `image`, `width`, `height` |
-| `concat` | Concatène des images | `images[]` |
-| `array` | Crée un tableau d'images | - |
+Conseils pour un agent :
+
+- Testez `ok` et le code de sortie, jamais le texte des messages.
+- `workflow run` et les trois commandes de génération **dépensent des crédits**
+  et ne demandent aucune confirmation en `--json`. Ne les relancez pas en boucle
+  sur une erreur sans l'avoir comprise.
+- Après un import sans `--workflow-id`, reprenez l'identifiant créé dans
+  `data.workflowId`.
 
 ---
 
-## 💡 Exemples d'utilisation
+## Codes de sortie
 
-### Créer et exécuter un workflow de bout en bout
+| Code | Signification |
+|---|---|
+| `0` | Succès (aide et version comprises). |
+| `1` | Validation : option manquante ou invalide, commande inconnue, fichier illisible, projet non défini. |
+| `2` | Authentification : pas de session, session expirée, attestation App Check absente ou expirée, accès refusé. |
+| `3` | API : erreur du serveur ou backend injoignable. |
+
+Il n'y a pas d'autre code. Un projet ou un workflow introuvable remonte selon la
+réponse du serveur, en `1`, `2` ou `3`.
+
+---
+
+## Configuration et fichiers locaux
+
+L'état local vit dans `~/.config/visionboard/` (ou `$XDG_CONFIG_HOME/visionboard/`).
+Le dossier garde l'ancien nom du CLI, volontairement.
+
+| Fichier | Contenu | Effacé par |
+|---|---|---|
+| `auth.json` | Session : jeton d'identité, attestation, autorisation du terminal. Permissions `0600`. | `auth logout` |
+| `config.json` | Adresses de l'application et du backend. | `config clear` |
+| `project.json` | Projet courant. | `project clear` |
+
+Ordre de priorité pour chaque réglage : option de ligne de commande, puis
+variable d'environnement, puis fichier, puis valeur par défaut.
+
+| Variable | Rôle |
+|---|---|
+| `BEEMMVISION_FIREBASE_ID_TOKEN` | Jeton d'identité, sans passer par `auth login`. |
+| `BEEMMVISION_APP_BASE_URL` | Adresse de l'application utilisée par `auth login`. |
+| `BEEMMVISION_FUNCTIONS_BASE_URL` | Adresse du backend. |
+| `BEEMMVISION_CLI_TRANSPORT` | `auto`, `mock` ou `callable`. |
+| `BEEMMVISION_AUTH_FILE`, `BEEMMVISION_CONFIG_FILE`, `BEEMMVISION_PROJECT_FILE` | Emplacement de chacun des trois fichiers. |
+
+---
+
+## Dépannage
+
+**Premier réflexe : `beemmvision doctor`.** Chaque `FAIL` dit quoi faire.
+
+| Symptôme | Cause probable | Que faire |
+|---|---|---|
+| Code `2`, message qui parle d'App Check | Autorisation du terminal expirée (30 jours sans usage, ou 90 jours), révoquée, ou session ouverte avant la 0.4.0. | `beemmvision auth login`. |
+| Code `2`, « You must be logged in » | Aucune session sur cette machine. | `beemmvision auth login`. |
+| `auth refresh` échoue | Le renouvellement sans navigateur n'a pas abouti. | `beemmvision auth login`. |
+| `projectId is required` | Pas de `--project-id` ni de projet courant. | `beemmvision project use --project-id <id>`. |
+| Le navigateur ne s'ouvre pas | Machine distante, session SSH, pas de navigateur par défaut. | `auth login --no-open`, puis ouvrez le lien affiché. |
+| La connexion expire avant que vous ayez autorisé | Délai de 180 s dépassé. | `auth login --timeout-seconds 600`. |
+| Une commande documentée ici est « unknown » ou se comporte autrement | Vous exécutez un ancien clone. | Voir ci-dessous. |
+
+**Quel clone est réellement exécuté ?** Plusieurs clones sur une même machine,
+et c'est souvent le plus ancien qui répond :
 
 ```bash
-# 1. Se connecter
-beemmvision auth login
-
-# 2. Voir ses projets
-beemmvision project list --type workflow
-
-# 3. Sélectionner un projet
-beemmvision project use --project-id my-project-id
-
-# 4. Lister les workflows existants
-beemmvision workflow list
-
-# 5. Générer un nouveau workflow avec l'AI
-beemmvision workflow generate-and-import \
-  --workflow-id auto-pipeline \
-  --prompt "Crée un workflow qui génère une image, la redimensionne à 512x512, puis applique un flou gaussien"
-
-# 6. Exécuter le workflow
-beemmvision workflow run --workflow-id auto-pipeline --json | jq '.run.artifacts[].url'
-
-# 7. Exporter le workflow pour le partager
-beemmvision workflow export --workflow-id auto-pipeline > auto-pipeline.json
+readlink -f "$(which beemmvision)"   # chemin réel du CLI lancé
+beemmvision --version
 ```
 
-### Importer un workflow depuis un fichier
-
-```bash
-# 1. Vérifier le projet courant
-beemmvision project current
-
-# 2. Importer le workflow (remplace le contenu existant par défaut)
-beemmvision workflow import \
-  --workflow-id default \
-  --input ~/Downloads/mon-workflow.json
-
-# 3. Importer en mode append (ajoute les nodes à côté de l'existant)
-beemmvision workflow import \
-  --workflow-id default \
-  --input ~/Downloads/mon-workflow-2.json \
-  --mode append
-
-# 4. Vérifier l'import
-beemmvision workflow list --json | jq '.workflows[] | select(.workflowId == "default")'
-```
-
-### Utiliser le mode JSON pour du scripting
-
-```bash
-#!/bin/bash
-
-# Récupérer le dernier artifact généré
-artifact_url=$(beemmvision workflow run --project-id X --workflow-id default --json \
-  | jq -r '.run.artifacts[0].url')
-
-echo "Dernière image : $artifact_url"
-```
+Allez dans le dossier indiqué, faites `git pull && npm install && npm link --force`,
+ou relancez `./setup.sh` depuis le bon clone.
 
 ---
 
-## ⚠️ Codes d'erreur
+## Ce que le CLI ne fait pas
 
-| Code | Description |
-|------|-------------|
-| `0` | Succès |
-| `1` | Erreur de validation (arguments manquants ou invalides) |
-| `2` | Erreur d'authentification (token invalide ou expiré) |
-| `3` | Erreur serveur / Functions non disponibles |
-| `4` | Projet non trouvé ou accès refusé |
-| `5` | Workflow non trouvé |
+Le CLI travaille sur des **workflows** : il les liste, les importe, les exporte,
+les fait composer par l'Agent et les exécute. Il ne fait pas :
 
----
+- de génération directe d'une image ou d'une vidéo sans workflow ;
+- de retouche d'une image existante (agrandissement, détourage, inpainting,
+  extension) ;
+- de navigation dans la galerie de ce que vous avez déjà produit ;
+- de suivi des générations en cours (jobs) ;
+- d'édition nœud par nœud d'un graphe, ni de suppression.
 
-## 🔒 Sécurité
-
-- **Authentification** : Toutes les commandes nécessitent un token Firebase ID valide
-- **Transport** : Les communications sont chiffrées via HTTPS
-- **Token local** : Le token est stocké dans `~/.config/visionboard/auth.json`, en permissions `0600`. Ce chemin conserve délibérément l'ancien nom : le renommer imposerait un repli en lecture sur l'ancien répertoire, ce qui laisserait `auth logout` vider le nouveau pendant que l'ancien garderait un jeton valide.
-- **Secrets** : Les clés API sont gérées côté serveur via Google Secret Manager
-
----
-
-## 📝 Notes
-
-- Les commandes `--json` sont recommandées pour l'automatisation et le scripting
-- Les noms de workflow doivent être uniques dans un projet
-- L'import de workflow par défaut **remplace** entièrement les nodes et edges existants. Utilisez `--mode append` pour ajouter les nodes à côté de l'existant.
-- Le mode `mock` est utile pour le développement et les tests unitaires
-
----
-
-*Beemm Vision CLI — voir `beemmvision --version` pour la version installée.*
+Pour tout cela, branchez le **connecteur MCP Beemm Vision** dans votre client IA
+(Claude, ChatGPT, Cursor…) avec l'adresse `https://app.beemmvision.com/mcp`.
+Il agit avec votre compte, comme l'application.
