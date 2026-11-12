@@ -12,3 +12,8 @@ useDefault = true
 description = "Nom de fonction du bundle (contrats FLUX.3 Klein), pris pour une clé par generic-api-key. Validé par l'utilisateur le 05/11/2026."
 targetRules = ["generic-api-key"]
 regexes = ['''^flux3KleinMegapixelsCeil$''']
+
+[[allowlists]]
+description = "Nom de fonction du bundle (contrats Ideogram V4 tiling, prix au mégapixel), pris pour une clé par generic-api-key : `exports.ideogramV4TilingMegapixels = ideogramV4TilingMegapixels`. Même cas que flux3KleinMegapixelsCeil (BV-567, 12/11/2026)."
+targetRules = ["generic-api-key"]
+regexes = ['''^ideogramV4TilingMegapixels$''']
