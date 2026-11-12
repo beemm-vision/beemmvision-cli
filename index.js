@@ -300,6 +300,7 @@ var require_samyWorkflow = __commonJS({
     var zod_1 = __require("zod");
     var portableWorkflow_1 = require_portableWorkflow();
     exports.WorkflowAssistantModeSchema = zod_1.z.enum([
+      "auto",
       "eco",
       "fast",
       "premium",
@@ -489,7 +490,7 @@ var require_gptImage25 = __commonJS({
   "../packages/workflow-contracts/dist/gptImage25.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.GPT_IMAGE_25_BASE_COST = exports.gptImage25CreditCost = exports.billedGptImage25Quality = exports.GPT_IMAGE_25_USD = exports.gptImage25SentImageSize = exports.getGptImage25Size = exports.capGptImageSizeToTier = exports.gptImage25TargetPixels = exports.normalizeGptImage25Resolution = exports.normalizeGptImage25Quality = exports.GPT_IMAGE_25_DEFAULT_QUALITY = exports.GPT_IMAGE_25_QUALITIES = void 0;
+    exports.GPT_IMAGE_25_BASE_COST = exports.gptImage25CreditCost = exports.billedGptImage25Quality = exports.GPT_IMAGE_25_USD = exports.gptImage25SizeForDimensions = exports.gptImage25SentImageSize = exports.getGptImage25Size = exports.capGptImageSizeToTier = exports.gptImage25TargetPixels = exports.normalizeGptImage25Resolution = exports.normalizeGptImage25Quality = exports.GPT_IMAGE_25_DEFAULT_QUALITY = exports.GPT_IMAGE_25_QUALITIES = void 0;
     exports.GPT_IMAGE_25_QUALITIES = ["low", "medium", "high", "xhigh", "max"];
     exports.GPT_IMAGE_25_DEFAULT_QUALITY = "high";
     var normalizeGptImage25Quality = (value) => {
@@ -575,6 +576,39 @@ var require_gptImage25 = __commonJS({
     exports.getGptImage25Size = getGptImage25Size;
     var gptImage25SentImageSize = (aspectRatio, resolution) => (0, exports.getGptImage25Size)(aspectRatio && aspectRatio !== "auto" ? aspectRatio : "1:1", resolution || "1K");
     exports.gptImage25SentImageSize = gptImage25SentImageSize;
+    var gptImage25SizeForDimensions = (sourceWidth, sourceHeight, resolution) => {
+      const w0 = Number(sourceWidth);
+      const h0 = Number(sourceHeight);
+      if (!Number.isFinite(w0) || !Number.isFinite(h0) || w0 <= 0 || h0 <= 0) {
+        const sq = (0, exports.getGptImage25Size)("1:1", resolution);
+        return sq === "auto" ? { width: 1024, height: 1024 } : sq;
+      }
+      const ratio = Math.min(3, Math.max(1 / 3, w0 / h0));
+      const target = (0, exports.gptImage25TargetPixels)(resolution);
+      let width = Math.round(Math.sqrt(target * ratio) / 16) * 16;
+      let height = Math.round(Math.sqrt(target / ratio) / 16) * 16;
+      if (width > MAX_EDGE) {
+        height = Math.round(MAX_EDGE / width * height / 16) * 16;
+        width = MAX_EDGE;
+      }
+      if (height > MAX_EDGE) {
+        width = Math.round(MAX_EDGE / height * width / 16) * 16;
+        height = MAX_EDGE;
+      }
+      if (width * height > MAX_TOTAL_PIXELS) {
+        const scale = Math.sqrt(MAX_TOTAL_PIXELS / (width * height));
+        width = Math.floor(width * scale / 16) * 16;
+        height = Math.floor(height * scale / 16) * 16;
+      }
+      ({ width, height } = (0, exports.capGptImageSizeToTier)(width, height, (0, exports.normalizeGptImage25Resolution)(resolution)));
+      if (width * height < MIN_TOTAL_PIXELS) {
+        const scale = Math.sqrt(MIN_TOTAL_PIXELS / (width * height));
+        width = Math.ceil(width * scale / 16) * 16;
+        height = Math.ceil(height * scale / 16) * 16;
+      }
+      return { width, height };
+    };
+    exports.gptImage25SizeForDimensions = gptImage25SizeForDimensions;
     exports.GPT_IMAGE_25_USD = {
       "1K": { low: 59e-4, medium: 0.0132, high: 0.0527, xhigh: 0.0937, max: 0.2108 },
       "2K": { low: 67e-4, medium: 0.0157, high: 0.0603, xhigh: 0.1071, max: 0.2409 },
@@ -586,6 +620,232 @@ var require_gptImage25 = __commonJS({
     var gptImage25CreditCost = (inputs) => ceilCredits(exports.GPT_IMAGE_25_USD[(0, exports.normalizeGptImage25Resolution)(inputs.resolution)][(0, exports.billedGptImage25Quality)(inputs.quality)]);
     exports.gptImage25CreditCost = gptImage25CreditCost;
     exports.GPT_IMAGE_25_BASE_COST = (0, exports.gptImage25CreditCost)({ resolution: "1K", quality: exports.GPT_IMAGE_25_DEFAULT_QUALITY });
+  }
+});
+
+// ../packages/workflow-contracts/dist/gptImage26Switch.js
+var require_gptImage26Switch = __commonJS({
+  "../packages/workflow-contracts/dist/gptImage26Switch.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.GPT_IMAGE_26_OPEN = exports.GPT_IMAGE_26_SUNBURST_OPEN = exports.GPT_IMAGE_26_FLARE_OPEN = void 0;
+    exports.GPT_IMAGE_26_FLARE_OPEN = true;
+    exports.GPT_IMAGE_26_SUNBURST_OPEN = true;
+    exports.GPT_IMAGE_26_OPEN = exports.GPT_IMAGE_26_FLARE_OPEN || exports.GPT_IMAGE_26_SUNBURST_OPEN;
+  }
+});
+
+// ../packages/workflow-contracts/dist/gptImage26.js
+var require_gptImage26 = __commonJS({
+  "../packages/workflow-contracts/dist/gptImage26.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.GPT_IMAGE_26_CLOSED_MESSAGE = exports.gptImage26TierFromPixels = exports.GPT_IMAGE_26_EDIT_BASE_COST = exports.GPT_IMAGE_26_BASE_COST = exports.gptImage26CreditCost = exports.GPT_IMAGE_26_USD = exports.GPT_IMAGE_26_INPUT_IMAGE_USD = exports.GPT_IMAGE_26_PROMPT_ALLOWANCE_USD = exports.GPT_IMAGE_26_MARGIN = exports.GPT_IMAGE_26_MEASURED_USD = exports.clampGptImage26Prompt = exports.gptImage26PromptBytes = exports.GPT_IMAGE_26_MAX_PROMPT_BYTES = exports.normalizeGptImage26Background = exports.GPT_IMAGE_26_MAX_NUM_IMAGES = exports.GPT_IMAGE_26_MAX_REFERENCE_IMAGES = exports.GPT_IMAGE_26_REASONING_EFFORT = exports.normalizeGptImage26OutputFormat = exports.GPT_IMAGE_26_OUTPUT_FORMATS = exports.normalizeGptImage26Quality = exports.GPT_IMAGE_26_DEFAULT_QUALITY = exports.GPT_IMAGE_26_QUALITIES = exports.isGptImage26EditEndpoint = exports.GPT_IMAGE_26_EDIT_ENDPOINTS = exports.GPT_IMAGE_26_OPEN_ENDPOINTS = exports.GPT_IMAGE_26_ALL_ENDPOINTS = exports.GPT_IMAGE_26_OPEN_FAL_MODEL_TO_ID = exports.GPT_IMAGE_26_FAL_MODEL_TO_ID = exports.GPT_IMAGE_26_OPEN_MODEL_IDS = exports.GPT_IMAGE_26_EDIT_MODEL_IDS = exports.GPT_IMAGE_26_MODEL_IDS = exports.GPT_IMAGE_26_ENDPOINTS = exports.GPT_IMAGE_26_SUNBURST_EDIT_ID = exports.GPT_IMAGE_26_SUNBURST_ID = exports.GPT_IMAGE_26_FLARE_EDIT_ID = exports.GPT_IMAGE_26_FLARE_ID = exports.GPT_IMAGE_26_SUNBURST_OPEN = exports.GPT_IMAGE_26_OPEN = exports.GPT_IMAGE_26_FLARE_OPEN = void 0;
+    exports.isGptImage26Endpoint = isGptImage26Endpoint;
+    exports.gptImage26ClosedRejection = gptImage26ClosedRejection;
+    exports.assertGptImage26Open = assertGptImage26Open;
+    exports.buildGptImage26FalRequest = buildGptImage26FalRequest;
+    exports.hardenGptImage26ProxyInput = hardenGptImage26ProxyInput;
+    exports.gptImage26ProxyRefusal = gptImage26ProxyRefusal;
+    var gptImage25_1 = require_gptImage25();
+    var gptImage26Switch_1 = require_gptImage26Switch();
+    Object.defineProperty(exports, "GPT_IMAGE_26_FLARE_OPEN", { enumerable: true, get: function() {
+      return gptImage26Switch_1.GPT_IMAGE_26_FLARE_OPEN;
+    } });
+    Object.defineProperty(exports, "GPT_IMAGE_26_OPEN", { enumerable: true, get: function() {
+      return gptImage26Switch_1.GPT_IMAGE_26_OPEN;
+    } });
+    Object.defineProperty(exports, "GPT_IMAGE_26_SUNBURST_OPEN", { enumerable: true, get: function() {
+      return gptImage26Switch_1.GPT_IMAGE_26_SUNBURST_OPEN;
+    } });
+    exports.GPT_IMAGE_26_FLARE_ID = "gpt-image-2-6-flare";
+    exports.GPT_IMAGE_26_FLARE_EDIT_ID = "gpt-image-2-6-flare-edit";
+    exports.GPT_IMAGE_26_SUNBURST_ID = "gpt-image-2-6-sunburst";
+    exports.GPT_IMAGE_26_SUNBURST_EDIT_ID = "gpt-image-2-6-sunburst-edit";
+    exports.GPT_IMAGE_26_ENDPOINTS = {
+      [exports.GPT_IMAGE_26_FLARE_ID]: "openai/gpt-image-2.6/flare/text-to-image",
+      [exports.GPT_IMAGE_26_FLARE_EDIT_ID]: "openai/gpt-image-2.6/flare/edit",
+      [exports.GPT_IMAGE_26_SUNBURST_ID]: "openai/gpt-image-2.6/sunburst/text-to-image",
+      [exports.GPT_IMAGE_26_SUNBURST_EDIT_ID]: "openai/gpt-image-2.6/sunburst/edit"
+    };
+    exports.GPT_IMAGE_26_MODEL_IDS = Object.keys(exports.GPT_IMAGE_26_ENDPOINTS);
+    exports.GPT_IMAGE_26_EDIT_MODEL_IDS = [exports.GPT_IMAGE_26_FLARE_EDIT_ID, exports.GPT_IMAGE_26_SUNBURST_EDIT_ID];
+    exports.GPT_IMAGE_26_OPEN_MODEL_IDS = [
+      ...gptImage26Switch_1.GPT_IMAGE_26_FLARE_OPEN ? [exports.GPT_IMAGE_26_FLARE_ID, exports.GPT_IMAGE_26_FLARE_EDIT_ID] : [],
+      ...gptImage26Switch_1.GPT_IMAGE_26_SUNBURST_OPEN ? [exports.GPT_IMAGE_26_SUNBURST_ID, exports.GPT_IMAGE_26_SUNBURST_EDIT_ID] : []
+    ];
+    exports.GPT_IMAGE_26_FAL_MODEL_TO_ID = Object.fromEntries(Object.entries(exports.GPT_IMAGE_26_ENDPOINTS).map(([id, endpoint]) => [endpoint, id]));
+    exports.GPT_IMAGE_26_OPEN_FAL_MODEL_TO_ID = Object.fromEntries(exports.GPT_IMAGE_26_OPEN_MODEL_IDS.map((id) => [exports.GPT_IMAGE_26_ENDPOINTS[id], id]));
+    exports.GPT_IMAGE_26_ALL_ENDPOINTS = Object.values(exports.GPT_IMAGE_26_ENDPOINTS);
+    exports.GPT_IMAGE_26_OPEN_ENDPOINTS = Object.keys(exports.GPT_IMAGE_26_OPEN_FAL_MODEL_TO_ID);
+    exports.GPT_IMAGE_26_EDIT_ENDPOINTS = exports.GPT_IMAGE_26_EDIT_MODEL_IDS.map((id) => exports.GPT_IMAGE_26_ENDPOINTS[id]);
+    function isGptImage26Endpoint(falModelId) {
+      return typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(exports.GPT_IMAGE_26_FAL_MODEL_TO_ID, falModelId);
+    }
+    var isGptImage26EditEndpoint = (falModelId) => typeof falModelId === "string" && exports.GPT_IMAGE_26_EDIT_ENDPOINTS.includes(falModelId);
+    exports.isGptImage26EditEndpoint = isGptImage26EditEndpoint;
+    exports.GPT_IMAGE_26_QUALITIES = ["low", "medium", "high"];
+    exports.GPT_IMAGE_26_DEFAULT_QUALITY = "high";
+    var normalizeGptImage26Quality = (value) => {
+      const q = String(value ?? "").trim().toLowerCase();
+      return exports.GPT_IMAGE_26_QUALITIES.includes(q) ? q : exports.GPT_IMAGE_26_DEFAULT_QUALITY;
+    };
+    exports.normalizeGptImage26Quality = normalizeGptImage26Quality;
+    exports.GPT_IMAGE_26_OUTPUT_FORMATS = ["png", "jpeg", "webp"];
+    var normalizeGptImage26OutputFormat = (value) => {
+      const format = String(value ?? "").trim().toLowerCase();
+      return exports.GPT_IMAGE_26_OUTPUT_FORMATS.includes(format) ? format : "png";
+    };
+    exports.normalizeGptImage26OutputFormat = normalizeGptImage26OutputFormat;
+    exports.GPT_IMAGE_26_REASONING_EFFORT = "high";
+    exports.GPT_IMAGE_26_MAX_REFERENCE_IMAGES = 16;
+    exports.GPT_IMAGE_26_MAX_NUM_IMAGES = 10;
+    var normalizeGptImage26Background = (value) => value === "transparent" || value === "opaque" ? value : "auto";
+    exports.normalizeGptImage26Background = normalizeGptImage26Background;
+    exports.GPT_IMAGE_26_MAX_PROMPT_BYTES = 4e3;
+    var utf8Bytes = (codePoint) => codePoint < 128 ? 1 : codePoint < 2048 ? 2 : codePoint < 65536 ? 3 : 4;
+    var gptImage26PromptBytes = (prompt) => {
+      let bytes = 0;
+      for (const ch of prompt)
+        bytes += utf8Bytes(ch.codePointAt(0) ?? 0);
+      return bytes;
+    };
+    exports.gptImage26PromptBytes = gptImage26PromptBytes;
+    var clampGptImage26Prompt = (prompt) => {
+      const text = typeof prompt === "string" ? prompt : "";
+      if ((0, exports.gptImage26PromptBytes)(text) <= exports.GPT_IMAGE_26_MAX_PROMPT_BYTES)
+        return text;
+      let bytes = 0;
+      let out = "";
+      for (const ch of text) {
+        const next = bytes + utf8Bytes(ch.codePointAt(0) ?? 0);
+        if (next > exports.GPT_IMAGE_26_MAX_PROMPT_BYTES)
+          break;
+        bytes = next;
+        out += ch;
+      }
+      return out;
+    };
+    exports.clampGptImage26Prompt = clampGptImage26Prompt;
+    exports.GPT_IMAGE_26_MEASURED_USD = {
+      /** t2i 1024×640 low, 9 mots. */
+      low1024x640: 0.0136,
+      /** t2i 1024² high, 9 mots. */
+      high1024: 0.0529,
+      /** t2i 1024² high, 146 mots. */
+      high1024LongPrompt: 0.0536,
+      /** edit 1024² medium, une entrée 1024². */
+      editMedium1024OneInput: 0.0518
+    };
+    exports.GPT_IMAGE_26_MARGIN = 1.1;
+    exports.GPT_IMAGE_26_PROMPT_ALLOWANCE_USD = exports.GPT_IMAGE_26_MAX_PROMPT_BYTES * 5 / 1e6;
+    exports.GPT_IMAGE_26_INPUT_IMAGE_USD = Math.ceil(exports.GPT_IMAGE_26_MEASURED_USD.editMedium1024OneInput * exports.GPT_IMAGE_26_MARGIN * 1e4) / 1e4;
+    var ceil4 = (usd) => Math.ceil(Math.round(usd * 1e8) / 1e4) / 1e4;
+    var highUsd = (tier) => ceil4(gptImage25_1.GPT_IMAGE_25_USD[tier].high * exports.GPT_IMAGE_26_MARGIN + exports.GPT_IMAGE_26_PROMPT_ALLOWANCE_USD);
+    var low1KUsd = ceil4(exports.GPT_IMAGE_26_MEASURED_USD.low1024x640 * (1024 * 1024 / (1024 * 640)) * exports.GPT_IMAGE_26_MARGIN + exports.GPT_IMAGE_26_PROMPT_ALLOWANCE_USD);
+    exports.GPT_IMAGE_26_USD = {
+      "1K": { low: Math.min(low1KUsd, highUsd("1K")), medium: highUsd("1K"), high: highUsd("1K") },
+      "2K": { low: highUsd("2K"), medium: highUsd("2K"), high: highUsd("2K") },
+      "4K": { low: highUsd("4K"), medium: highUsd("4K"), high: highUsd("4K") }
+    };
+    var ceilCredits = (usd) => Math.ceil(Math.round(usd * 100 * 1e6) / 1e6);
+    var gptImage26CreditCost = (inputs) => ceilCredits(exports.GPT_IMAGE_26_USD[(0, gptImage25_1.normalizeGptImage25Resolution)(inputs.resolution)][(0, exports.normalizeGptImage26Quality)(inputs.quality)] + exports.GPT_IMAGE_26_INPUT_IMAGE_USD * Math.max(0, Math.trunc(inputs.inputImages ?? 0)));
+    exports.gptImage26CreditCost = gptImage26CreditCost;
+    exports.GPT_IMAGE_26_BASE_COST = (0, exports.gptImage26CreditCost)({ resolution: "1K", quality: exports.GPT_IMAGE_26_DEFAULT_QUALITY });
+    exports.GPT_IMAGE_26_EDIT_BASE_COST = (0, exports.gptImage26CreditCost)({ resolution: "1K", quality: exports.GPT_IMAGE_26_DEFAULT_QUALITY, inputImages: 1 });
+    var gptImage26TierFromPixels = (pixels) => {
+      if (pixels === void 0)
+        return void 0;
+      if (pixels === "auto")
+        return "4K";
+      if (pixels <= 1024 * 1024)
+        return "1K";
+      if (pixels <= 2048 * 2048)
+        return "2K";
+      return "4K";
+    };
+    exports.gptImage26TierFromPixels = gptImage26TierFromPixels;
+    exports.GPT_IMAGE_26_CLOSED_MESSAGE = "Cette variante de GPT Image 2.6 n'est pas encore disponible : son tarif n'est pas encore v\xE9rifi\xE9. Choisis GPT Image 2.6 Flare ou GPT Image 2.5.";
+    function gptImage26ClosedRejection(modelId, openIds = exports.GPT_IMAGE_26_OPEN_MODEL_IDS) {
+      if (typeof modelId !== "string")
+        return null;
+      const id = modelId.trim();
+      return exports.GPT_IMAGE_26_MODEL_IDS.includes(id) && !openIds.includes(id) ? exports.GPT_IMAGE_26_CLOSED_MESSAGE : null;
+    }
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    function assertGptImage26Open(modelId, openIds = exports.GPT_IMAGE_26_OPEN_MODEL_IDS) {
+      const closed = gptImage26ClosedRejection(modelId, openIds);
+      if (closed)
+        throw refusal(closed);
+    }
+    function buildGptImage26FalRequest(params) {
+      const { modelId, prompt, imageUrls = [], aspectRatio, resolution, outputFormat, dynamicInputs = {} } = params;
+      if (!Object.prototype.hasOwnProperty.call(exports.GPT_IMAGE_26_ENDPOINTS, modelId)) {
+        throw refusal(`Mod\xE8le GPT Image 2.6 inconnu : ${modelId}.`);
+      }
+      const falModelId = exports.GPT_IMAGE_26_ENDPOINTS[modelId];
+      const input = {
+        prompt: (0, exports.clampGptImage26Prompt)(prompt),
+        image_size: (0, gptImage25_1.gptImage25SentImageSize)(aspectRatio, resolution),
+        quality: (0, exports.normalizeGptImage26Quality)(dynamicInputs.quality),
+        reasoning_effort: exports.GPT_IMAGE_26_REASONING_EFFORT,
+        background: (0, exports.normalizeGptImage26Background)(dynamicInputs.background),
+        num_images: 1,
+        output_format: (0, exports.normalizeGptImage26OutputFormat)(dynamicInputs.output_format ?? outputFormat)
+      };
+      if (exports.GPT_IMAGE_26_EDIT_MODEL_IDS.includes(modelId)) {
+        const urls = Array.from(new Set(imageUrls.filter((url) => typeof url === "string" && url.trim()).map((url) => url.trim())));
+        if (urls.length === 0)
+          throw refusal(`Le mod\xE8le ${modelId} n\xE9cessite une image en entr\xE9e.`);
+        input.image_urls = urls.slice(0, exports.GPT_IMAGE_26_MAX_REFERENCE_IMAGES);
+        if (typeof dynamicInputs.mask_url === "string" && dynamicInputs.mask_url.trim()) {
+          input.mask_url = dynamicInputs.mask_url.trim();
+        }
+      }
+      return { falModelId, input };
+    }
+    function hardenGptImage26ProxyInput(falModelId, input) {
+      if (!isGptImage26Endpoint(falModelId) || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      delete input.sync_mode;
+      delete input.frame_count;
+      delete input.frame_duration_ms;
+      delete input.svg_model;
+      if (!(0, exports.isGptImage26EditEndpoint)(falModelId) || typeof input.markup_image_url !== "string" || !input.markup_image_url.trim()) {
+        delete input.markup_image_url;
+      } else {
+        delete input.mask_url;
+      }
+      if (typeof input.prompt === "string")
+        input.prompt = (0, exports.clampGptImage26Prompt)(input.prompt);
+      input.quality = (0, exports.normalizeGptImage26Quality)(input.quality);
+      input.reasoning_effort = exports.GPT_IMAGE_26_REASONING_EFFORT;
+      input.output_format = (0, exports.normalizeGptImage26OutputFormat)(input.output_format);
+      const n = Number(input.num_images);
+      input.num_images = Number.isFinite(n) && n >= 1 ? Math.min(exports.GPT_IMAGE_26_MAX_NUM_IMAGES, Math.trunc(n)) : 1;
+      if (!(0, exports.isGptImage26EditEndpoint)(falModelId))
+        delete input.mask_url;
+      if (Array.isArray(input.image_urls))
+        input.image_urls = input.image_urls.slice(0, exports.GPT_IMAGE_26_MAX_REFERENCE_IMAGES);
+      return input;
+    }
+    function gptImage26ProxyRefusal(falModelId, input) {
+      if (!isGptImage26Endpoint(falModelId))
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (typeof record.prompt !== "string" || !record.prompt.trim())
+        return "GPT Image 2.6 n\xE9cessite un prompt.";
+      if ((0, exports.isGptImage26EditEndpoint)(falModelId)) {
+        const urls = Array.isArray(record.image_urls) ? record.image_urls.filter((url) => typeof url === "string" && url.trim()) : [];
+        if (urls.length === 0)
+          return "GPT Image 2.6 (\xE9dition) n\xE9cessite au moins une image d'entr\xE9e.";
+      }
+      return null;
+    }
   }
 });
 
@@ -1530,6 +1790,1147 @@ var require_geminiOmniFlash = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/geminiOmniFlash12Common.js
+var require_geminiOmniFlash12Common = __commonJS({
+  "../packages/workflow-contracts/dist/geminiOmniFlash12Common.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.geminiOmniFlash12SourceTooLongMessage = exports.GEMINI_OMNI_FLASH_12_UNMEASURED_SOURCE_MESSAGE = exports.GEMINI_OMNI_FLASH_12_TEN_THOUSANDTHS_USD_PER_SECOND = exports.GEMINI_OMNI_FLASH_12_SOURCE_TOLERANCE_SECONDS = exports.GEMINI_OMNI_FLASH_12_SOURCE_MAX_SECONDS = exports.GEMINI_OMNI_FLASH_12_MAX_PROMPT_CHARS = exports.GEMINI_OMNI_FLASH_12_DEFAULT_ASPECT = exports.GEMINI_OMNI_FLASH_12_ASPECTS = exports.GEMINI_OMNI_FLASH_12_DEFAULT_RESOLUTION = exports.GEMINI_OMNI_FLASH_12_RESOLUTIONS = exports.GEMINI_OMNI_FLASH_12_ENDPOINTS = exports.GEMINI_OMNI_FLASH_12_ENDPOINT_PREFIX = void 0;
+    exports.isGeminiOmniFlash12Endpoint = isGeminiOmniFlash12Endpoint;
+    exports.geminiOmniFlash12Credits = geminiOmniFlash12Credits;
+    exports.normalizeGeminiOmniFlash12Resolution = normalizeGeminiOmniFlash12Resolution;
+    exports.normalizeGeminiOmniFlash12Duration = normalizeGeminiOmniFlash12Duration;
+    exports.normalizeGeminiOmniFlash12AspectRatio = normalizeGeminiOmniFlash12AspectRatio;
+    exports.clampGeminiOmniFlash12Prompt = clampGeminiOmniFlash12Prompt;
+    exports.geminiOmniFlash12BilledSourceSeconds = geminiOmniFlash12BilledSourceSeconds;
+    exports.geminiOmniFlash12MeasuredSeconds = geminiOmniFlash12MeasuredSeconds;
+    exports.geminiOmniFlash12Refusal = geminiOmniFlash12Refusal;
+    exports.geminiOmniFlash12UrlsOf = geminiOmniFlash12UrlsOf;
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.GEMINI_OMNI_FLASH_12_ENDPOINT_PREFIX = "google/gemini-omni-flash/v1.2/";
+    exports.GEMINI_OMNI_FLASH_12_ENDPOINTS = {
+      t2v: "google/gemini-omni-flash/v1.2/text-to-video",
+      i2v: "google/gemini-omni-flash/v1.2/image-to-video",
+      r2v: "google/gemini-omni-flash/v1.2/reference-to-video",
+      edit: "google/gemini-omni-flash/v1.2/edit",
+      extend: "google/gemini-omni-flash/v1.2/extend",
+      upscale: "google/gemini-omni-flash/v1.2/upscale"
+    };
+    function isGeminiOmniFlash12Endpoint(falModelId) {
+      return typeof falModelId === "string" && Object.values(exports.GEMINI_OMNI_FLASH_12_ENDPOINTS).includes(falModelId);
+    }
+    exports.GEMINI_OMNI_FLASH_12_RESOLUTIONS = ["720p", "1080p", "360p", "4k"];
+    exports.GEMINI_OMNI_FLASH_12_DEFAULT_RESOLUTION = "720p";
+    exports.GEMINI_OMNI_FLASH_12_ASPECTS = ["16:9", "9:16"];
+    exports.GEMINI_OMNI_FLASH_12_DEFAULT_ASPECT = "16:9";
+    exports.GEMINI_OMNI_FLASH_12_MAX_PROMPT_CHARS = 2e4;
+    exports.GEMINI_OMNI_FLASH_12_SOURCE_MAX_SECONDS = 15;
+    exports.GEMINI_OMNI_FLASH_12_SOURCE_TOLERANCE_SECONDS = 0.05;
+    exports.GEMINI_OMNI_FLASH_12_TEN_THOUSANDTHS_USD_PER_SECOND = {
+      "360p": 273,
+      "720p": 819,
+      "1080p": 1229,
+      "4k": 2457
+    };
+    var RESOLUTION_SET = new Set(exports.GEMINI_OMNI_FLASH_12_RESOLUTIONS);
+    var ASPECT_SET = new Set(exports.GEMINI_OMNI_FLASH_12_ASPECTS);
+    function geminiOmniFlash12Credits(tenThousandthsUsdPerSecond, seconds) {
+      return Math.ceil(tenThousandthsUsdPerSecond * seconds / 100);
+    }
+    function normalizeGeminiOmniFlash12Resolution(raw) {
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(typeof raw === "string" ? raw.trim() || void 0 : void 0, exports.GEMINI_OMNI_FLASH_12_RESOLUTIONS);
+      return out !== void 0 && RESOLUTION_SET.has(out) ? out : exports.GEMINI_OMNI_FLASH_12_DEFAULT_RESOLUTION;
+    }
+    function normalizeGeminiOmniFlash12Duration(raw, bounds) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return bounds.fallback;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return bounds.fallback;
+      return Math.min(bounds.max, Math.max(bounds.min, Math.ceil(parsed)));
+    }
+    function normalizeGeminiOmniFlash12AspectRatio(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return ASPECT_SET.has(value) ? value : exports.GEMINI_OMNI_FLASH_12_DEFAULT_ASPECT;
+    }
+    function clampGeminiOmniFlash12Prompt(prompt) {
+      return (0, falPayloadGuards_1.clampPromptForModel)(typeof prompt === "string" ? prompt : "", exports.GEMINI_OMNI_FLASH_12_MAX_PROMPT_CHARS);
+    }
+    function geminiOmniFlash12BilledSourceSeconds(measuredSeconds) {
+      return Math.max(1, Math.ceil(Math.round(measuredSeconds * 1e3) / 1e3));
+    }
+    function geminiOmniFlash12MeasuredSeconds(raw) {
+      return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : void 0;
+    }
+    exports.GEMINI_OMNI_FLASH_12_UNMEASURED_SOURCE_MESSAGE = "Gemini Omni Flash 1.2 : impossible de mesurer ta vid\xE9o source, donc de chiffrer le co\xFBt exact. Importe-la dans le projet (MP4 de 15 s au plus) et relance.";
+    var geminiOmniFlash12SourceTooLongMessage = (seconds) => `Gemini Omni Flash 1.2 lit 15 secondes de vid\xE9o au maximum, la tienne en dure ${Math.round(seconds * 10) / 10}. Recadre-la \xE0 15 s.`;
+    exports.geminiOmniFlash12SourceTooLongMessage = geminiOmniFlash12SourceTooLongMessage;
+    function geminiOmniFlash12Refusal(message) {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    }
+    function geminiOmniFlash12UrlsOf(value) {
+      const out = [];
+      const push = (v, depth) => {
+        if (depth > 4)
+          return;
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach((entry) => push(entry, depth + 1));
+        } else if (v && typeof v === "object") {
+          const record = v;
+          push(record.url, depth + 1);
+          push(record.image_url, depth + 1);
+          push(record.video_url, depth + 1);
+        }
+      };
+      push(value, 0);
+      return Array.from(new Set(out));
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/geminiOmniFlash12.js
+var require_geminiOmniFlash12 = __commonJS({
+  "../packages/workflow-contracts/dist/geminiOmniFlash12.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.GEMINI_OMNI_FLASH_12_END_WITHOUT_START_MESSAGE = exports.geminiOmniFlash12ImageRefToken = exports.GEMINI_OMNI_FLASH_12_MAX_REF_VIDEOS = exports.GEMINI_OMNI_FLASH_12_MAX_REF_IMAGES = exports.GEMINI_OMNI_FLASH_12_DURATIONS = exports.GEMINI_OMNI_FLASH_12_END_FRAME_MAX_DURATION = exports.GEMINI_OMNI_FLASH_12_DEFAULT_DURATION = exports.GEMINI_OMNI_FLASH_12_MAX_DURATION = exports.GEMINI_OMNI_FLASH_12_MIN_DURATION = exports.GEMINI_OMNI_FLASH_12_MAIN_ENDPOINTS = exports.GEMINI_OMNI_FLASH_12_MODEL_ID = void 0;
+    exports.geminiOmniFlash12KindFromEndpoint = geminiOmniFlash12KindFromEndpoint;
+    exports.resolveGeminiOmniFlash12Media = resolveGeminiOmniFlash12Media;
+    exports.normalizeGeminiOmniFlash12GenerationDuration = normalizeGeminiOmniFlash12GenerationDuration;
+    exports.geminiOmniFlash12CreditCost = geminiOmniFlash12CreditCost;
+    exports.geminiOmniFlash12CreditCostFromInputs = geminiOmniFlash12CreditCostFromInputs;
+    exports.buildGeminiOmniFlash12FalRequest = buildGeminiOmniFlash12FalRequest;
+    exports.hardenGeminiOmniFlash12ProxyInput = hardenGeminiOmniFlash12ProxyInput;
+    exports.geminiOmniFlash12ProxyRefusal = geminiOmniFlash12ProxyRefusal;
+    exports.geminiOmniFlash12MeasuredRefusal = geminiOmniFlash12MeasuredRefusal;
+    var geminiOmniFlash12Common_1 = require_geminiOmniFlash12Common();
+    exports.GEMINI_OMNI_FLASH_12_MODEL_ID = "gemini-omni-flash-1-2";
+    exports.GEMINI_OMNI_FLASH_12_MAIN_ENDPOINTS = {
+      t2v: geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_ENDPOINTS.t2v,
+      i2v: geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_ENDPOINTS.i2v,
+      r2v: geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_ENDPOINTS.r2v,
+      edit: geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_ENDPOINTS.edit
+    };
+    var ENDPOINT_TO_KIND = Object.fromEntries(Object.entries(exports.GEMINI_OMNI_FLASH_12_MAIN_ENDPOINTS).map(([kind, endpoint]) => [endpoint, kind]));
+    exports.GEMINI_OMNI_FLASH_12_MIN_DURATION = 3;
+    exports.GEMINI_OMNI_FLASH_12_MAX_DURATION = 15;
+    exports.GEMINI_OMNI_FLASH_12_DEFAULT_DURATION = 8;
+    exports.GEMINI_OMNI_FLASH_12_END_FRAME_MAX_DURATION = 10;
+    exports.GEMINI_OMNI_FLASH_12_DURATIONS = Array.from({ length: exports.GEMINI_OMNI_FLASH_12_MAX_DURATION - exports.GEMINI_OMNI_FLASH_12_MIN_DURATION + 1 }, (_, i) => i + exports.GEMINI_OMNI_FLASH_12_MIN_DURATION);
+    exports.GEMINI_OMNI_FLASH_12_MAX_REF_IMAGES = 10;
+    exports.GEMINI_OMNI_FLASH_12_MAX_REF_VIDEOS = 3;
+    var geminiOmniFlash12ImageRefToken = (zeroBasedIndex) => `<IMAGE_REF_${zeroBasedIndex}>`;
+    exports.geminiOmniFlash12ImageRefToken = geminiOmniFlash12ImageRefToken;
+    exports.GEMINI_OMNI_FLASH_12_END_WITHOUT_START_MESSAGE = "Gemini Omni Flash 1.2 : la derni\xE8re image n\xE9cessite une image de d\xE9part. Ajoute l'image de d\xE9part, ou retire la derni\xE8re image.";
+    function geminiOmniFlash12KindFromEndpoint(falModelId) {
+      return typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(ENDPOINT_TO_KIND, falModelId) ? ENDPOINT_TO_KIND[falModelId] : void 0;
+    }
+    var EDIT_VIDEO_KEYS = ["video_url", "video_urls", "video"];
+    var REF_IMAGE_KEYS = ["reference_image_urls", "reference_images", "reference_image", "reference_image_url"];
+    var REF_VIDEO_KEYS = ["reference_video_urls", "reference_videos", "reference_video", "reference_video_url"];
+    var START_KEYS = ["start_image", "start_image_url", "image_url"];
+    var END_KEYS = ["end_image", "end_image_url"];
+    var firstUrlOf = (inputs, keys) => {
+      for (const key of keys) {
+        const url = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      return void 0;
+    };
+    function resolveGeminiOmniFlash12Media(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const editVideo = firstUrlOf(dynamicInputs, EDIT_VIDEO_KEYS);
+      if (editVideo)
+        return { kind: "edit", editVideo, images: [], videos: [], endWithoutStart: false };
+      const refImages = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(REF_IMAGE_KEYS.map((key) => dynamicInputs[key]));
+      const refVideos = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(REF_VIDEO_KEYS.map((key) => dynamicInputs[key])).slice(0, exports.GEMINI_OMNI_FLASH_12_MAX_REF_VIDEOS);
+      const namedStart = firstUrlOf(dynamicInputs, START_KEYS);
+      const namedEnd = firstUrlOf(dynamicInputs, END_KEYS);
+      const named = namedStart !== void 0 || namedEnd !== void 0;
+      const positional = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(params.imageUrls).filter((url) => !refImages.includes(url));
+      const start = named ? namedStart : positional[0];
+      const rawEnd = named ? namedEnd : positional[1];
+      const end = rawEnd && rawEnd !== start ? rawEnd : void 0;
+      if (refImages.length > 0 || refVideos.length > 0) {
+        const images = Array.from(new Set([...refImages, start, end].filter((u) => Boolean(u)))).slice(0, exports.GEMINI_OMNI_FLASH_12_MAX_REF_IMAGES);
+        return { kind: "r2v", images, videos: refVideos, endWithoutStart: false };
+      }
+      if (!start)
+        return { kind: "t2v", images: [], videos: [], endWithoutStart: end !== void 0 };
+      return { kind: "i2v", start, ...end ? { end } : {}, images: [], videos: [], endWithoutStart: false };
+    }
+    var durationBounds = (withEndFrame) => ({
+      min: exports.GEMINI_OMNI_FLASH_12_MIN_DURATION,
+      max: withEndFrame ? exports.GEMINI_OMNI_FLASH_12_END_FRAME_MAX_DURATION : exports.GEMINI_OMNI_FLASH_12_MAX_DURATION,
+      fallback: withEndFrame ? Math.min(exports.GEMINI_OMNI_FLASH_12_DEFAULT_DURATION, exports.GEMINI_OMNI_FLASH_12_END_FRAME_MAX_DURATION) : exports.GEMINI_OMNI_FLASH_12_DEFAULT_DURATION
+    });
+    function normalizeGeminiOmniFlash12GenerationDuration(raw, withEndFrame = false) {
+      return (0, geminiOmniFlash12Common_1.normalizeGeminiOmniFlash12Duration)(raw, durationBounds(withEndFrame));
+    }
+    function geminiOmniFlash12CreditCost(params) {
+      const rate = geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_TEN_THOUSANDTHS_USD_PER_SECOND[(0, geminiOmniFlash12Common_1.normalizeGeminiOmniFlash12Resolution)(params.resolution)];
+      if (params.kind === "edit") {
+        const measured = (0, geminiOmniFlash12Common_1.geminiOmniFlash12MeasuredSeconds)(params.sourceSeconds);
+        const seconds = measured === void 0 ? geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_SOURCE_MAX_SECONDS : (0, geminiOmniFlash12Common_1.geminiOmniFlash12BilledSourceSeconds)(measured);
+        return (0, geminiOmniFlash12Common_1.geminiOmniFlash12Credits)(rate, seconds);
+      }
+      const withEnd = params.kind === "i2v" && params.withEndFrame === true;
+      return (0, geminiOmniFlash12Common_1.geminiOmniFlash12Credits)(rate, normalizeGeminiOmniFlash12GenerationDuration(params.duration, withEnd));
+    }
+    function geminiOmniFlash12CreditCostFromInputs(inputs) {
+      const falModelId = typeof inputs.falModelId === "string" && inputs.falModelId ? inputs.falModelId : void 0;
+      const slugKind = falModelId ? geminiOmniFlash12KindFromEndpoint(falModelId) : void 0;
+      let kind;
+      let withEndFrame;
+      if (slugKind) {
+        kind = slugKind;
+        withEndFrame = kind === "i2v" && (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(inputs.end_image_url).length > 0;
+      } else {
+        const media = resolveGeminiOmniFlash12Media({ imageUrls: inputs.image_urls, dynamicInputs: inputs });
+        kind = media.kind;
+        withEndFrame = media.kind === "i2v" && media.end !== void 0;
+      }
+      return geminiOmniFlash12CreditCost({
+        kind,
+        resolution: inputs.resolution,
+        duration: inputs.duration,
+        withEndFrame,
+        sourceSeconds: (0, geminiOmniFlash12Common_1.geminiOmniFlash12MeasuredSeconds)(inputs.inputVideoSeconds)
+      });
+    }
+    function buildGeminiOmniFlash12FalRequest(params) {
+      const { prompt, imageUrls = [], aspectRatio, dynamicInputs = {} } = params;
+      const media = resolveGeminiOmniFlash12Media({ imageUrls, dynamicInputs });
+      if (media.endWithoutStart)
+        throw (0, geminiOmniFlash12Common_1.geminiOmniFlash12Refusal)(exports.GEMINI_OMNI_FLASH_12_END_WITHOUT_START_MESSAGE);
+      const resolution = (0, geminiOmniFlash12Common_1.normalizeGeminiOmniFlash12Resolution)(params.resolution ?? dynamicInputs.resolution);
+      const text = (0, geminiOmniFlash12Common_1.clampGeminiOmniFlash12Prompt)(prompt);
+      if (media.kind === "edit") {
+        return {
+          falModelId: exports.GEMINI_OMNI_FLASH_12_MAIN_ENDPOINTS.edit,
+          input: { prompt: text, video_url: media.editVideo, resolution }
+        };
+      }
+      const aspect_ratio = (0, geminiOmniFlash12Common_1.normalizeGeminiOmniFlash12AspectRatio)(aspectRatio ?? (typeof dynamicInputs.aspect_ratio === "string" ? dynamicInputs.aspect_ratio : null));
+      const withEnd = media.kind === "i2v" && media.end !== void 0;
+      const common = {
+        prompt: text,
+        aspect_ratio,
+        resolution,
+        duration: normalizeGeminiOmniFlash12GenerationDuration(dynamicInputs.duration, withEnd)
+      };
+      if (media.kind === "r2v") {
+        return {
+          falModelId: exports.GEMINI_OMNI_FLASH_12_MAIN_ENDPOINTS.r2v,
+          input: {
+            ...common,
+            ...media.images.length ? { image_urls: media.images } : {},
+            ...media.videos.length ? { reference_video_urls: media.videos } : {}
+          }
+        };
+      }
+      if (media.kind === "i2v") {
+        return {
+          falModelId: exports.GEMINI_OMNI_FLASH_12_MAIN_ENDPOINTS.i2v,
+          input: { ...common, image_url: media.start, ...media.end ? { end_image_url: media.end } : {} }
+        };
+      }
+      return { falModelId: exports.GEMINI_OMNI_FLASH_12_MAIN_ENDPOINTS.t2v, input: common };
+    }
+    var MEDIA_FIELDS_BY_KIND = {
+      t2v: [],
+      i2v: ["image_url", "end_image_url"],
+      r2v: ["image_urls", "reference_video_urls"],
+      edit: ["video_url"]
+    };
+    var ALL_MEDIA_FIELDS = ["image_url", "end_image_url", "image_urls", "reference_video_urls", "video_url"];
+    function hardenGeminiOmniFlash12ProxyInput(falModelId, input) {
+      const kind = geminiOmniFlash12KindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      delete input.sync_mode;
+      if (typeof input.prompt === "string")
+        input.prompt = (0, geminiOmniFlash12Common_1.clampGeminiOmniFlash12Prompt)(input.prompt);
+      input.resolution = (0, geminiOmniFlash12Common_1.normalizeGeminiOmniFlash12Resolution)(input.resolution);
+      const kept = new Set(MEDIA_FIELDS_BY_KIND[kind]);
+      for (const key of ALL_MEDIA_FIELDS)
+        if (!kept.has(key))
+          delete input[key];
+      for (const key of ["image_url", "end_image_url", "video_url"]) {
+        if (!kept.has(key))
+          continue;
+        const url = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(input[key])[0];
+        if (url)
+          input[key] = url;
+        else
+          delete input[key];
+      }
+      if (kind === "i2v" && input.end_image_url !== void 0 && input.end_image_url === input.image_url)
+        delete input.end_image_url;
+      if (kind === "r2v") {
+        const images = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(input.image_urls).slice(0, exports.GEMINI_OMNI_FLASH_12_MAX_REF_IMAGES);
+        const videos = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(input.reference_video_urls).slice(0, exports.GEMINI_OMNI_FLASH_12_MAX_REF_VIDEOS);
+        if (images.length)
+          input.image_urls = images;
+        else
+          delete input.image_urls;
+        if (videos.length)
+          input.reference_video_urls = videos;
+        else
+          delete input.reference_video_urls;
+      }
+      if (kind === "edit") {
+        delete input.duration;
+        delete input.aspect_ratio;
+      } else {
+        input.aspect_ratio = (0, geminiOmniFlash12Common_1.normalizeGeminiOmniFlash12AspectRatio)(input.aspect_ratio);
+        input.duration = normalizeGeminiOmniFlash12GenerationDuration(input.duration, kind === "i2v" && input.end_image_url !== void 0);
+      }
+      return input;
+    }
+    function geminiOmniFlash12ProxyRefusal(falModelId, input) {
+      const kind = geminiOmniFlash12KindFromEndpoint(falModelId);
+      if (!kind)
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (typeof record.prompt !== "string" || !record.prompt.trim()) {
+        return "Gemini Omni Flash 1.2 n\xE9cessite un prompt (texte non vide).";
+      }
+      if (kind === "i2v" && !(0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(record.image_url)[0]) {
+        return "Gemini Omni Flash 1.2 (image \u2192 vid\xE9o) n\xE9cessite une image de d\xE9part.";
+      }
+      if (kind === "edit" && !(0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(record.video_url)[0]) {
+        return "Gemini Omni Flash 1.2 (\xE9dition) n\xE9cessite la vid\xE9o \xE0 \xE9diter.";
+      }
+      return null;
+    }
+    function geminiOmniFlash12MeasuredRefusal(falModelId, _input, measuredSeconds) {
+      if (geminiOmniFlash12KindFromEndpoint(falModelId) !== "edit")
+        return null;
+      const seconds = (0, geminiOmniFlash12Common_1.geminiOmniFlash12MeasuredSeconds)(measuredSeconds);
+      if (seconds === void 0)
+        return geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_UNMEASURED_SOURCE_MESSAGE;
+      if (seconds > geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_SOURCE_MAX_SECONDS + geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_SOURCE_TOLERANCE_SECONDS) {
+        return (0, geminiOmniFlash12Common_1.geminiOmniFlash12SourceTooLongMessage)(seconds);
+      }
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/geminiOmniFlash12Extend.js
+var require_geminiOmniFlash12Extend = __commonJS({
+  "../packages/workflow-contracts/dist/geminiOmniFlash12Extend.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.GEMINI_OMNI_FLASH_12_EXTEND_UNMEASURED_SOURCE_MESSAGE = exports.GEMINI_OMNI_FLASH_12_EXTEND_SOURCE_MAX_SECONDS = exports.GEMINI_OMNI_FLASH_12_EXTEND_MISSING_VIDEO_MESSAGE = exports.GEMINI_OMNI_FLASH_12_EXTEND_DURATIONS = exports.GEMINI_OMNI_FLASH_12_EXTEND_DEFAULT_DURATION = exports.GEMINI_OMNI_FLASH_12_EXTEND_MAX_DURATION = exports.GEMINI_OMNI_FLASH_12_EXTEND_MIN_DURATION = exports.GEMINI_OMNI_FLASH_12_EXTEND_ENDPOINT = exports.GEMINI_OMNI_FLASH_12_EXTEND_MODEL_ID = void 0;
+    exports.normalizeGeminiOmniFlash12ExtendDuration = normalizeGeminiOmniFlash12ExtendDuration;
+    exports.geminiOmniFlash12ExtendCreditCost = geminiOmniFlash12ExtendCreditCost;
+    exports.geminiOmniFlash12ExtendCreditCostFromInputs = geminiOmniFlash12ExtendCreditCostFromInputs;
+    exports.buildGeminiOmniFlash12ExtendFalRequest = buildGeminiOmniFlash12ExtendFalRequest;
+    exports.hardenGeminiOmniFlash12ExtendProxyInput = hardenGeminiOmniFlash12ExtendProxyInput;
+    exports.geminiOmniFlash12ExtendProxyRefusal = geminiOmniFlash12ExtendProxyRefusal;
+    exports.geminiOmniFlash12ExtendMeasuredRefusal = geminiOmniFlash12ExtendMeasuredRefusal;
+    var geminiOmniFlash12Common_1 = require_geminiOmniFlash12Common();
+    exports.GEMINI_OMNI_FLASH_12_EXTEND_MODEL_ID = "gemini-omni-flash-1-2-extend";
+    exports.GEMINI_OMNI_FLASH_12_EXTEND_ENDPOINT = geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_ENDPOINTS.extend;
+    exports.GEMINI_OMNI_FLASH_12_EXTEND_MIN_DURATION = 3;
+    exports.GEMINI_OMNI_FLASH_12_EXTEND_MAX_DURATION = 10;
+    exports.GEMINI_OMNI_FLASH_12_EXTEND_DEFAULT_DURATION = 8;
+    exports.GEMINI_OMNI_FLASH_12_EXTEND_DURATIONS = Array.from({ length: exports.GEMINI_OMNI_FLASH_12_EXTEND_MAX_DURATION - exports.GEMINI_OMNI_FLASH_12_EXTEND_MIN_DURATION + 1 }, (_, i) => i + exports.GEMINI_OMNI_FLASH_12_EXTEND_MIN_DURATION);
+    exports.GEMINI_OMNI_FLASH_12_EXTEND_MISSING_VIDEO_MESSAGE = "Gemini Omni Flash 1.2 (prolonger) : ajoute la vid\xE9o \xE0 prolonger.";
+    exports.GEMINI_OMNI_FLASH_12_EXTEND_SOURCE_MAX_SECONDS = 60;
+    exports.GEMINI_OMNI_FLASH_12_EXTEND_UNMEASURED_SOURCE_MESSAGE = "Gemini Omni Flash 1.2 (prolonger) : impossible de mesurer ta vid\xE9o source, donc de garantir le co\xFBt. Importe-la dans le projet (MP4 de 60 s au plus) et relance.";
+    var sourceTooLongMessage = (seconds) => `Gemini Omni Flash 1.2 (prolonger) accepte une vid\xE9o source de 60 secondes au plus, la tienne en dure ${Math.round(seconds * 10) / 10}. Raccourcis-la puis relance.`;
+    var SOURCE_KEYS = ["video_url", "video_urls", "video"];
+    function normalizeGeminiOmniFlash12ExtendDuration(raw) {
+      return (0, geminiOmniFlash12Common_1.normalizeGeminiOmniFlash12Duration)(raw, {
+        min: exports.GEMINI_OMNI_FLASH_12_EXTEND_MIN_DURATION,
+        max: exports.GEMINI_OMNI_FLASH_12_EXTEND_MAX_DURATION,
+        fallback: exports.GEMINI_OMNI_FLASH_12_EXTEND_DEFAULT_DURATION
+      });
+    }
+    function geminiOmniFlash12ExtendCreditCost(params) {
+      const rate = geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_TEN_THOUSANDTHS_USD_PER_SECOND[(0, geminiOmniFlash12Common_1.normalizeGeminiOmniFlash12Resolution)(params.resolution)];
+      return (0, geminiOmniFlash12Common_1.geminiOmniFlash12Credits)(rate, normalizeGeminiOmniFlash12ExtendDuration(params.duration));
+    }
+    function geminiOmniFlash12ExtendCreditCostFromInputs(inputs) {
+      return geminiOmniFlash12ExtendCreditCost({ resolution: inputs.resolution, duration: inputs.duration });
+    }
+    function buildGeminiOmniFlash12ExtendFalRequest(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const video = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(SOURCE_KEYS.map((key) => dynamicInputs[key]))[0];
+      if (!video)
+        throw (0, geminiOmniFlash12Common_1.geminiOmniFlash12Refusal)(exports.GEMINI_OMNI_FLASH_12_EXTEND_MISSING_VIDEO_MESSAGE);
+      return {
+        falModelId: exports.GEMINI_OMNI_FLASH_12_EXTEND_ENDPOINT,
+        input: {
+          prompt: (0, geminiOmniFlash12Common_1.clampGeminiOmniFlash12Prompt)(params.prompt),
+          video_url: video,
+          resolution: (0, geminiOmniFlash12Common_1.normalizeGeminiOmniFlash12Resolution)(params.resolution ?? dynamicInputs.resolution),
+          duration: normalizeGeminiOmniFlash12ExtendDuration(dynamicInputs.duration)
+        }
+      };
+    }
+    function hardenGeminiOmniFlash12ExtendProxyInput(falModelId, input) {
+      if (falModelId !== exports.GEMINI_OMNI_FLASH_12_EXTEND_ENDPOINT || !input || typeof input !== "object" || Array.isArray(input)) {
+        return input;
+      }
+      delete input.sync_mode;
+      if (typeof input.prompt === "string")
+        input.prompt = (0, geminiOmniFlash12Common_1.clampGeminiOmniFlash12Prompt)(input.prompt);
+      input.resolution = (0, geminiOmniFlash12Common_1.normalizeGeminiOmniFlash12Resolution)(input.resolution);
+      input.duration = normalizeGeminiOmniFlash12ExtendDuration(input.duration);
+      const video = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(input.video_url)[0];
+      if (video)
+        input.video_url = video;
+      else
+        delete input.video_url;
+      return input;
+    }
+    function geminiOmniFlash12ExtendProxyRefusal(falModelId, input) {
+      if (falModelId !== exports.GEMINI_OMNI_FLASH_12_EXTEND_ENDPOINT)
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (typeof record.prompt !== "string" || !record.prompt.trim()) {
+        return "Gemini Omni Flash 1.2 (prolonger) n\xE9cessite un prompt (texte non vide).";
+      }
+      if (!(0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(record.video_url)[0])
+        return exports.GEMINI_OMNI_FLASH_12_EXTEND_MISSING_VIDEO_MESSAGE;
+      return null;
+    }
+    function geminiOmniFlash12ExtendMeasuredRefusal(falModelId, _input, measuredSeconds) {
+      if (falModelId !== exports.GEMINI_OMNI_FLASH_12_EXTEND_ENDPOINT)
+        return null;
+      const seconds = (0, geminiOmniFlash12Common_1.geminiOmniFlash12MeasuredSeconds)(measuredSeconds);
+      if (seconds === void 0)
+        return exports.GEMINI_OMNI_FLASH_12_EXTEND_UNMEASURED_SOURCE_MESSAGE;
+      if (seconds > exports.GEMINI_OMNI_FLASH_12_EXTEND_SOURCE_MAX_SECONDS + geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_SOURCE_TOLERANCE_SECONDS) {
+        return sourceTooLongMessage(seconds);
+      }
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/geminiOmniFlash12Upscale.js
+var require_geminiOmniFlash12Upscale = __commonJS({
+  "../packages/workflow-contracts/dist/geminiOmniFlash12Upscale.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.GEMINI_OMNI_FLASH_12_UPSCALE_MISSING_VIDEO_MESSAGE = exports.GEMINI_OMNI_FLASH_12_UPSCALE_TEN_THOUSANDTHS_USD_PER_SECOND = exports.GEMINI_OMNI_FLASH_12_UPSCALE_DEFAULT_RESOLUTION = exports.GEMINI_OMNI_FLASH_12_UPSCALE_RESOLUTIONS = exports.GEMINI_OMNI_FLASH_12_UPSCALE_ENDPOINT = exports.GEMINI_OMNI_FLASH_12_UPSCALE_MODEL_ID = void 0;
+    exports.normalizeGeminiOmniFlash12UpscaleResolution = normalizeGeminiOmniFlash12UpscaleResolution;
+    exports.geminiOmniFlash12UpscaleCreditCost = geminiOmniFlash12UpscaleCreditCost;
+    exports.geminiOmniFlash12UpscaleCreditCostFromInputs = geminiOmniFlash12UpscaleCreditCostFromInputs;
+    exports.buildGeminiOmniFlash12UpscaleFalRequest = buildGeminiOmniFlash12UpscaleFalRequest;
+    exports.hardenGeminiOmniFlash12UpscaleProxyInput = hardenGeminiOmniFlash12UpscaleProxyInput;
+    exports.geminiOmniFlash12UpscaleProxyRefusal = geminiOmniFlash12UpscaleProxyRefusal;
+    exports.geminiOmniFlash12UpscaleMeasuredRefusal = geminiOmniFlash12UpscaleMeasuredRefusal;
+    var geminiOmniFlash12Common_1 = require_geminiOmniFlash12Common();
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.GEMINI_OMNI_FLASH_12_UPSCALE_MODEL_ID = "gemini-omni-flash-1-2-upscale";
+    exports.GEMINI_OMNI_FLASH_12_UPSCALE_ENDPOINT = geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_ENDPOINTS.upscale;
+    exports.GEMINI_OMNI_FLASH_12_UPSCALE_RESOLUTIONS = ["1080p", "720p", "4k"];
+    exports.GEMINI_OMNI_FLASH_12_UPSCALE_DEFAULT_RESOLUTION = "1080p";
+    exports.GEMINI_OMNI_FLASH_12_UPSCALE_TEN_THOUSANDTHS_USD_PER_SECOND = {
+      "720p": 410,
+      // 360p → 720p
+      "1080p": 819,
+      // 360p → 1080p (720p → 1080p : 410)
+      "4k": 1638
+      // 720p ou 1080p → 4K
+    };
+    var TARGET_SET = new Set(exports.GEMINI_OMNI_FLASH_12_UPSCALE_RESOLUTIONS);
+    function normalizeGeminiOmniFlash12UpscaleResolution(raw) {
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(typeof raw === "string" ? raw.trim() || void 0 : void 0, exports.GEMINI_OMNI_FLASH_12_UPSCALE_RESOLUTIONS);
+      return out !== void 0 && TARGET_SET.has(out) ? out : exports.GEMINI_OMNI_FLASH_12_UPSCALE_DEFAULT_RESOLUTION;
+    }
+    function geminiOmniFlash12UpscaleCreditCost(params) {
+      const rate = exports.GEMINI_OMNI_FLASH_12_UPSCALE_TEN_THOUSANDTHS_USD_PER_SECOND[normalizeGeminiOmniFlash12UpscaleResolution(params.resolution)];
+      const seconds = (0, geminiOmniFlash12Common_1.geminiOmniFlash12MeasuredSeconds)(params.sourceSeconds);
+      return (0, geminiOmniFlash12Common_1.geminiOmniFlash12Credits)(rate, seconds === void 0 ? geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_SOURCE_MAX_SECONDS : (0, geminiOmniFlash12Common_1.geminiOmniFlash12BilledSourceSeconds)(seconds));
+    }
+    function geminiOmniFlash12UpscaleCreditCostFromInputs(inputs) {
+      const seconds = (0, geminiOmniFlash12Common_1.geminiOmniFlash12MeasuredSeconds)(inputs.inputVideoSeconds);
+      return geminiOmniFlash12UpscaleCreditCost({ resolution: inputs.resolution, ...seconds !== void 0 ? { sourceSeconds: seconds } : {} });
+    }
+    exports.GEMINI_OMNI_FLASH_12_UPSCALE_MISSING_VIDEO_MESSAGE = "Gemini Omni Flash 1.2 (upscale) : ajoute la vid\xE9o \xE0 monter en d\xE9finition (MP4 de 15 s au plus).";
+    var SOURCE_KEYS = ["video_url", "video_urls", "video"];
+    function buildGeminiOmniFlash12UpscaleFalRequest(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const video = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(SOURCE_KEYS.map((key) => dynamicInputs[key]))[0];
+      if (!video)
+        throw (0, geminiOmniFlash12Common_1.geminiOmniFlash12Refusal)(exports.GEMINI_OMNI_FLASH_12_UPSCALE_MISSING_VIDEO_MESSAGE);
+      return {
+        falModelId: exports.GEMINI_OMNI_FLASH_12_UPSCALE_ENDPOINT,
+        input: {
+          video_url: video,
+          resolution: normalizeGeminiOmniFlash12UpscaleResolution(params.resolution ?? dynamicInputs.resolution)
+        }
+      };
+    }
+    function hardenGeminiOmniFlash12UpscaleProxyInput(falModelId, input) {
+      if (falModelId !== exports.GEMINI_OMNI_FLASH_12_UPSCALE_ENDPOINT || !input || typeof input !== "object" || Array.isArray(input)) {
+        return input;
+      }
+      const video = (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(input.video_url)[0];
+      const resolution = normalizeGeminiOmniFlash12UpscaleResolution(input.resolution);
+      for (const key of Object.keys(input))
+        delete input[key];
+      if (video)
+        input.video_url = video;
+      input.resolution = resolution;
+      return input;
+    }
+    function geminiOmniFlash12UpscaleProxyRefusal(falModelId, input) {
+      if (falModelId !== exports.GEMINI_OMNI_FLASH_12_UPSCALE_ENDPOINT)
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      return (0, geminiOmniFlash12Common_1.geminiOmniFlash12UrlsOf)(record.video_url)[0] ? null : exports.GEMINI_OMNI_FLASH_12_UPSCALE_MISSING_VIDEO_MESSAGE;
+    }
+    function geminiOmniFlash12UpscaleMeasuredRefusal(falModelId, _input, measuredSeconds) {
+      if (falModelId !== exports.GEMINI_OMNI_FLASH_12_UPSCALE_ENDPOINT)
+        return null;
+      const seconds = (0, geminiOmniFlash12Common_1.geminiOmniFlash12MeasuredSeconds)(measuredSeconds);
+      if (seconds === void 0)
+        return geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_UNMEASURED_SOURCE_MESSAGE;
+      if (seconds > geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_SOURCE_MAX_SECONDS + geminiOmniFlash12Common_1.GEMINI_OMNI_FLASH_12_SOURCE_TOLERANCE_SECONDS) {
+        return (0, geminiOmniFlash12Common_1.geminiOmniFlash12SourceTooLongMessage)(seconds);
+      }
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/ltx25VideoEdit.js
+var require_ltx25VideoEdit = __commonJS({
+  "../packages/workflow-contracts/dist/ltx25VideoEdit.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ltx25VideoEditAiProxyLongSourceRefusal = exports.ltx25UnmeasuredSourceMessage = exports.LTX25_REFRAME_MISSING_VIDEO_MESSAGE = exports.LTX25_UPSCALE_MISSING_VIDEO_MESSAGE = exports.ltx25ReframeCreditCostFromInputs = exports.ltx25UpscaleCreditCostFromInputs = exports.ltx25BilledSourceSeconds = exports.ltx25MeasuredSeconds = exports.ltx25VideoEditCredits = exports.LTX25_REFRAME_ANCHORS = exports.LTX25_REFRAME_EXPLICIT_DIMENSIONS = exports.LTX25_REFRAME_TEN_THOUSANDTHS_USD_PER_SECOND = exports.LTX25_REFRAME_DEFAULT_RESOLUTION = exports.LTX25_REFRAME_RESOLUTIONS = exports.LTX25_REFRAME_DEFAULT_ASPECT = exports.LTX25_REFRAME_ASPECTS = exports.LTX25_UPSCALE_MAX_FRAMES = exports.LTX25_UPSCALE_TEN_THOUSANDTHS_USD_PER_SECOND = exports.LTX25_UPSCALE_DEFAULT_RESOLUTION = exports.LTX25_UPSCALE_RESOLUTIONS = exports.LTX25_VIDEO_EDIT_MIN_INVOCATION_BUDGET_MS = exports.LTX25_VIDEO_EDIT_SHORT_SOURCE_SECONDS = exports.LTX25_VIDEO_EDIT_SOURCE_TOLERANCE_SECONDS = exports.LTX25_VIDEO_EDIT_MAX_SOURCE_SECONDS = exports.isLtx25VideoEditEndpoint = exports.isLtx25VideoEditModel = exports.LTX25_VIDEO_EDIT_ENDPOINTS = exports.LTX25_VIDEO_EDIT_MODEL_IDS = exports.LTX25_REFRAME_ENDPOINT = exports.LTX25_REFRAME_MODEL_ID = exports.LTX25_UPSCALE_ENDPOINT = exports.LTX25_UPSCALE_MODEL_ID = void 0;
+    exports.normalizeLtx25UpscaleResolution = normalizeLtx25UpscaleResolution;
+    exports.normalizeLtx25ReframeResolution = normalizeLtx25ReframeResolution;
+    exports.normalizeLtx25ReframeAspect = normalizeLtx25ReframeAspect;
+    exports.normalizeLtx25ReframePlacement = normalizeLtx25ReframePlacement;
+    exports.ltx25UpscaleCreditCost = ltx25UpscaleCreditCost;
+    exports.ltx25ReframeCreditCost = ltx25ReframeCreditCost;
+    exports.ltx25VideoUrlsOf = ltx25VideoUrlsOf;
+    exports.buildLtx25UpscaleFalRequest = buildLtx25UpscaleFalRequest;
+    exports.buildLtx25ReframeFalRequest = buildLtx25ReframeFalRequest;
+    exports.hardenLtx25VideoEditProxyInput = hardenLtx25VideoEditProxyInput;
+    exports.ltx25VideoEditProxyRefusal = ltx25VideoEditProxyRefusal;
+    exports.ltx25VideoEditMeasuredRefusal = ltx25VideoEditMeasuredRefusal;
+    exports.ltx25VideoEditInvocationRefusal = ltx25VideoEditInvocationRefusal;
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.LTX25_UPSCALE_MODEL_ID = "ltx-25-upscale-video";
+    exports.LTX25_UPSCALE_ENDPOINT = "lightricks/ltx-2.5/upscale";
+    exports.LTX25_REFRAME_MODEL_ID = "ltx-25-reframe-video";
+    exports.LTX25_REFRAME_ENDPOINT = "lightricks/ltx-2.5/reframe";
+    exports.LTX25_VIDEO_EDIT_MODEL_IDS = [exports.LTX25_UPSCALE_MODEL_ID, exports.LTX25_REFRAME_MODEL_ID];
+    exports.LTX25_VIDEO_EDIT_ENDPOINTS = [exports.LTX25_UPSCALE_ENDPOINT, exports.LTX25_REFRAME_ENDPOINT];
+    var ownString = (value) => typeof value === "string" ? value.trim() : "";
+    var isLtx25VideoEditModel = (modelId) => exports.LTX25_VIDEO_EDIT_MODEL_IDS.includes(ownString(modelId));
+    exports.isLtx25VideoEditModel = isLtx25VideoEditModel;
+    var isLtx25VideoEditEndpoint = (falModelId) => exports.LTX25_VIDEO_EDIT_ENDPOINTS.includes(ownString(falModelId));
+    exports.isLtx25VideoEditEndpoint = isLtx25VideoEditEndpoint;
+    exports.LTX25_VIDEO_EDIT_MAX_SOURCE_SECONDS = 30;
+    exports.LTX25_VIDEO_EDIT_SOURCE_TOLERANCE_SECONDS = 0.05;
+    exports.LTX25_VIDEO_EDIT_SHORT_SOURCE_SECONDS = 10;
+    exports.LTX25_VIDEO_EDIT_MIN_INVOCATION_BUDGET_MS = 20 * 6e4;
+    exports.LTX25_UPSCALE_RESOLUTIONS = ["1080p", "4k", "8k"];
+    exports.LTX25_UPSCALE_DEFAULT_RESOLUTION = "1080p";
+    exports.LTX25_UPSCALE_TEN_THOUSANDTHS_USD_PER_SECOND = {
+      "1080p": 800,
+      "4k": 3e3,
+      "8k": 12e3
+    };
+    exports.LTX25_UPSCALE_MAX_FRAMES = {
+      "1080p": 2401,
+      "4k": 601,
+      "8k": 241
+    };
+    var UPSCALE_SET = new Set(exports.LTX25_UPSCALE_RESOLUTIONS);
+    function normalizeLtx25UpscaleResolution(raw) {
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(ownString(raw) || void 0, exports.LTX25_UPSCALE_RESOLUTIONS);
+      return out !== void 0 && UPSCALE_SET.has(out) ? out : exports.LTX25_UPSCALE_DEFAULT_RESOLUTION;
+    }
+    exports.LTX25_REFRAME_ASPECTS = ["16:9", "9:16", "1:1", "4:5", "5:4"];
+    exports.LTX25_REFRAME_DEFAULT_ASPECT = "16:9";
+    exports.LTX25_REFRAME_RESOLUTIONS = ["1080p", "720p"];
+    exports.LTX25_REFRAME_DEFAULT_RESOLUTION = "1080p";
+    exports.LTX25_REFRAME_TEN_THOUSANDTHS_USD_PER_SECOND = {
+      "720p": 1e3,
+      "1080p": 2e3
+    };
+    exports.LTX25_REFRAME_EXPLICIT_DIMENSIONS = {
+      "720x720": { resolution: "720p", aspect: "1:1" },
+      "1080x1080": { resolution: "1080p", aspect: "1:1" },
+      "720x900": { resolution: "720p", aspect: "4:5" },
+      "1080x1350": { resolution: "1080p", aspect: "4:5" },
+      "900x720": { resolution: "720p", aspect: "5:4" },
+      "1350x1080": { resolution: "1080p", aspect: "5:4" },
+      "720x1280": { resolution: "720p", aspect: "9:16" },
+      "1080x1920": { resolution: "1080p", aspect: "9:16" },
+      "1280x720": { resolution: "720p", aspect: "16:9" },
+      "1920x1080": { resolution: "1080p", aspect: "16:9" }
+    };
+    var explicitDimensions = (raw) => {
+      const key = ownString(raw).toLowerCase();
+      return Object.prototype.hasOwnProperty.call(exports.LTX25_REFRAME_EXPLICIT_DIMENSIONS, key) ? exports.LTX25_REFRAME_EXPLICIT_DIMENSIONS[key] : void 0;
+    };
+    var REFRAME_SET = new Set(exports.LTX25_REFRAME_RESOLUTIONS);
+    var ASPECT_SET = new Set(exports.LTX25_REFRAME_ASPECTS);
+    function normalizeLtx25ReframeResolution(raw) {
+      const dims = explicitDimensions(raw);
+      if (dims)
+        return dims.resolution;
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(ownString(raw) || void 0, exports.LTX25_REFRAME_RESOLUTIONS);
+      return out !== void 0 && REFRAME_SET.has(out) ? out : exports.LTX25_REFRAME_DEFAULT_RESOLUTION;
+    }
+    function normalizeLtx25ReframeAspect(rawAspect, rawResolution, ...fallbacks) {
+      const dims = explicitDimensions(rawResolution);
+      if (dims)
+        return dims.aspect;
+      for (const candidate of [rawAspect, ...fallbacks]) {
+        const value = ownString(candidate);
+        if (ASPECT_SET.has(value))
+          return value;
+      }
+      return exports.LTX25_REFRAME_DEFAULT_ASPECT;
+    }
+    exports.LTX25_REFRAME_ANCHORS = [
+      "center",
+      "top",
+      "bottom",
+      "left",
+      "right",
+      "top_left",
+      "top_right",
+      "bottom_left",
+      "bottom_right"
+    ];
+    var ANCHOR_SET = new Set(exports.LTX25_REFRAME_ANCHORS);
+    var fraction = (value, { allowZero, allowOne }) => {
+      if (typeof value !== "number" || !Number.isFinite(value))
+        return void 0;
+      if (value < 0 || !allowZero && value === 0 || value > 1 || !allowOne && value === 1)
+        return void 0;
+      return value;
+    };
+    function normalizeLtx25ReframePlacement(placement, anchor) {
+      if (placement && typeof placement === "object" && !Array.isArray(placement)) {
+        const record = placement;
+        const keys = Object.keys(record);
+        if (keys.length === 1 && keys[0] === "anchor" && ANCHOR_SET.has(ownString(record.anchor))) {
+          return { anchor: ownString(record.anchor) };
+        }
+        if (keys.every((k) => k === "x" || k === "y" || k === "width" || k === "height")) {
+          const x = fraction(record.x, { allowZero: true, allowOne: false });
+          const y = fraction(record.y, { allowZero: true, allowOne: false });
+          const width = record.width === void 0 || record.width === null ? null : fraction(record.width, { allowZero: false, allowOne: true });
+          const height = record.height === void 0 || record.height === null ? null : fraction(record.height, { allowZero: false, allowOne: true });
+          if (x !== void 0 && y !== void 0 && width !== void 0 && height !== void 0) {
+            return { x, y, ...width !== null ? { width } : {}, ...height !== null ? { height } : {} };
+          }
+        }
+      }
+      const value = ownString(anchor);
+      return ANCHOR_SET.has(value) ? { anchor: value } : void 0;
+    }
+    var ltx25VideoEditCredits = (tenThousandthsUsdPerSecond, seconds) => Math.ceil(tenThousandthsUsdPerSecond * seconds / 100);
+    exports.ltx25VideoEditCredits = ltx25VideoEditCredits;
+    var ltx25MeasuredSeconds = (raw) => typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : void 0;
+    exports.ltx25MeasuredSeconds = ltx25MeasuredSeconds;
+    var ltx25BilledSourceSeconds = (measuredSeconds) => Math.max(1, Math.ceil(Math.round(measuredSeconds * 1e3) / 1e3));
+    exports.ltx25BilledSourceSeconds = ltx25BilledSourceSeconds;
+    var billedSeconds = (raw) => {
+      const seconds = (0, exports.ltx25MeasuredSeconds)(raw);
+      return seconds === void 0 ? exports.LTX25_VIDEO_EDIT_MAX_SOURCE_SECONDS : (0, exports.ltx25BilledSourceSeconds)(seconds);
+    };
+    function ltx25UpscaleCreditCost(params) {
+      return (0, exports.ltx25VideoEditCredits)(exports.LTX25_UPSCALE_TEN_THOUSANDTHS_USD_PER_SECOND[normalizeLtx25UpscaleResolution(params.resolution)], billedSeconds(params.sourceSeconds));
+    }
+    function ltx25ReframeCreditCost(params) {
+      return (0, exports.ltx25VideoEditCredits)(exports.LTX25_REFRAME_TEN_THOUSANDTHS_USD_PER_SECOND[normalizeLtx25ReframeResolution(params.resolution)], billedSeconds(params.sourceSeconds));
+    }
+    var ltx25UpscaleCreditCostFromInputs = (inputs) => ltx25UpscaleCreditCost({ resolution: inputs.resolution, sourceSeconds: (0, exports.ltx25MeasuredSeconds)(inputs.inputVideoSeconds) });
+    exports.ltx25UpscaleCreditCostFromInputs = ltx25UpscaleCreditCostFromInputs;
+    var ltx25ReframeCreditCostFromInputs = (inputs) => ltx25ReframeCreditCost({ resolution: inputs.resolution, sourceSeconds: (0, exports.ltx25MeasuredSeconds)(inputs.inputVideoSeconds) });
+    exports.ltx25ReframeCreditCostFromInputs = ltx25ReframeCreditCostFromInputs;
+    function ltx25VideoUrlsOf(value) {
+      const out = [];
+      const push = (v, depth) => {
+        if (depth > 4)
+          return;
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach((entry) => push(entry, depth + 1));
+        } else if (v && typeof v === "object") {
+          const record = v;
+          push(record.url, depth + 1);
+          push(record.video_url, depth + 1);
+        }
+      };
+      push(value, 0);
+      return Array.from(new Set(out));
+    }
+    var SOURCE_KEYS = ["video_url", "video_urls", "video"];
+    var sourceVideo = (dynamicInputs) => ltx25VideoUrlsOf(SOURCE_KEYS.map((key) => dynamicInputs[key]))[0];
+    exports.LTX25_UPSCALE_MISSING_VIDEO_MESSAGE = "LTX 2.5 Upscale : ajoute la vid\xE9o \xE0 monter en d\xE9finition (MP4 H.264 ou HEVC de 30 s au plus).";
+    exports.LTX25_REFRAME_MISSING_VIDEO_MESSAGE = "LTX 2.5 Reframe : ajoute la vid\xE9o \xE0 recadrer (MP4 de 30 s au plus).";
+    function ltx25Refusal(message) {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    }
+    function buildLtx25UpscaleFalRequest(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const video = sourceVideo(dynamicInputs);
+      if (!video)
+        throw ltx25Refusal(exports.LTX25_UPSCALE_MISSING_VIDEO_MESSAGE);
+      return {
+        falModelId: exports.LTX25_UPSCALE_ENDPOINT,
+        input: {
+          video_url: video,
+          resolution: normalizeLtx25UpscaleResolution(params.resolution ?? dynamicInputs.resolution),
+          enable_safety_checker: true
+        }
+      };
+    }
+    function buildLtx25ReframeFalRequest(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const video = sourceVideo(dynamicInputs);
+      if (!video)
+        throw ltx25Refusal(exports.LTX25_REFRAME_MISSING_VIDEO_MESSAGE);
+      const rawResolution = params.resolution ?? dynamicInputs.resolution;
+      const placement = normalizeLtx25ReframePlacement(dynamicInputs.placement, dynamicInputs.anchor);
+      return {
+        falModelId: exports.LTX25_REFRAME_ENDPOINT,
+        input: {
+          video_url: video,
+          aspect_ratio: normalizeLtx25ReframeAspect(params.aspectRatio, rawResolution, dynamicInputs.aspect_ratio),
+          resolution: normalizeLtx25ReframeResolution(rawResolution),
+          ...placement ? { placement } : {},
+          enable_safety_checker: true
+        }
+      };
+    }
+    function hardenLtx25VideoEditProxyInput(falModelId, input) {
+      if (!(0, exports.isLtx25VideoEditEndpoint)(falModelId) || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      const video = ltx25VideoUrlsOf(input.video_url)[0];
+      const upscale = ownString(falModelId) === exports.LTX25_UPSCALE_ENDPOINT;
+      const next = upscale ? { resolution: normalizeLtx25UpscaleResolution(input.resolution) } : (() => {
+        const placement = normalizeLtx25ReframePlacement(input.placement);
+        return {
+          aspect_ratio: normalizeLtx25ReframeAspect(input.aspect_ratio, input.resolution),
+          resolution: normalizeLtx25ReframeResolution(input.resolution),
+          ...placement ? { placement } : {}
+        };
+      })();
+      for (const key of Object.keys(input))
+        delete input[key];
+      if (video)
+        input.video_url = video;
+      Object.assign(input, next, { enable_safety_checker: true });
+      return input;
+    }
+    function ltx25VideoEditProxyRefusal(falModelId, input) {
+      if (!(0, exports.isLtx25VideoEditEndpoint)(falModelId))
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (ltx25VideoUrlsOf(record.video_url)[0])
+        return null;
+      return ownString(falModelId) === exports.LTX25_UPSCALE_ENDPOINT ? exports.LTX25_UPSCALE_MISSING_VIDEO_MESSAGE : exports.LTX25_REFRAME_MISSING_VIDEO_MESSAGE;
+    }
+    var labelOf = (falModelId) => ownString(falModelId) === exports.LTX25_UPSCALE_ENDPOINT ? "LTX 2.5 Upscale" : "LTX 2.5 Reframe";
+    var formatSeconds = (s) => `${(Math.round(s * 10) / 10).toString().replace(".", ",")} s`;
+    var ltx25UnmeasuredSourceMessage = (falModelId) => `${labelOf(falModelId)} est factur\xE9 \xE0 la dur\xE9e exacte de ta vid\xE9o, et elle n'a pas pu \xEAtre mesur\xE9e avant l'envoi. Importe-la dans Beemm Vision (MP4 de 30 s au plus), puis relance.`;
+    exports.ltx25UnmeasuredSourceMessage = ltx25UnmeasuredSourceMessage;
+    function ltx25VideoEditMeasuredRefusal(falModelId, input, measuredSeconds, measuredFrames) {
+      if (!(0, exports.isLtx25VideoEditEndpoint)(falModelId))
+        return null;
+      const seconds = (0, exports.ltx25MeasuredSeconds)(measuredSeconds);
+      if (seconds === void 0)
+        return (0, exports.ltx25UnmeasuredSourceMessage)(falModelId);
+      if (seconds > exports.LTX25_VIDEO_EDIT_MAX_SOURCE_SECONDS + exports.LTX25_VIDEO_EDIT_SOURCE_TOLERANCE_SECONDS) {
+        return `${labelOf(falModelId)} accepte une vid\xE9o de ${exports.LTX25_VIDEO_EDIT_MAX_SOURCE_SECONDS} s au plus (ta vid\xE9o : ${formatSeconds(seconds)}). Raccourcis-la, puis relance.`;
+      }
+      if (ownString(falModelId) === exports.LTX25_UPSCALE_ENDPOINT) {
+        const target = normalizeLtx25UpscaleResolution(input?.resolution);
+        const max = exports.LTX25_UPSCALE_MAX_FRAMES[target];
+        const frames = typeof measuredFrames === "number" && Number.isFinite(measuredFrames) && measuredFrames > 0 ? measuredFrames : void 0;
+        if (frames === void 0) {
+          return "LTX 2.5 Upscale : le nombre d'images de ta vid\xE9o n'a pas pu \xEAtre lu avant l'envoi. Importe-la dans Beemm Vision (MP4 H.264 ou HEVC), puis relance.";
+        }
+        if (frames > max) {
+          return `LTX 2.5 Upscale accepte ${max} images au plus en ${target} (ta vid\xE9o : ${frames}). Raccourcis-la ou choisis une d\xE9finition plus basse.`;
+        }
+      }
+      return null;
+    }
+    function ltx25VideoEditInvocationRefusal(params) {
+      const id = ownString(params.id);
+      if (!(0, exports.isLtx25VideoEditModel)(id) && !(0, exports.isLtx25VideoEditEndpoint)(id))
+        return null;
+      const seconds = (0, exports.ltx25MeasuredSeconds)(params.measuredSeconds);
+      if (seconds === void 0 || seconds <= exports.LTX25_VIDEO_EDIT_SHORT_SOURCE_SECONDS + exports.LTX25_VIDEO_EDIT_SOURCE_TOLERANCE_SECONDS)
+        return null;
+      const label = id === exports.LTX25_UPSCALE_MODEL_ID || id === exports.LTX25_UPSCALE_ENDPOINT ? "LTX 2.5 Upscale" : "LTX 2.5 Reframe";
+      const where = "Lance-la depuis Generate ou depuis le canvas Beemm Vision, ou raccourcis-la \xE0 10 s.";
+      if (params.surface === "cli") {
+        return `${label} : une vid\xE9o de plus de 10 s (${formatSeconds(seconds)}) ne se traite pas depuis le CLI, son rendu peut d\xE9passer le d\xE9lai de l'appel (9 min). ${where}`;
+      }
+      const deadline = params.invocationDeadlineAtMs;
+      const known = typeof deadline === "number" && Number.isFinite(deadline);
+      const remainingMs = known ? deadline - params.nowMs : -1;
+      if (remainingMs >= exports.LTX25_VIDEO_EDIT_MIN_INVOCATION_BUDGET_MS)
+        return null;
+      return `${label} a besoin d'au moins ${exports.LTX25_VIDEO_EDIT_MIN_INVOCATION_BUDGET_MS / 6e4} min pour une vid\xE9o de plus de 10 s (${formatSeconds(seconds)}), et cet appel ne les a pas. ${where}`;
+    }
+    var ltx25VideoEditAiProxyLongSourceRefusal = (falModelId, measuredSeconds) => ltx25VideoEditInvocationRefusal({ id: falModelId, measuredSeconds, surface: "aiProxy", nowMs: 0 });
+    exports.ltx25VideoEditAiProxyLongSourceRefusal = ltx25VideoEditAiProxyLongSourceRefusal;
+  }
+});
+
+// ../packages/workflow-contracts/dist/measuredVideoDimensions.js
+var require_measuredVideoDimensions = __commonJS({
+  "../packages/workflow-contracts/dist/measuredVideoDimensions.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.unmeasuredDimensionsMessage = exports.DIMENSION_PRICED_MIN_INVOCATION_BUDGET_MS = exports.isDimensionPricedVideoEndpoint = exports.isDimensionPricedVideoModel = exports.DIMENSION_PRICED_VIDEO_MODEL_IDS = exports.DIMENSION_PRICED_VIDEO_MODELS = exports.longSideOf = exports.shortSideOf = void 0;
+    exports.readMeasuredVideoDimensions = readMeasuredVideoDimensions;
+    exports.dimensionPricedEngineRefusal = dimensionPricedEngineRefusal;
+    exports.dimensionPricedAiProxyRefusal = dimensionPricedAiProxyRefusal;
+    exports.ceilDiv = ceilDiv;
+    exports.billedWholeSeconds = billedWholeSeconds;
+    exports.measuredPositiveSeconds = measuredPositiveSeconds;
+    exports.firstVideoUrlOf = firstVideoUrlOf;
+    exports.dimensionPricedRefusal = dimensionPricedRefusal;
+    var MAX_SIDE = 16384;
+    var MAX_FRAMES = 1e6;
+    var positiveInt = (value, max) => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= max ? value : void 0;
+    function readMeasuredVideoDimensions(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value))
+        return void 0;
+      const record = value;
+      const width = positiveInt(record.width, MAX_SIDE);
+      const height = positiveInt(record.height, MAX_SIDE);
+      const frames = positiveInt(record.frames, MAX_FRAMES);
+      if (width === void 0 || height === void 0 || frames === void 0)
+        return void 0;
+      return { width, height, frames };
+    }
+    var shortSideOf = (d) => Math.min(d.width, d.height);
+    exports.shortSideOf = shortSideOf;
+    var longSideOf = (d) => Math.max(d.width, d.height);
+    exports.longSideOf = longSideOf;
+    exports.DIMENSION_PRICED_VIDEO_MODELS = {
+      "ltx-25-alpha-gen-video": { label: "LTX 2.5 Alpha Gen", endpoints: ["lightricks/ltx-2.5/alpha-gen"] },
+      "flashvsr-plus-video": { label: "FlashVSR+", endpoints: ["openimaginglab/flashvsr-plus"] }
+    };
+    var ownModel = (modelId) => typeof modelId === "string" && Object.prototype.hasOwnProperty.call(exports.DIMENSION_PRICED_VIDEO_MODELS, modelId) ? exports.DIMENSION_PRICED_VIDEO_MODELS[modelId] : void 0;
+    exports.DIMENSION_PRICED_VIDEO_MODEL_IDS = Object.keys(exports.DIMENSION_PRICED_VIDEO_MODELS);
+    var isDimensionPricedVideoModel = (modelId) => ownModel(modelId) !== void 0;
+    exports.isDimensionPricedVideoModel = isDimensionPricedVideoModel;
+    var isDimensionPricedVideoEndpoint = (falModelId) => typeof falModelId === "string" && Object.values(exports.DIMENSION_PRICED_VIDEO_MODELS).some((m) => m.endpoints.includes(falModelId.trim()));
+    exports.isDimensionPricedVideoEndpoint = isDimensionPricedVideoEndpoint;
+    exports.DIMENSION_PRICED_MIN_INVOCATION_BUDGET_MS = 20 * 6e4;
+    function dimensionPricedEngineRefusal(params) {
+      const model = params.modelIds.map(ownModel).find(Boolean);
+      if (!model)
+        return null;
+      if (params.surface === "cli") {
+        return `${model.label} ne se lance pas depuis le CLI : son rendu peut d\xE9passer le d\xE9lai de l'appel (9 min). Lance ce workflow depuis le canvas Beemm Vision.`;
+      }
+      const deadline = params.invocationDeadlineAtMs;
+      const known = typeof deadline === "number" && Number.isFinite(deadline);
+      const remainingMs = known ? deadline - params.nowMs : -1;
+      if (remainingMs >= exports.DIMENSION_PRICED_MIN_INVOCATION_BUDGET_MS)
+        return null;
+      const left = known ? `il n'en reste que ${Math.max(0, Math.floor(remainingMs / 6e4))} min` : "son d\xE9lai n'est pas connu";
+      return `${model.label} a besoin d'au moins ${exports.DIMENSION_PRICED_MIN_INVOCATION_BUDGET_MS / 6e4} min d'attente et cette ex\xE9cution ne les a pas (${left}). Lance ce workflow depuis le canvas Beemm Vision.`;
+    }
+    function dimensionPricedAiProxyRefusal(falModelId) {
+      if (typeof falModelId !== "string")
+        return null;
+      const endpoint = falModelId.trim();
+      const model = Object.values(exports.DIMENSION_PRICED_VIDEO_MODELS).find((m) => m.endpoints.includes(endpoint));
+      if (!model)
+        return null;
+      return `${model.label} se lance depuis Generate ou un n\u0153ud de workflow : ta vid\xE9o doit \xEAtre mesur\xE9e avant l'envoi, ce que cet appel direct ne fait pas.`;
+    }
+    var unmeasuredDimensionsMessage = (label) => `${label} : impossible de mesurer ta vid\xE9o, donc de chiffrer le co\xFBt exact. Importe-la dans Beemm Vision (MP4 ou MOV) et relance : rien n'a \xE9t\xE9 d\xE9bit\xE9.`;
+    exports.unmeasuredDimensionsMessage = unmeasuredDimensionsMessage;
+    function ceilDiv(numerator, denominator) {
+      const q = Math.floor(numerator / denominator);
+      return q * denominator < numerator ? q + 1 : q;
+    }
+    function billedWholeSeconds(measuredSeconds) {
+      return Math.max(1, Math.ceil(Math.round(measuredSeconds * 1e3) / 1e3));
+    }
+    function measuredPositiveSeconds(raw) {
+      return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : void 0;
+    }
+    function firstVideoUrlOf(...values) {
+      const visit = (value, depth) => {
+        if (depth > 3)
+          return void 0;
+        if (typeof value === "string")
+          return value.trim() || void 0;
+        if (Array.isArray(value)) {
+          for (const entry of value) {
+            const found = visit(entry, depth + 1);
+            if (found)
+              return found;
+          }
+          return void 0;
+        }
+        if (value && typeof value === "object")
+          return visit(value.url, depth + 1);
+        return void 0;
+      };
+      for (const value of values) {
+        const found = visit(value, 0);
+        if (found)
+          return found;
+      }
+      return void 0;
+    }
+    function dimensionPricedRefusal(message) {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/ltx25AlphaGen.js
+var require_ltx25AlphaGen = __commonJS({
+  "../packages/workflow-contracts/dist/ltx25AlphaGen.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ltx25AlphaGenCutoutEstimatedBytes = exports.LTX25_ALPHA_GEN_MISSING_VIDEO_MESSAGE = exports.LTX25_ALPHA_GEN_DEFAULT_OUTPUT = exports.LTX25_ALPHA_GEN_OUTPUTS = exports.LTX25_ALPHA_GEN_WORST_CREDITS_PER_SECOND = exports.LTX25_ALPHA_GEN_TIERS = exports.LTX25_ALPHA_GEN_CUTOUT_BYTES_PER_PIXEL_FRAME = exports.LTX25_ALPHA_GEN_CUTOUT_MAX_BYTES = exports.LTX25_ALPHA_GEN_WORST_BILLED_SECONDS = exports.LTX25_ALPHA_GEN_SOURCE_TOLERANCE_SECONDS = exports.LTX25_ALPHA_GEN_MAX_SOURCE_SECONDS = exports.LTX25_ALPHA_GEN_MAX_RATIO = exports.LTX25_ALPHA_GEN_MAX_SHORT_SIDE = exports.LTX25_ALPHA_GEN_MAX_LONG_SIDE = exports.LTX25_ALPHA_GEN_MAX_FRAMES = exports.LTX25_ALPHA_GEN_LABEL = exports.LTX25_ALPHA_GEN_ENDPOINT = exports.LTX25_ALPHA_GEN_MODEL_ID = void 0;
+    exports.ltx25AlphaGenCreditsPerSecond = ltx25AlphaGenCreditsPerSecond;
+    exports.ltx25AlphaGenCreditCost = ltx25AlphaGenCreditCost;
+    exports.ltx25AlphaGenCreditCostFromInputs = ltx25AlphaGenCreditCostFromInputs;
+    exports.normalizeLtx25AlphaGenOutput = normalizeLtx25AlphaGenOutput;
+    exports.ltx25AlphaGenOutputKey = ltx25AlphaGenOutputKey;
+    exports.buildLtx25AlphaGenFalRequest = buildLtx25AlphaGenFalRequest;
+    exports.ltx25AlphaGenMeasuredRefusal = ltx25AlphaGenMeasuredRefusal;
+    exports.ltx25AlphaGenCutoutRefusal = ltx25AlphaGenCutoutRefusal;
+    exports.ltx25AlphaGenBoundsRefusal = ltx25AlphaGenBoundsRefusal;
+    var measuredVideoDimensions_1 = require_measuredVideoDimensions();
+    exports.LTX25_ALPHA_GEN_MODEL_ID = "ltx-25-alpha-gen-video";
+    exports.LTX25_ALPHA_GEN_ENDPOINT = "lightricks/ltx-2.5/alpha-gen";
+    exports.LTX25_ALPHA_GEN_LABEL = "LTX 2.5 Alpha Gen";
+    exports.LTX25_ALPHA_GEN_MAX_FRAMES = 3072;
+    exports.LTX25_ALPHA_GEN_MAX_LONG_SIDE = 3840;
+    exports.LTX25_ALPHA_GEN_MAX_SHORT_SIDE = 2160;
+    exports.LTX25_ALPHA_GEN_MAX_RATIO = { long: 32, short: 9 };
+    exports.LTX25_ALPHA_GEN_MAX_SOURCE_SECONDS = 30;
+    exports.LTX25_ALPHA_GEN_SOURCE_TOLERANCE_SECONDS = 0.05;
+    exports.LTX25_ALPHA_GEN_WORST_BILLED_SECONDS = Math.ceil(exports.LTX25_ALPHA_GEN_MAX_SOURCE_SECONDS + exports.LTX25_ALPHA_GEN_SOURCE_TOLERANCE_SECONDS);
+    exports.LTX25_ALPHA_GEN_CUTOUT_MAX_BYTES = 200 * 1024 * 1024;
+    exports.LTX25_ALPHA_GEN_CUTOUT_BYTES_PER_PIXEL_FRAME = 1;
+    exports.LTX25_ALPHA_GEN_TIERS = [
+      { maxShortSide: 1080, creditsPerSecond: 10 },
+      { maxShortSide: 1440, creditsPerSecond: 25 },
+      { maxShortSide: exports.LTX25_ALPHA_GEN_MAX_SHORT_SIDE, creditsPerSecond: 100 }
+    ];
+    exports.LTX25_ALPHA_GEN_WORST_CREDITS_PER_SECOND = 100;
+    function ltx25AlphaGenCreditsPerSecond(shortSide) {
+      const tier = exports.LTX25_ALPHA_GEN_TIERS.find((t) => shortSide <= t.maxShortSide);
+      return tier ? tier.creditsPerSecond : exports.LTX25_ALPHA_GEN_WORST_CREDITS_PER_SECOND;
+    }
+    function ltx25AlphaGenCreditCost(params) {
+      const dims = (0, measuredVideoDimensions_1.readMeasuredVideoDimensions)(params.dimensions);
+      const rate = dims ? ltx25AlphaGenCreditsPerSecond((0, measuredVideoDimensions_1.shortSideOf)(dims)) : exports.LTX25_ALPHA_GEN_WORST_CREDITS_PER_SECOND;
+      const seconds = (0, measuredVideoDimensions_1.measuredPositiveSeconds)(params.sourceSeconds);
+      const billed = seconds === void 0 ? exports.LTX25_ALPHA_GEN_WORST_BILLED_SECONDS : (0, measuredVideoDimensions_1.billedWholeSeconds)(seconds);
+      return rate * billed;
+    }
+    function ltx25AlphaGenCreditCostFromInputs(inputs) {
+      return ltx25AlphaGenCreditCost({ dimensions: inputs.inputVideoDimensions, sourceSeconds: inputs.inputVideoSeconds });
+    }
+    exports.LTX25_ALPHA_GEN_OUTPUTS = ["matte", "cutout"];
+    exports.LTX25_ALPHA_GEN_DEFAULT_OUTPUT = "matte";
+    function normalizeLtx25AlphaGenOutput(raw) {
+      return raw === "cutout" ? "cutout" : exports.LTX25_ALPHA_GEN_DEFAULT_OUTPUT;
+    }
+    function ltx25AlphaGenOutputKey(dynamicInputs) {
+      return normalizeLtx25AlphaGenOutput(dynamicInputs?.alpha_output) === "cutout" ? "cutout_video" : "matte_video";
+    }
+    exports.LTX25_ALPHA_GEN_MISSING_VIDEO_MESSAGE = "LTX 2.5 Alpha Gen : ajoute la vid\xE9o \xE0 d\xE9tourer (MP4 ou MOV, 30 s au plus).";
+    var SOURCE_KEYS = ["video_url", "video_urls", "video"];
+    function buildLtx25AlphaGenFalRequest(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const video = (0, measuredVideoDimensions_1.firstVideoUrlOf)(...SOURCE_KEYS.map((key) => dynamicInputs[key]));
+      if (!video)
+        throw (0, measuredVideoDimensions_1.dimensionPricedRefusal)(exports.LTX25_ALPHA_GEN_MISSING_VIDEO_MESSAGE);
+      return {
+        falModelId: exports.LTX25_ALPHA_GEN_ENDPOINT,
+        input: { video_url: video, enable_safety_checker: true }
+      };
+    }
+    function ltx25AlphaGenMeasuredRefusal(measured, options = {}) {
+      const seconds = (0, measuredVideoDimensions_1.measuredPositiveSeconds)(measured.inputVideoSeconds);
+      const dims = (0, measuredVideoDimensions_1.readMeasuredVideoDimensions)(measured.inputVideoDimensions);
+      if (seconds === void 0 || !dims)
+        return (0, measuredVideoDimensions_1.unmeasuredDimensionsMessage)(exports.LTX25_ALPHA_GEN_LABEL);
+      return ltx25AlphaGenBoundsRefusal(dims, seconds) ?? ltx25AlphaGenCutoutRefusal(dims, options.alphaOutput);
+    }
+    var ltx25AlphaGenCutoutEstimatedBytes = (dims) => dims.width * dims.height * dims.frames * exports.LTX25_ALPHA_GEN_CUTOUT_BYTES_PER_PIXEL_FRAME;
+    exports.ltx25AlphaGenCutoutEstimatedBytes = ltx25AlphaGenCutoutEstimatedBytes;
+    function ltx25AlphaGenCutoutRefusal(dims, alphaOutput) {
+      if (normalizeLtx25AlphaGenOutput(alphaOutput) !== "cutout")
+        return null;
+      if ((0, exports.ltx25AlphaGenCutoutEstimatedBytes)(dims) <= exports.LTX25_ALPHA_GEN_CUTOUT_MAX_BYTES)
+        return null;
+      return `LTX 2.5 Alpha Gen : le d\xE9tourage MOV de ta vid\xE9o d\xE9passerait ${exports.LTX25_ALPHA_GEN_CUTOUT_MAX_BYTES / (1024 * 1024)} Mo, au-del\xE0 de ce que Beemm Vision peut enregistrer. Choisis le masque (MP4), ou raccourcis ou r\xE9duis ta vid\xE9o, puis relance : rien n'a \xE9t\xE9 d\xE9bit\xE9.`;
+    }
+    function ltx25AlphaGenBoundsRefusal(dims, seconds) {
+      const short = (0, measuredVideoDimensions_1.shortSideOf)(dims);
+      const long = (0, measuredVideoDimensions_1.longSideOf)(dims);
+      if (seconds > exports.LTX25_ALPHA_GEN_MAX_SOURCE_SECONDS + exports.LTX25_ALPHA_GEN_SOURCE_TOLERANCE_SECONDS) {
+        return `LTX 2.5 Alpha Gen d\xE9toure ${exports.LTX25_ALPHA_GEN_MAX_SOURCE_SECONDS} s de vid\xE9o au plus, la tienne dure ${Math.round(seconds * 10) / 10} s. Recoupe-la puis relance : rien n'a \xE9t\xE9 d\xE9bit\xE9.`;
+      }
+      if (dims.frames > exports.LTX25_ALPHA_GEN_MAX_FRAMES) {
+        return `LTX 2.5 Alpha Gen lit ${exports.LTX25_ALPHA_GEN_MAX_FRAMES} images au plus, ta vid\xE9o en compte ${dims.frames}. Recoupe-la puis relance : rien n'a \xE9t\xE9 d\xE9bit\xE9.`;
+      }
+      if (long > exports.LTX25_ALPHA_GEN_MAX_LONG_SIDE || short > exports.LTX25_ALPHA_GEN_MAX_SHORT_SIDE) {
+        return `LTX 2.5 Alpha Gen accepte ${exports.LTX25_ALPHA_GEN_MAX_LONG_SIDE}\xD7${exports.LTX25_ALPHA_GEN_MAX_SHORT_SIDE} au plus, ta vid\xE9o fait ${dims.width}\xD7${dims.height}. R\xE9duis-la puis relance : rien n'a \xE9t\xE9 d\xE9bit\xE9.`;
+      }
+      if (exports.LTX25_ALPHA_GEN_MAX_RATIO.short * long > exports.LTX25_ALPHA_GEN_MAX_RATIO.long * short) {
+        return `LTX 2.5 Alpha Gen accepte un format de 32:9 au plus, ta vid\xE9o fait ${dims.width}\xD7${dims.height}. Recadre-la puis relance : rien n'a \xE9t\xE9 d\xE9bit\xE9.`;
+      }
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/flashVsrPlus.js
+var require_flashVsrPlus = __commonJS({
+  "../packages/workflow-contracts/dist/flashVsrPlus.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.FLASHVSR_PLUS_MISSING_VIDEO_MESSAGE = exports.FLASHVSR_PLUS_PIXELS_PER_CREDIT = exports.FLASHVSR_PLUS_BILLED_ALIGNMENT = exports.FLASHVSR_PLUS_MAX_FRAMES = exports.FLASHVSR_PLUS_MAX_OUTPUT_SHORT_SIDE = exports.FLASHVSR_PLUS_MAX_OUTPUT_LONG_SIDE = exports.FLASHVSR_PLUS_OUTPUT_TYPE = exports.FLASHVSR_PLUS_WRITE_MODES = exports.FLASHVSR_PLUS_VIDEO_QUALITIES = exports.FLASHVSR_PLUS_MODELS = exports.FLASHVSR_PLUS_PRICE_MULTIPLIER = exports.FLASHVSR_PLUS_DEFAULT_TEMPORAL_COMPRESSION = exports.FLASHVSR_PLUS_TEMPORAL_COMPRESSIONS = exports.FLASHVSR_PLUS_DEFAULT_FACTOR = exports.FLASHVSR_PLUS_FACTORS = exports.FLASHVSR_PLUS_LABEL = exports.FLASHVSR_PLUS_ENDPOINT = exports.FLASHVSR_PLUS_MODEL_ID = void 0;
+    exports.normalizeFlashVsrPlusFactor = normalizeFlashVsrPlusFactor;
+    exports.normalizeFlashVsrPlusTemporalCompression = normalizeFlashVsrPlusTemporalCompression;
+    exports.flashVsrPlusOutputSize = flashVsrPlusOutputSize;
+    exports.flashVsrPlusCreditCost = flashVsrPlusCreditCost;
+    exports.flashVsrPlusCreditCostFromInputs = flashVsrPlusCreditCostFromInputs;
+    exports.buildFlashVsrPlusFalRequest = buildFlashVsrPlusFalRequest;
+    exports.flashVsrPlusMeasuredRefusal = flashVsrPlusMeasuredRefusal;
+    exports.flashVsrPlusBoundsRefusal = flashVsrPlusBoundsRefusal;
+    var measuredVideoDimensions_1 = require_measuredVideoDimensions();
+    exports.FLASHVSR_PLUS_MODEL_ID = "flashvsr-plus-video";
+    exports.FLASHVSR_PLUS_ENDPOINT = "openimaginglab/flashvsr-plus";
+    exports.FLASHVSR_PLUS_LABEL = "FlashVSR+";
+    exports.FLASHVSR_PLUS_FACTORS = [1, 2, 3, 4];
+    exports.FLASHVSR_PLUS_DEFAULT_FACTOR = 2;
+    exports.FLASHVSR_PLUS_TEMPORAL_COMPRESSIONS = [4, 2, 1];
+    exports.FLASHVSR_PLUS_DEFAULT_TEMPORAL_COMPRESSION = 4;
+    exports.FLASHVSR_PLUS_PRICE_MULTIPLIER = { 4: 1, 2: 2, 1: 4 };
+    exports.FLASHVSR_PLUS_MODELS = ["turbo", "base", "v1"];
+    exports.FLASHVSR_PLUS_VIDEO_QUALITIES = ["high", "low", "medium", "maximum"];
+    exports.FLASHVSR_PLUS_WRITE_MODES = ["balanced", "fast", "small"];
+    exports.FLASHVSR_PLUS_OUTPUT_TYPE = "X264 (.mp4)";
+    exports.FLASHVSR_PLUS_MAX_OUTPUT_LONG_SIDE = 3840;
+    exports.FLASHVSR_PLUS_MAX_OUTPUT_SHORT_SIDE = 2160;
+    exports.FLASHVSR_PLUS_MAX_FRAMES = 900;
+    exports.FLASHVSR_PLUS_BILLED_ALIGNMENT = 16;
+    exports.FLASHVSR_PLUS_PIXELS_PER_CREDIT = 2e7;
+    function normalizeFlashVsrPlusFactor(raw) {
+      const n = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : Number.NaN;
+      if (!Number.isFinite(n))
+        return exports.FLASHVSR_PLUS_DEFAULT_FACTOR;
+      return Math.min(4, Math.max(1, Math.ceil(n)));
+    }
+    function normalizeFlashVsrPlusTemporalCompression(raw) {
+      const n = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : Number.NaN;
+      return exports.FLASHVSR_PLUS_TEMPORAL_COMPRESSIONS.includes(n) ? n : exports.FLASHVSR_PLUS_DEFAULT_TEMPORAL_COMPRESSION;
+    }
+    var oneOf = (values, raw) => typeof raw === "string" && values.includes(raw) ? raw : values[0];
+    var alignUp = (n) => (0, measuredVideoDimensions_1.ceilDiv)(n, exports.FLASHVSR_PLUS_BILLED_ALIGNMENT) * exports.FLASHVSR_PLUS_BILLED_ALIGNMENT;
+    function flashVsrPlusOutputSize(dims, factor) {
+      return { width: dims.width * factor, height: dims.height * factor };
+    }
+    function flashVsrPlusCreditCost(params) {
+      const mult = exports.FLASHVSR_PLUS_PRICE_MULTIPLIER[normalizeFlashVsrPlusTemporalCompression(params.temporalCompression)];
+      const dims = (0, measuredVideoDimensions_1.readMeasuredVideoDimensions)(params.dimensions);
+      let pixelFrames;
+      if (dims) {
+        const out = flashVsrPlusOutputSize(dims, normalizeFlashVsrPlusFactor(params.upscaleFactor));
+        pixelFrames = alignUp(out.width) * alignUp(out.height) * dims.frames;
+      } else {
+        pixelFrames = exports.FLASHVSR_PLUS_MAX_OUTPUT_LONG_SIDE * exports.FLASHVSR_PLUS_MAX_OUTPUT_SHORT_SIDE * exports.FLASHVSR_PLUS_MAX_FRAMES;
+      }
+      return Math.max(1, (0, measuredVideoDimensions_1.ceilDiv)(pixelFrames * mult, exports.FLASHVSR_PLUS_PIXELS_PER_CREDIT));
+    }
+    function flashVsrPlusCreditCostFromInputs(inputs) {
+      return flashVsrPlusCreditCost({
+        dimensions: inputs.inputVideoDimensions,
+        upscaleFactor: inputs.upscale_factor,
+        temporalCompression: inputs.temporal_compression
+      });
+    }
+    exports.FLASHVSR_PLUS_MISSING_VIDEO_MESSAGE = "FlashVSR+ : ajoute la vid\xE9o \xE0 monter en d\xE9finition (MP4 ou MOV).";
+    var SOURCE_KEYS = ["video_url", "video_urls", "video"];
+    function flashVsrPlusSettings(source) {
+      const out = {
+        upscale_factor: normalizeFlashVsrPlusFactor(source.upscale_factor),
+        model: oneOf(exports.FLASHVSR_PLUS_MODELS, source.model),
+        temporal_compression: normalizeFlashVsrPlusTemporalCompression(source.temporal_compression),
+        color_fix: source.color_fix === true,
+        preserve_audio: source.preserve_audio !== false,
+        video_output_type: exports.FLASHVSR_PLUS_OUTPUT_TYPE,
+        video_quality: oneOf(exports.FLASHVSR_PLUS_VIDEO_QUALITIES, source.video_quality),
+        video_write_mode: oneOf(exports.FLASHVSR_PLUS_WRITE_MODES, source.video_write_mode),
+        enable_safety_checker: true
+      };
+      const seed = source.seed === void 0 || source.seed === null || source.seed === "" ? Number.NaN : Number(source.seed);
+      if (Number.isFinite(seed))
+        out.seed = Math.min(2147483647, Math.max(0, Math.trunc(seed)));
+      return out;
+    }
+    function buildFlashVsrPlusFalRequest(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const video = (0, measuredVideoDimensions_1.firstVideoUrlOf)(...SOURCE_KEYS.map((key) => dynamicInputs[key]));
+      if (!video)
+        throw (0, measuredVideoDimensions_1.dimensionPricedRefusal)(exports.FLASHVSR_PLUS_MISSING_VIDEO_MESSAGE);
+      return {
+        falModelId: exports.FLASHVSR_PLUS_ENDPOINT,
+        input: { video_url: video, ...flashVsrPlusSettings(dynamicInputs) }
+      };
+    }
+    function flashVsrPlusMeasuredRefusal(input, measured) {
+      const dims = (0, measuredVideoDimensions_1.readMeasuredVideoDimensions)(measured.inputVideoDimensions);
+      if (!dims)
+        return (0, measuredVideoDimensions_1.unmeasuredDimensionsMessage)(exports.FLASHVSR_PLUS_LABEL);
+      return flashVsrPlusBoundsRefusal(dims, normalizeFlashVsrPlusFactor(input.upscale_factor));
+    }
+    function flashVsrPlusBoundsRefusal(dims, factor) {
+      if (dims.frames > exports.FLASHVSR_PLUS_MAX_FRAMES) {
+        return `FlashVSR+ traite ${exports.FLASHVSR_PLUS_MAX_FRAMES} images au plus, ta vid\xE9o en compte ${dims.frames}. Recoupe-la puis relance : rien n'a \xE9t\xE9 d\xE9bit\xE9.`;
+      }
+      const out = flashVsrPlusOutputSize(dims, factor);
+      if ((0, measuredVideoDimensions_1.longSideOf)(out) > exports.FLASHVSR_PLUS_MAX_OUTPUT_LONG_SIDE || (0, measuredVideoDimensions_1.shortSideOf)(out) > exports.FLASHVSR_PLUS_MAX_OUTPUT_SHORT_SIDE) {
+        return `FlashVSR+ rend ${exports.FLASHVSR_PLUS_MAX_OUTPUT_LONG_SIDE}\xD7${exports.FLASHVSR_PLUS_MAX_OUTPUT_SHORT_SIDE} au plus : ta vid\xE9o de ${dims.width}\xD7${dims.height} \xD7 ${factor} donnerait ${out.width}\xD7${out.height}. Choisis un facteur plus petit puis relance : rien n'a \xE9t\xE9 d\xE9bit\xE9.`;
+      }
+      return null;
+    }
+  }
+});
+
 // ../packages/workflow-contracts/dist/geminiOmniFlashV1.js
 var require_geminiOmniFlashV1 = __commonJS({
   "../packages/workflow-contracts/dist/geminiOmniFlashV1.js"(exports) {
@@ -2354,16 +3755,125 @@ var require_klingO34k = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/klingO3Shared.js
+var require_klingO3Shared = __commonJS({
+  "../packages/workflow-contracts/dist/klingO3Shared.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.klingCreditsFromMilliUsd = exports.KLING_ELEMENT_MAX_REFERENCE_IMAGES = exports.firstKlingUrl = exports.maxKlingTier = exports.klingTierLabel = void 0;
+    exports.normalizeKlingTier = normalizeKlingTier;
+    exports.readKlingBoolean = readKlingBoolean;
+    exports.klingUrls = klingUrls;
+    exports.sanitizeKlingElements = sanitizeKlingElements;
+    exports.billedMeasuredSeconds = billedMeasuredSeconds;
+    exports.klingBuildRefusal = klingBuildRefusal;
+    var klingTierLabel = (tier) => tier === "pro" ? "Pro" : "Standard";
+    exports.klingTierLabel = klingTierLabel;
+    function normalizeKlingTier(raw, fallback) {
+      if (raw === "Pro")
+        return "pro";
+      if (raw === "Standard")
+        return "standard";
+      return fallback;
+    }
+    var maxKlingTier = (a, b) => a === "pro" || b === "pro" ? "pro" : "standard";
+    exports.maxKlingTier = maxKlingTier;
+    function readKlingBoolean(raw, fallback) {
+      if (raw === true || raw === 1)
+        return true;
+      if (raw === false || raw === 0)
+        return false;
+      if (typeof raw === "string") {
+        const value = raw.trim().toLowerCase();
+        if (value === "true" || value === "1")
+          return true;
+        if (value === "false" || value === "0")
+          return false;
+      }
+      return fallback;
+    }
+    function klingUrls(value) {
+      const collected = [];
+      const push = (v) => {
+        if (typeof v === "string" && v.trim())
+          collected.push(v.trim());
+        else if (Array.isArray(v))
+          v.forEach(push);
+      };
+      push(value);
+      return Array.from(new Set(collected));
+    }
+    var firstKlingUrl = (value) => klingUrls(value)[0];
+    exports.firstKlingUrl = firstKlingUrl;
+    exports.KLING_ELEMENT_MAX_REFERENCE_IMAGES = 3;
+    function sanitizeKlingElements(raw, options) {
+      if (!Array.isArray(raw))
+        return void 0;
+      const out = [];
+      for (const entry of raw) {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry))
+          continue;
+        const record = entry;
+        const frontal = (0, exports.firstKlingUrl)(record.frontal_image_url);
+        const references = klingUrls(record.reference_image_urls).slice(0, exports.KLING_ELEMENT_MAX_REFERENCE_IMAGES);
+        const video = options.allowVideo ? (0, exports.firstKlingUrl)(record.video_url) : void 0;
+        if (!frontal && !video)
+          continue;
+        const element = {};
+        if (frontal)
+          element.frontal_image_url = frontal;
+        if (references.length > 0)
+          element.reference_image_urls = references;
+        if (video)
+          element.video_url = video;
+        out.push(element);
+      }
+      const bounded = typeof options.max === "number" ? out.slice(0, options.max) : out;
+      return bounded.length > 0 ? bounded : void 0;
+    }
+    function billedMeasuredSeconds(measured, maxSeconds) {
+      if (typeof measured !== "number" || !Number.isFinite(measured) || measured < 0)
+        return void 0;
+      return Math.min(Math.ceil(maxSeconds), Math.max(1, Math.ceil(measured - 1e-6)));
+    }
+    var klingCreditsFromMilliUsd = (milliUsdPerSecond, seconds) => Math.ceil(milliUsdPerSecond * seconds / 10);
+    exports.klingCreditsFromMilliUsd = klingCreditsFromMilliUsd;
+    function klingBuildRefusal(message) {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    }
+  }
+});
+
 // ../packages/workflow-contracts/dist/klingO3VideoToVideo.js
 var require_klingO3VideoToVideo = __commonJS({
   "../packages/workflow-contracts/dist/klingO3VideoToVideo.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.buildKlingO3VideoToVideoFalRequest = exports.klingO3VideoToVideoCreditCost = exports.normalizeKlingO34kReferenceDuration = exports.KLING_O3_4K_REFERENCE_ASPECTS = exports.KLING_O3_4K_REFERENCE_DURATIONS = exports.KLING_O3_4K_REFERENCE_DEFAULT_DURATION = exports.KLING_O3_4K_REFERENCE_CREDITS_PER_SECOND = exports.KLING_O3_V2V_MAX_SOURCE_SECONDS = exports.KLING_O3_PRO_EDIT_CREDITS_PER_SECOND = exports.KLING_O3_VIDEO_TO_VIDEO_MAX_REFERENCE_IMAGES = exports.KLING_O3_VIDEO_TO_VIDEO_ENDPOINTS = void 0;
+    exports.buildKlingO3VideoToVideoFalRequest = exports.klingO3VideoToVideoCreditCost = exports.normalizeKlingO34kReferenceDuration = exports.KLING_O3_4K_REFERENCE_ASPECTS = exports.KLING_O3_4K_REFERENCE_DURATIONS = exports.KLING_O3_4K_REFERENCE_DEFAULT_DURATION = exports.KLING_O3_4K_REFERENCE_CREDITS_PER_SECOND = exports.KLING_O3_V2V_MAX_SOURCE_SECONDS = exports.KLING_O3_PRO_EDIT_CREDITS_PER_SECOND = exports.KLING_O3_VIDEO_TO_VIDEO_MAX_REFERENCE_IMAGES = exports.klingO3EditVariant = exports.KLING_O3_EDIT_MIN_SOURCE_SECONDS = exports.KLING_O3_STANDARD_EDIT_CREDITS_PER_SECOND = exports.KLING_O3_EDIT_RESOLUTIONS = exports.KLING_O3_EDIT_MODEL_ID = exports.KLING_O3_VIDEO_TO_VIDEO_ENDPOINTS = void 0;
+    exports.klingO3EditTierFromEndpoint = klingO3EditTierFromEndpoint;
+    exports.klingO3StandardEditSourceRefusal = klingO3StandardEditSourceRefusal;
+    var klingO3Shared_1 = require_klingO3Shared();
     exports.KLING_O3_VIDEO_TO_VIDEO_ENDPOINTS = {
       "pro-edit": "fal-ai/kling-video/o3/pro/video-to-video/edit",
+      // BV-513 : palier Standard de l'édition (même id `kling-o3-pro-v2v-edit`).
+      "standard-edit": "fal-ai/kling-video/o3/standard/video-to-video/edit",
       "4k-reference": "fal-ai/kling-video/o3/4k/video-to-video/reference"
     };
+    exports.KLING_O3_EDIT_MODEL_ID = "kling-o3-pro-v2v-edit";
+    exports.KLING_O3_EDIT_RESOLUTIONS = ["Pro", "Standard"];
+    exports.KLING_O3_STANDARD_EDIT_CREDITS_PER_SECOND = 12.6;
+    exports.KLING_O3_EDIT_MIN_SOURCE_SECONDS = 3;
+    var klingO3EditVariant = (resolution) => (0, klingO3Shared_1.normalizeKlingTier)(resolution, "pro") === "standard" ? "standard-edit" : "pro-edit";
+    exports.klingO3EditVariant = klingO3EditVariant;
+    function klingO3EditTierFromEndpoint(falModelId) {
+      if (falModelId === exports.KLING_O3_VIDEO_TO_VIDEO_ENDPOINTS["standard-edit"])
+        return "standard";
+      if (falModelId === exports.KLING_O3_VIDEO_TO_VIDEO_ENDPOINTS["pro-edit"])
+        return "pro";
+      return void 0;
+    }
     exports.KLING_O3_VIDEO_TO_VIDEO_MAX_REFERENCE_IMAGES = 4;
     exports.KLING_O3_PRO_EDIT_CREDITS_PER_SECOND = 16.8;
     exports.KLING_O3_V2V_MAX_SOURCE_SECONDS = 15.05;
@@ -2406,10 +3916,28 @@ var require_klingO3VideoToVideo = __commonJS({
       dynamicInputs.image_urls
     ]))).slice(0, exports.KLING_O3_VIDEO_TO_VIDEO_MAX_REFERENCE_IMAGES);
     var ceilCredits = (usd) => Math.ceil(Math.round(usd * 100 * 1e6) / 1e6);
+    function klingO3StandardEditSourceRefusal(falModelId, measuredSeconds) {
+      if (falModelId !== exports.KLING_O3_VIDEO_TO_VIDEO_ENDPOINTS["standard-edit"])
+        return null;
+      if (typeof measuredSeconds !== "number" || !Number.isFinite(measuredSeconds) || measuredSeconds < 0) {
+        return "Kling O3 Standard (\xE9dition) : impossible de mesurer la dur\xE9e de ta vid\xE9o. R\xE9exporte-la en MP4 (3 \xE0 15 secondes) et importe-la dans le projet.";
+      }
+      if (measuredSeconds > exports.KLING_O3_V2V_MAX_SOURCE_SECONDS) {
+        return `Kling O3 (\xE9dition) accepte une vid\xE9o de 15 secondes au maximum, la tienne en dure ${Math.round(measuredSeconds * 10) / 10}. Recadre-la.`;
+      }
+      if (measuredSeconds < exports.KLING_O3_EDIT_MIN_SOURCE_SECONDS) {
+        return `Kling O3 (\xE9dition) demande une vid\xE9o d'au moins 3 secondes, la tienne en dure ${Math.round(measuredSeconds * 10) / 10}.`;
+      }
+      return null;
+    }
     var klingO3VideoToVideoCreditCost = (params) => {
       const source = typeof params.sourceSeconds === "number" && Number.isFinite(params.sourceSeconds) && params.sourceSeconds >= 0 ? Math.min(exports.KLING_O3_V2V_MAX_SOURCE_SECONDS, Math.ceil(params.sourceSeconds)) : exports.KLING_O3_V2V_MAX_SOURCE_SECONDS;
       if (params.variant === "pro-edit") {
         return ceilCredits(exports.KLING_O3_PRO_EDIT_CREDITS_PER_SECOND / 100 * source);
+      }
+      if (params.variant === "standard-edit") {
+        const measured = (0, klingO3Shared_1.billedMeasuredSeconds)(params.sourceSeconds, exports.KLING_O3_V2V_MAX_SOURCE_SECONDS) ?? Math.ceil(exports.KLING_O3_V2V_MAX_SOURCE_SECONDS);
+        return ceilCredits(exports.KLING_O3_STANDARD_EDIT_CREDITS_PER_SECOND / 100 * measured);
       }
       const duration = (0, exports.normalizeKlingO34kReferenceDuration)(params.duration ?? params.dynamicInputs?.duration);
       const legacy = exports.KLING_O3_4K_REFERENCE_CREDITS_PER_SECOND * duration;
@@ -2422,7 +3950,7 @@ var require_klingO3VideoToVideo = __commonJS({
       const { variant, prompt, imageUrls = [], aspectRatio, dynamicInputs = {} } = params;
       const videoUrl = firstUrl(dynamicInputs.video_url ?? dynamicInputs.video_urls ?? dynamicInputs.video);
       if (!videoUrl) {
-        throw new Error("Kling O3 vid\xE9o-vers-vid\xE9o n\xE9cessite une vid\xE9o en entr\xE9e (video_url).");
+        throw (0, klingO3Shared_1.klingBuildRefusal)("Kling O3 vid\xE9o-vers-vid\xE9o n\xE9cessite une vid\xE9o en entr\xE9e (video_url).");
       }
       const referenceImages = collectReferenceImages(imageUrls, dynamicInputs);
       const input = {
@@ -2435,7 +3963,11 @@ var require_klingO3VideoToVideo = __commonJS({
       if (dynamicInputs.shot_type === "customize" || dynamicInputs.shot_type === "intelligent") {
         input.shot_type = dynamicInputs.shot_type;
       }
-      if (Array.isArray(dynamicInputs.elements) && dynamicInputs.elements.length > 0) {
+      if (variant === "standard-edit") {
+        const elements = (0, klingO3Shared_1.sanitizeKlingElements)(dynamicInputs.elements, { allowVideo: false });
+        if (elements)
+          input.elements = elements;
+      } else if (Array.isArray(dynamicInputs.elements) && dynamicInputs.elements.length > 0) {
         input.elements = dynamicInputs.elements;
       }
       if (variant === "4k-reference") {
@@ -2448,6 +3980,386 @@ var require_klingO3VideoToVideo = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/klingO3Video.js
+var require_klingO3Video = __commonJS({
+  "../packages/workflow-contracts/dist/klingO3Video.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.klingO3VideoGenerateAudio = exports.klingO3VideoSentDuration = exports.normalizeKlingO3VideoTier = exports.KLING_O3_VIDEO_BASE_COST = exports.KLING_O3_VIDEO_MILLI_USD_PER_SECOND = exports.KLING_O3_VIDEO_FAL_MODEL_TO_ID = exports.KLING_O3_VIDEO_ALL_ENDPOINTS = exports.KLING_O3_VIDEO_ENDPOINTS = exports.KLING_O3_VIDEO_MAX_REFS_WITH_VIDEO = exports.KLING_O3_VIDEO_MAX_REFERENCE_IMAGES = exports.KLING_O3_VIDEO_MAX_PROMPT_LENGTH = exports.KLING_O3_VIDEO_DEFAULT_ASPECT = exports.KLING_O3_VIDEO_ASPECTS = exports.KLING_O3_VIDEO_DURATIONS = exports.KLING_O3_VIDEO_DEFAULT_DURATION = exports.KLING_O3_VIDEO_MAX_DURATION = exports.KLING_O3_VIDEO_MIN_DURATION = exports.KLING_O3_VIDEO_DEFAULT_TIER = exports.KLING_O3_VIDEO_RESOLUTIONS = exports.KLING_O3_VIDEO_MODEL_IDS = exports.KLING_O3_VIDEO_MODEL_ID = void 0;
+    exports.isKlingO3VideoEndpoint = isKlingO3VideoEndpoint;
+    exports.klingO3VideoTierFromEndpoint = klingO3VideoTierFromEndpoint;
+    exports.klingO3VideoKindFromEndpoint = klingO3VideoKindFromEndpoint;
+    exports.normalizeKlingO3VideoDuration = normalizeKlingO3VideoDuration;
+    exports.normalizeKlingO3VideoAspectRatio = normalizeKlingO3VideoAspectRatio;
+    exports.klingO3VideoCreditCost = klingO3VideoCreditCost;
+    exports.klingO3VideoCreditCostFromInputs = klingO3VideoCreditCostFromInputs;
+    exports.buildKlingO3VideoFalRequest = buildKlingO3VideoFalRequest;
+    exports.hardenKlingO3VideoProxyInput = hardenKlingO3VideoProxyInput;
+    exports.klingO3VideoProxyRefusal = klingO3VideoProxyRefusal;
+    var klingO3Shared_1 = require_klingO3Shared();
+    exports.KLING_O3_VIDEO_MODEL_ID = "kling-o3-video";
+    exports.KLING_O3_VIDEO_MODEL_IDS = [exports.KLING_O3_VIDEO_MODEL_ID];
+    exports.KLING_O3_VIDEO_RESOLUTIONS = ["Standard", "Pro"];
+    exports.KLING_O3_VIDEO_DEFAULT_TIER = "standard";
+    exports.KLING_O3_VIDEO_MIN_DURATION = 3;
+    exports.KLING_O3_VIDEO_MAX_DURATION = 15;
+    exports.KLING_O3_VIDEO_DEFAULT_DURATION = 5;
+    exports.KLING_O3_VIDEO_DURATIONS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    exports.KLING_O3_VIDEO_ASPECTS = ["16:9", "9:16", "1:1"];
+    exports.KLING_O3_VIDEO_DEFAULT_ASPECT = "16:9";
+    exports.KLING_O3_VIDEO_MAX_PROMPT_LENGTH = 2500;
+    exports.KLING_O3_VIDEO_MAX_REFERENCE_IMAGES = 7;
+    exports.KLING_O3_VIDEO_MAX_REFS_WITH_VIDEO = 4;
+    exports.KLING_O3_VIDEO_ENDPOINTS = {
+      standard: {
+        t2v: "fal-ai/kling-video/o3/standard/text-to-video",
+        i2v: "fal-ai/kling-video/o3/standard/image-to-video",
+        r2v: "fal-ai/kling-video/o3/standard/reference-to-video"
+      },
+      pro: {
+        t2v: "fal-ai/kling-video/o3/pro/text-to-video",
+        i2v: "fal-ai/kling-video/o3/pro/image-to-video",
+        r2v: "fal-ai/kling-video/o3/pro/reference-to-video"
+      }
+    };
+    var ENDPOINT_TO = Object.fromEntries(["standard", "pro"].flatMap((tier) => ["t2v", "i2v", "r2v"].map((kind) => [exports.KLING_O3_VIDEO_ENDPOINTS[tier][kind], { tier, kind }])));
+    exports.KLING_O3_VIDEO_ALL_ENDPOINTS = Object.keys(ENDPOINT_TO);
+    exports.KLING_O3_VIDEO_FAL_MODEL_TO_ID = Object.fromEntries(exports.KLING_O3_VIDEO_ALL_ENDPOINTS.map((endpoint) => [endpoint, exports.KLING_O3_VIDEO_MODEL_ID]));
+    exports.KLING_O3_VIDEO_MILLI_USD_PER_SECOND = {
+      standard: { silent: 84, audio: 112 },
+      pro: { silent: 112, audio: 140 }
+    };
+    exports.KLING_O3_VIDEO_BASE_COST = (0, klingO3Shared_1.klingCreditsFromMilliUsd)(exports.KLING_O3_VIDEO_MILLI_USD_PER_SECOND.standard.silent, exports.KLING_O3_VIDEO_DEFAULT_DURATION);
+    function isKlingO3VideoEndpoint(falModelId) {
+      return typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(ENDPOINT_TO, falModelId);
+    }
+    function klingO3VideoTierFromEndpoint(falModelId) {
+      return isKlingO3VideoEndpoint(falModelId) ? ENDPOINT_TO[falModelId].tier : void 0;
+    }
+    function klingO3VideoKindFromEndpoint(falModelId) {
+      return isKlingO3VideoEndpoint(falModelId) ? ENDPOINT_TO[falModelId].kind : void 0;
+    }
+    var normalizeKlingO3VideoTier = (raw) => (0, klingO3Shared_1.normalizeKlingTier)(raw, exports.KLING_O3_VIDEO_DEFAULT_TIER);
+    exports.normalizeKlingO3VideoTier = normalizeKlingO3VideoTier;
+    function normalizeKlingO3VideoDuration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.KLING_O3_VIDEO_DEFAULT_DURATION;
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.KLING_O3_VIDEO_DEFAULT_DURATION;
+      return Math.min(exports.KLING_O3_VIDEO_MAX_DURATION, Math.max(exports.KLING_O3_VIDEO_MIN_DURATION, Math.trunc(parsed)));
+    }
+    var klingO3VideoSentDuration = (raw) => String(normalizeKlingO3VideoDuration(raw));
+    exports.klingO3VideoSentDuration = klingO3VideoSentDuration;
+    function normalizeKlingO3VideoAspectRatio(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return exports.KLING_O3_VIDEO_ASPECTS.includes(value) ? value : exports.KLING_O3_VIDEO_DEFAULT_ASPECT;
+    }
+    var klingO3VideoGenerateAudio = (raw) => (0, klingO3Shared_1.readKlingBoolean)(raw, false);
+    exports.klingO3VideoGenerateAudio = klingO3VideoGenerateAudio;
+    var shotTypeOf = (raw) => raw === "customize" || raw === "intelligent" ? raw : void 0;
+    function klingO3VideoCreditCost(params) {
+      const tier = (0, klingO3Shared_1.maxKlingTier)((0, exports.normalizeKlingO3VideoTier)(params.resolution), klingO3VideoTierFromEndpoint(params.falModelId));
+      const rates = exports.KLING_O3_VIDEO_MILLI_USD_PER_SECOND[tier];
+      const rate = (0, exports.klingO3VideoGenerateAudio)(params.generateAudio) ? rates.audio : rates.silent;
+      return (0, klingO3Shared_1.klingCreditsFromMilliUsd)(rate, normalizeKlingO3VideoDuration(params.duration));
+    }
+    function klingO3VideoCreditCostFromInputs(inputs) {
+      return klingO3VideoCreditCost({
+        resolution: inputs.resolution,
+        falModelId: inputs.falModelId,
+        duration: inputs.duration,
+        generateAudio: inputs.generate_audio
+      });
+    }
+    function resolveFrames(imageUrls, dynamicInputs) {
+      const positional = imageUrls.map((url) => typeof url === "string" ? url.trim() : "").filter((url) => url.length > 0);
+      const start = (0, klingO3Shared_1.firstKlingUrl)(dynamicInputs.start_image ?? dynamicInputs.start_image_url ?? dynamicInputs.image_url) ?? positional[0];
+      if (!start)
+        return {};
+      const end = (0, klingO3Shared_1.firstKlingUrl)(dynamicInputs.end_image ?? dynamicInputs.end_image_url) ?? positional.find((url) => url !== start);
+      return { start, end: end === start ? void 0 : end };
+    }
+    function collectReferenceImages(dynamicInputs, start, end) {
+      return (0, klingO3Shared_1.klingUrls)([
+        dynamicInputs.reference_image_urls,
+        dynamicInputs.reference_images,
+        dynamicInputs.reference_image,
+        dynamicInputs.reference_image_url,
+        dynamicInputs.image_urls
+      ]).filter((url) => url !== start && url !== end).slice(0, exports.KLING_O3_VIDEO_MAX_REFERENCE_IMAGES);
+    }
+    function elementsProblem(elements, referenceImageCount) {
+      const videoElements = (elements ?? []).filter((element) => element.video_url).length;
+      if (videoElements > 1)
+        return "Kling O3 : un seul \xE9l\xE9ment peut porter une vid\xE9o.";
+      if (videoElements === 1 && (elements?.length ?? 0) + referenceImageCount > exports.KLING_O3_VIDEO_MAX_REFS_WITH_VIDEO) {
+        return `Kling O3 : avec un \xE9l\xE9ment vid\xE9o, ${exports.KLING_O3_VIDEO_MAX_REFS_WITH_VIDEO} \xE9l\xE9ments et images de r\xE9f\xE9rence au plus.`;
+      }
+      return null;
+    }
+    var hasText = (value) => typeof value === "string" && value.trim().length > 0;
+    function buildKlingO3VideoFalRequest(params) {
+      const { prompt, imageUrls = [], resolution, aspectRatio, dynamicInputs = {} } = params;
+      if (!hasText(prompt))
+        throw (0, klingO3Shared_1.klingBuildRefusal)("Kling O3 n\xE9cessite un prompt.");
+      const tier = (0, exports.normalizeKlingO3VideoTier)(resolution ?? dynamicInputs.resolution);
+      const { start, end } = resolveFrames(imageUrls, dynamicInputs);
+      const references = collectReferenceImages(dynamicInputs, start, end);
+      const elements = (0, klingO3Shared_1.sanitizeKlingElements)(dynamicInputs.elements, { allowVideo: true });
+      const common = {
+        prompt,
+        duration: (0, exports.klingO3VideoSentDuration)(dynamicInputs.duration),
+        generate_audio: (0, exports.klingO3VideoGenerateAudio)(dynamicInputs.generate_audio)
+      };
+      const shot = shotTypeOf(dynamicInputs.shot_type);
+      if (shot)
+        common.shot_type = shot;
+      const aspect = normalizeKlingO3VideoAspectRatio(aspectRatio ?? dynamicInputs.aspect_ratio);
+      if (dynamicInputs.mode === "reference" || references.length > 0 || elements) {
+        const problem = elementsProblem(elements, references.length);
+        if (problem)
+          throw (0, klingO3Shared_1.klingBuildRefusal)(problem);
+        return {
+          falModelId: exports.KLING_O3_VIDEO_ENDPOINTS[tier].r2v,
+          input: {
+            ...common,
+            aspect_ratio: aspect,
+            ...start ? { start_image_url: start } : {},
+            ...end ? { end_image_url: end } : {},
+            ...references.length > 0 ? { image_urls: references } : {},
+            ...elements ? { elements } : {}
+          }
+        };
+      }
+      if (start) {
+        return {
+          falModelId: exports.KLING_O3_VIDEO_ENDPOINTS[tier].i2v,
+          input: { ...common, image_url: start, ...end ? { end_image_url: end } : {} }
+        };
+      }
+      return { falModelId: exports.KLING_O3_VIDEO_ENDPOINTS[tier].t2v, input: { ...common, aspect_ratio: aspect } };
+    }
+    var MEDIA_FIELDS_BY_KIND = {
+      t2v: [],
+      i2v: ["image_url", "end_image_url"],
+      r2v: ["start_image_url", "end_image_url", "image_urls", "elements"]
+    };
+    var ALL_MEDIA_FIELDS = ["image_url", "start_image_url", "end_image_url", "image_urls", "elements"];
+    function hardenKlingO3VideoProxyInput(falModelId, input) {
+      const kind = klingO3VideoKindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      delete input.multi_prompt;
+      delete input.sync_mode;
+      delete input.resolution;
+      input.duration = (0, exports.klingO3VideoSentDuration)(input.duration);
+      input.generate_audio = (0, exports.klingO3VideoGenerateAudio)(input.generate_audio);
+      if (shotTypeOf(input.shot_type))
+        input.shot_type = shotTypeOf(input.shot_type);
+      else
+        delete input.shot_type;
+      if (kind === "i2v")
+        delete input.aspect_ratio;
+      else
+        input.aspect_ratio = normalizeKlingO3VideoAspectRatio(input.aspect_ratio);
+      const kept = new Set(MEDIA_FIELDS_BY_KIND[kind]);
+      for (const key of ALL_MEDIA_FIELDS)
+        if (!kept.has(key))
+          delete input[key];
+      for (const key of ["image_url", "start_image_url", "end_image_url"]) {
+        if (!kept.has(key))
+          continue;
+        const url = (0, klingO3Shared_1.firstKlingUrl)(input[key]);
+        if (url)
+          input[key] = url;
+        else
+          delete input[key];
+      }
+      if (kept.has("image_urls")) {
+        const urls = (0, klingO3Shared_1.klingUrls)(input.image_urls).slice(0, exports.KLING_O3_VIDEO_MAX_REFERENCE_IMAGES);
+        if (urls.length > 0)
+          input.image_urls = urls;
+        else
+          delete input.image_urls;
+      }
+      if (kept.has("elements")) {
+        const elements = (0, klingO3Shared_1.sanitizeKlingElements)(input.elements, { allowVideo: true });
+        if (elements)
+          input.elements = elements;
+        else
+          delete input.elements;
+      }
+      return input;
+    }
+    function klingO3VideoProxyRefusal(falModelId, input) {
+      const kind = klingO3VideoKindFromEndpoint(falModelId);
+      if (!kind)
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (!hasText(record.prompt))
+        return "Kling O3 n\xE9cessite un prompt.";
+      if (kind === "i2v" && !(0, klingO3Shared_1.firstKlingUrl)(record.image_url))
+        return "Kling O3 (image \u2192 vid\xE9o) n\xE9cessite une image de d\xE9part.";
+      if (kind === "r2v") {
+        return elementsProblem(record.elements, (0, klingO3Shared_1.klingUrls)(record.image_urls).length);
+      }
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/klingO3V2vReference.js
+var require_klingO3V2vReference = __commonJS({
+  "../packages/workflow-contracts/dist/klingO3V2vReference.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.klingO3V2vReferenceCreditCostFromInputs = exports.klingO3V2vReferenceSentDuration = exports.normalizeKlingO3V2vReferenceTier = exports.isKlingO3V2vReferenceEndpoint = exports.KLING_O3_V2V_REFERENCE_BASE_COST = exports.KLING_O3_V2V_REFERENCE_MILLI_USD_PER_SECOND = exports.KLING_O3_V2V_REFERENCE_FAL_MODEL_TO_ID = exports.KLING_O3_V2V_REFERENCE_ALL_ENDPOINTS = exports.KLING_O3_V2V_REFERENCE_ENDPOINTS = exports.KLING_O3_V2V_REFERENCE_MAX_PROMPT_LENGTH = exports.KLING_O3_V2V_REFERENCE_MAX_REFS = exports.KLING_O3_V2V_REFERENCE_ASPECTS = exports.KLING_O3_V2V_REFERENCE_DURATIONS = exports.KLING_O3_V2V_REFERENCE_DEFAULT_DURATION = exports.KLING_O3_V2V_REFERENCE_DEFAULT_TIER = exports.KLING_O3_V2V_REFERENCE_RESOLUTIONS = exports.KLING_O3_V2V_REFERENCE_MODEL_IDS = exports.KLING_O3_V2V_REFERENCE_MODEL_ID = void 0;
+    exports.klingO3V2vReferenceTierFromEndpoint = klingO3V2vReferenceTierFromEndpoint;
+    exports.normalizeKlingO3V2vReferenceDuration = normalizeKlingO3V2vReferenceDuration;
+    exports.normalizeKlingO3V2vReferenceAspectRatio = normalizeKlingO3V2vReferenceAspectRatio;
+    exports.klingO3V2vReferenceCreditCost = klingO3V2vReferenceCreditCost;
+    exports.buildKlingO3V2vReferenceFalRequest = buildKlingO3V2vReferenceFalRequest;
+    exports.hardenKlingO3V2vReferenceProxyInput = hardenKlingO3V2vReferenceProxyInput;
+    exports.klingO3V2vReferenceProxyRefusal = klingO3V2vReferenceProxyRefusal;
+    var klingO3Shared_1 = require_klingO3Shared();
+    exports.KLING_O3_V2V_REFERENCE_MODEL_ID = "kling-o3-v2v-reference";
+    exports.KLING_O3_V2V_REFERENCE_MODEL_IDS = [exports.KLING_O3_V2V_REFERENCE_MODEL_ID];
+    exports.KLING_O3_V2V_REFERENCE_RESOLUTIONS = ["Standard", "Pro"];
+    exports.KLING_O3_V2V_REFERENCE_DEFAULT_TIER = "standard";
+    exports.KLING_O3_V2V_REFERENCE_DEFAULT_DURATION = 5;
+    exports.KLING_O3_V2V_REFERENCE_DURATIONS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    exports.KLING_O3_V2V_REFERENCE_ASPECTS = ["auto", "16:9", "9:16", "1:1"];
+    exports.KLING_O3_V2V_REFERENCE_MAX_REFS = 4;
+    exports.KLING_O3_V2V_REFERENCE_MAX_PROMPT_LENGTH = 2500;
+    exports.KLING_O3_V2V_REFERENCE_ENDPOINTS = {
+      standard: "fal-ai/kling-video/o3/standard/video-to-video/reference",
+      pro: "fal-ai/kling-video/o3/pro/video-to-video/reference"
+    };
+    exports.KLING_O3_V2V_REFERENCE_ALL_ENDPOINTS = [
+      exports.KLING_O3_V2V_REFERENCE_ENDPOINTS.standard,
+      exports.KLING_O3_V2V_REFERENCE_ENDPOINTS.pro
+    ];
+    exports.KLING_O3_V2V_REFERENCE_FAL_MODEL_TO_ID = Object.fromEntries(exports.KLING_O3_V2V_REFERENCE_ALL_ENDPOINTS.map((endpoint) => [endpoint, exports.KLING_O3_V2V_REFERENCE_MODEL_ID]));
+    exports.KLING_O3_V2V_REFERENCE_MILLI_USD_PER_SECOND = {
+      standard: 126,
+      pro: 168
+    };
+    exports.KLING_O3_V2V_REFERENCE_BASE_COST = (0, klingO3Shared_1.klingCreditsFromMilliUsd)(exports.KLING_O3_V2V_REFERENCE_MILLI_USD_PER_SECOND.standard, exports.KLING_O3_V2V_REFERENCE_DEFAULT_DURATION);
+    function klingO3V2vReferenceTierFromEndpoint(falModelId) {
+      if (falModelId === exports.KLING_O3_V2V_REFERENCE_ENDPOINTS.standard)
+        return "standard";
+      if (falModelId === exports.KLING_O3_V2V_REFERENCE_ENDPOINTS.pro)
+        return "pro";
+      return void 0;
+    }
+    var isKlingO3V2vReferenceEndpoint = (falModelId) => klingO3V2vReferenceTierFromEndpoint(falModelId) !== void 0;
+    exports.isKlingO3V2vReferenceEndpoint = isKlingO3V2vReferenceEndpoint;
+    var normalizeKlingO3V2vReferenceTier = (raw) => (0, klingO3Shared_1.normalizeKlingTier)(raw, exports.KLING_O3_V2V_REFERENCE_DEFAULT_TIER);
+    exports.normalizeKlingO3V2vReferenceTier = normalizeKlingO3V2vReferenceTier;
+    function normalizeKlingO3V2vReferenceDuration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.KLING_O3_V2V_REFERENCE_DEFAULT_DURATION;
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.KLING_O3_V2V_REFERENCE_DEFAULT_DURATION;
+      return Math.min(15, Math.max(3, Math.trunc(parsed)));
+    }
+    var klingO3V2vReferenceSentDuration = (raw) => String(normalizeKlingO3V2vReferenceDuration(raw));
+    exports.klingO3V2vReferenceSentDuration = klingO3V2vReferenceSentDuration;
+    function normalizeKlingO3V2vReferenceAspectRatio(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return exports.KLING_O3_V2V_REFERENCE_ASPECTS.includes(value) ? value : "auto";
+    }
+    function klingO3V2vReferenceCreditCost(params) {
+      const tier = (0, klingO3Shared_1.maxKlingTier)((0, exports.normalizeKlingO3V2vReferenceTier)(params.resolution), klingO3V2vReferenceTierFromEndpoint(params.falModelId));
+      return (0, klingO3Shared_1.klingCreditsFromMilliUsd)(exports.KLING_O3_V2V_REFERENCE_MILLI_USD_PER_SECOND[tier], normalizeKlingO3V2vReferenceDuration(params.duration));
+    }
+    var klingO3V2vReferenceCreditCostFromInputs = (inputs) => klingO3V2vReferenceCreditCost({ resolution: inputs.resolution, falModelId: inputs.falModelId, duration: inputs.duration });
+    exports.klingO3V2vReferenceCreditCostFromInputs = klingO3V2vReferenceCreditCostFromInputs;
+    var hasText = (value) => typeof value === "string" && value.trim().length > 0;
+    var shotTypeOf = (raw) => raw === "customize" || raw === "intelligent" ? raw : void 0;
+    var refsProblem = (elements, images) => elements + images > exports.KLING_O3_V2V_REFERENCE_MAX_REFS ? `Kling O3 (vid\xE9o de r\xE9f\xE9rence) : ${exports.KLING_O3_V2V_REFERENCE_MAX_REFS} \xE9l\xE9ments et images de r\xE9f\xE9rence au plus.` : null;
+    function buildKlingO3V2vReferenceFalRequest(params) {
+      const { prompt, imageUrls = [], resolution, aspectRatio, dynamicInputs = {} } = params;
+      if (!hasText(prompt))
+        throw (0, klingO3Shared_1.klingBuildRefusal)("Kling O3 (vid\xE9o de r\xE9f\xE9rence) n\xE9cessite un prompt.");
+      const videoUrl = (0, klingO3Shared_1.firstKlingUrl)(dynamicInputs.video_url ?? dynamicInputs.video_urls ?? dynamicInputs.video);
+      if (!videoUrl)
+        throw (0, klingO3Shared_1.klingBuildRefusal)("Kling O3 (vid\xE9o de r\xE9f\xE9rence) n\xE9cessite une vid\xE9o (video_url).");
+      const tier = (0, exports.normalizeKlingO3V2vReferenceTier)(resolution ?? dynamicInputs.resolution);
+      const references = (0, klingO3Shared_1.klingUrls)([
+        imageUrls,
+        dynamicInputs.reference_image,
+        dynamicInputs.reference_image_url,
+        dynamicInputs.reference_images,
+        dynamicInputs.reference_image_urls,
+        dynamicInputs.image_urls
+      ]).slice(0, exports.KLING_O3_V2V_REFERENCE_MAX_REFS);
+      const elements = (0, klingO3Shared_1.sanitizeKlingElements)(dynamicInputs.elements, { allowVideo: false });
+      const problem = refsProblem(elements?.length ?? 0, references.length);
+      if (problem)
+        throw (0, klingO3Shared_1.klingBuildRefusal)(problem);
+      const shot = shotTypeOf(dynamicInputs.shot_type);
+      return {
+        falModelId: exports.KLING_O3_V2V_REFERENCE_ENDPOINTS[tier],
+        input: {
+          prompt,
+          video_url: videoUrl,
+          duration: (0, exports.klingO3V2vReferenceSentDuration)(dynamicInputs.duration),
+          aspect_ratio: normalizeKlingO3V2vReferenceAspectRatio(aspectRatio ?? dynamicInputs.aspect_ratio),
+          keep_audio: (0, klingO3Shared_1.readKlingBoolean)(dynamicInputs.keep_audio, true),
+          ...references.length > 0 ? { image_urls: references } : {},
+          ...elements ? { elements } : {},
+          ...shot ? { shot_type: shot } : {}
+        }
+      };
+    }
+    var ALLOWED_KEYS = /* @__PURE__ */ new Set(["prompt", "video_url", "duration", "aspect_ratio", "keep_audio", "image_urls", "elements", "shot_type"]);
+    function hardenKlingO3V2vReferenceProxyInput(falModelId, input) {
+      if (!(0, exports.isKlingO3V2vReferenceEndpoint)(falModelId) || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      for (const key of Object.keys(input))
+        if (!ALLOWED_KEYS.has(key))
+          delete input[key];
+      input.duration = (0, exports.klingO3V2vReferenceSentDuration)(input.duration);
+      input.aspect_ratio = normalizeKlingO3V2vReferenceAspectRatio(input.aspect_ratio);
+      input.keep_audio = (0, klingO3Shared_1.readKlingBoolean)(input.keep_audio, true);
+      const video = (0, klingO3Shared_1.firstKlingUrl)(input.video_url);
+      if (video)
+        input.video_url = video;
+      else
+        delete input.video_url;
+      const images = (0, klingO3Shared_1.klingUrls)(input.image_urls);
+      if (images.length > 0)
+        input.image_urls = images;
+      else
+        delete input.image_urls;
+      const elements = (0, klingO3Shared_1.sanitizeKlingElements)(input.elements, { allowVideo: false });
+      if (elements)
+        input.elements = elements;
+      else
+        delete input.elements;
+      if (shotTypeOf(input.shot_type))
+        input.shot_type = shotTypeOf(input.shot_type);
+      else
+        delete input.shot_type;
+      return input;
+    }
+    function klingO3V2vReferenceProxyRefusal(falModelId, input) {
+      if (!(0, exports.isKlingO3V2vReferenceEndpoint)(falModelId))
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (!hasText(record.prompt))
+        return "Kling O3 (vid\xE9o de r\xE9f\xE9rence) n\xE9cessite un prompt.";
+      if (!(0, klingO3Shared_1.firstKlingUrl)(record.video_url))
+        return "Kling O3 (vid\xE9o de r\xE9f\xE9rence) n\xE9cessite une vid\xE9o (video_url).";
+      const elements = Array.isArray(record.elements) ? record.elements.length : 0;
+      return refsProblem(elements, (0, klingO3Shared_1.klingUrls)(record.image_urls).length);
+    }
+  }
+});
+
 // ../packages/workflow-contracts/dist/higgsfieldDiscounts.js
 var require_higgsfieldDiscounts = __commonJS({
   "../packages/workflow-contracts/dist/higgsfieldDiscounts.js"(exports) {
@@ -2455,9 +4367,9 @@ var require_higgsfieldDiscounts = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.setVerifiedHiggsfieldCostFactor = exports.higgsfieldCostFactor = exports.deployedHiggsfieldCostFactor = exports.HIGGSFIELD_DEPLOYED_DISCOUNT_PERCENT = void 0;
     exports.HIGGSFIELD_DEPLOYED_DISCOUNT_PERCENT = {
-      genjutsu: 50,
-      "genjutsu-light": 50,
-      "marketing-studio-image": 15
+      genjutsu: 0,
+      "genjutsu-light": 0,
+      "marketing-studio-image": 0
     };
     var deployedHiggsfieldCostFactor = (family) => 1 - exports.HIGGSFIELD_DEPLOYED_DISCOUNT_PERCENT[family] / 100;
     exports.deployedHiggsfieldCostFactor = deployedHiggsfieldCostFactor;
@@ -3653,6 +5565,617 @@ var require_seedance25 = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/seedanceDims.js
+var require_seedanceDims = __commonJS({
+  "../packages/workflow-contracts/dist/seedanceDims.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.SEEDANCE_OUTPUT_DIMS = exports.SEEDANCE_DEFAULT_EXPLICIT_ASPECT = exports.SEEDANCE_EXPLICIT_ASPECTS = void 0;
+    exports.seedanceExplicitAspect = seedanceExplicitAspect;
+    exports.isSeedanceAutoAspect = isSeedanceAutoAspect;
+    exports.seedanceOutputPixels = seedanceOutputPixels;
+    exports.seedanceTokensPerSecond = seedanceTokensPerSecond;
+    exports.seedanceCreditsFromUsd = seedanceCreditsFromUsd;
+    exports.seedancePriceRefusal = seedancePriceRefusal;
+    exports.SEEDANCE_EXPLICIT_ASPECTS = ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"];
+    exports.SEEDANCE_DEFAULT_EXPLICIT_ASPECT = "16:9";
+    var SERIES_2_0 = {
+      "480p": { "16:9": [864, 496], "4:3": [752, 560], "1:1": [640, 640], "3:4": [560, 752], "9:16": [496, 864], "21:9": [992, 432] },
+      "720p": { "16:9": [1280, 720], "4:3": [1112, 834], "1:1": [960, 960], "3:4": [834, 1112], "9:16": [720, 1280], "21:9": [1470, 630] },
+      "1080p": { "16:9": [1920, 1080], "4:3": [1664, 1248], "1:1": [1440, 1440], "3:4": [1248, 1664], "9:16": [1080, 1920], "21:9": [2206, 946] },
+      // 4K : série 2.0 standard seulement (« — » pour 1.5 Pro, 2.5 et 1.0).
+      "4k": { "16:9": [3840, 2160], "4:3": [3326, 2494], "1:1": [2880, 2880], "3:4": [2494, 3326], "9:16": [2160, 3840], "21:9": [4398, 1886] }
+    };
+    exports.SEEDANCE_OUTPUT_DIMS = {
+      "2.0": SERIES_2_0,
+      "1.5": { "480p": SERIES_2_0["480p"], "720p": SERIES_2_0["720p"], "1080p": SERIES_2_0["1080p"] },
+      "2.5": {
+        // 2.5 en 480p diffère de 2.0 en 16:9 et 9:16 seulement.
+        "480p": { ...SERIES_2_0["480p"], "16:9": [854, 480], "9:16": [480, 854] },
+        "720p": SERIES_2_0["720p"],
+        "1080p": SERIES_2_0["1080p"]
+      },
+      "1.0": {
+        "480p": { "16:9": [864, 480], "4:3": [736, 544], "1:1": [640, 640], "3:4": [544, 736], "9:16": [480, 864], "21:9": [960, 416] },
+        "720p": { "16:9": [1248, 704], "4:3": [1120, 832], "1:1": [960, 960], "3:4": [832, 1120], "9:16": [704, 1248], "21:9": [1504, 640] },
+        "1080p": { "16:9": [1920, 1088], "4:3": [1664, 1248], "1:1": [1440, 1440], "3:4": [1248, 1664], "9:16": [1088, 1920], "21:9": [2176, 928] }
+      }
+    };
+    var ASPECT_SET = new Set(exports.SEEDANCE_EXPLICIT_ASPECTS);
+    function seedanceExplicitAspect(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return ASPECT_SET.has(value) ? value : void 0;
+    }
+    function isSeedanceAutoAspect(raw) {
+      return typeof raw === "string" && raw.trim().toLowerCase() === "auto";
+    }
+    function seedanceOutputPixels(series, resolution, aspect) {
+      const dims = exports.SEEDANCE_OUTPUT_DIMS[series][resolution]?.[aspect];
+      return dims ? dims[0] * dims[1] : void 0;
+    }
+    function seedanceTokensPerSecond(pixels) {
+      return pixels * 24 / 1024;
+    }
+    function seedanceCreditsFromUsd(usd) {
+      return Math.ceil(Math.round(usd * 100 * 1e6) / 1e6);
+    }
+    function seedancePriceRefusal(message) {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/seedance1ProFast.js
+var require_seedance1ProFast = __commonJS({
+  "../packages/workflow-contracts/dist/seedance1ProFast.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.isSeedance1ProFastEndpoint = exports.SEEDANCE_1_PRO_FAST_USD_PER_TOKEN = exports.SEEDANCE_1_PRO_FAST_ASPECTS = exports.SEEDANCE_1_PRO_FAST_DEFAULT_DURATION = exports.SEEDANCE_1_PRO_FAST_DURATIONS = exports.SEEDANCE_1_PRO_FAST_RESOLUTIONS = exports.SEEDANCE_1_PRO_FAST_ALL_ENDPOINTS = exports.SEEDANCE_1_PRO_FAST_ENDPOINTS = exports.SEEDANCE_1_PRO_FAST_MODEL_ID = void 0;
+    exports.seedance1ProFastKindFromEndpoint = seedance1ProFastKindFromEndpoint;
+    exports.normalizeSeedance1ProFastResolution = normalizeSeedance1ProFastResolution;
+    exports.normalizeSeedance1ProFastDuration = normalizeSeedance1ProFastDuration;
+    exports.normalizeSeedance1ProFastAspect = normalizeSeedance1ProFastAspect;
+    exports.resolveSeedance1ProFastStartImage = resolveSeedance1ProFastStartImage;
+    exports.seedance1ProFastCreditCost = seedance1ProFastCreditCost;
+    exports.seedance1ProFastCreditCostFromInputs = seedance1ProFastCreditCostFromInputs;
+    exports.buildSeedance1ProFastFalRequest = buildSeedance1ProFastFalRequest;
+    exports.hardenSeedance1ProFastProxyInput = hardenSeedance1ProFastProxyInput;
+    exports.seedance1ProFastProxyRefusal = seedance1ProFastProxyRefusal;
+    var seedanceDims_1 = require_seedanceDims();
+    exports.SEEDANCE_1_PRO_FAST_MODEL_ID = "bytedance-seedance-1-pro-fast";
+    exports.SEEDANCE_1_PRO_FAST_ENDPOINTS = {
+      t2v: "fal-ai/bytedance/seedance/v1/pro/fast/text-to-video",
+      i2v: "fal-ai/bytedance/seedance/v1/pro/fast/image-to-video"
+    };
+    exports.SEEDANCE_1_PRO_FAST_ALL_ENDPOINTS = Object.values(exports.SEEDANCE_1_PRO_FAST_ENDPOINTS);
+    exports.SEEDANCE_1_PRO_FAST_RESOLUTIONS = ["1080p", "720p", "480p"];
+    exports.SEEDANCE_1_PRO_FAST_DURATIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    exports.SEEDANCE_1_PRO_FAST_DEFAULT_DURATION = 5;
+    exports.SEEDANCE_1_PRO_FAST_ASPECTS = seedanceDims_1.SEEDANCE_EXPLICIT_ASPECTS;
+    exports.SEEDANCE_1_PRO_FAST_USD_PER_TOKEN = 1 / 1e6;
+    var RESOLUTION_SET = new Set(exports.SEEDANCE_1_PRO_FAST_RESOLUTIONS);
+    var isSeedance1ProFastEndpoint = (falModelId) => typeof falModelId === "string" && exports.SEEDANCE_1_PRO_FAST_ALL_ENDPOINTS.includes(falModelId);
+    exports.isSeedance1ProFastEndpoint = isSeedance1ProFastEndpoint;
+    function seedance1ProFastKindFromEndpoint(falModelId) {
+      if (!(0, exports.isSeedance1ProFastEndpoint)(falModelId))
+        return void 0;
+      return falModelId.endsWith("/image-to-video") ? "i2v" : "t2v";
+    }
+    function normalizeSeedance1ProFastResolution(raw) {
+      const value = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+      return RESOLUTION_SET.has(value) ? value : "1080p";
+    }
+    function normalizeSeedance1ProFastDuration(raw) {
+      if (raw === void 0 || raw === null || raw === "")
+        return exports.SEEDANCE_1_PRO_FAST_DEFAULT_DURATION;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0)
+        return exports.SEEDANCE_1_PRO_FAST_DEFAULT_DURATION;
+      return Math.min(12, Math.max(2, Math.trunc(n)));
+    }
+    function normalizeSeedance1ProFastAspect(raw) {
+      return (0, seedanceDims_1.seedanceExplicitAspect)(raw) ?? seedanceDims_1.SEEDANCE_DEFAULT_EXPLICIT_ASPECT;
+    }
+    var NAMED_START_KEYS = ["start_image", "start_image_url", "image_url"];
+    var OTHER_IMAGE_KEYS = ["image_urls", "image", "images", "reference_image", "reference_image_url", "reference_images", "reference_image_urls"];
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v, depth) => {
+        if (depth > 4)
+          return;
+        if (typeof v === "string" && v.trim())
+          out.push(v.trim());
+        else if (Array.isArray(v))
+          v.forEach((x) => push(x, depth + 1));
+      };
+      push(value, 0);
+      return out;
+    };
+    function resolveSeedance1ProFastStartImage(params) {
+      const inputs = params.inputs ?? {};
+      for (const key of NAMED_START_KEYS) {
+        const url = urlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      const positional = urlsOf(params.imageUrls)[0];
+      if (positional)
+        return positional;
+      for (const key of OTHER_IMAGE_KEYS) {
+        const url = urlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      return void 0;
+    }
+    function seedance1ProFastCreditCost(params) {
+      const resolution = normalizeSeedance1ProFastResolution(params.resolution);
+      const duration = normalizeSeedance1ProFastDuration(params.duration);
+      const pixels = (0, seedanceDims_1.seedanceOutputPixels)("1.0", resolution, normalizeSeedance1ProFastAspect(params.aspectRatio)) ?? 0;
+      return (0, seedanceDims_1.seedanceCreditsFromUsd)((0, seedanceDims_1.seedanceTokensPerSecond)(pixels) * duration * exports.SEEDANCE_1_PRO_FAST_USD_PER_TOKEN);
+    }
+    var pricedAspect = (inputs) => typeof inputs.falModelId === "string" && inputs.falModelId ? inputs.aspect_ratio : inputs.aspectRatio;
+    function seedance1ProFastCreditCostFromInputs(inputs) {
+      return seedance1ProFastCreditCost({
+        resolution: inputs.resolution,
+        duration: inputs.duration,
+        aspectRatio: pricedAspect(inputs)
+      });
+    }
+    var optionalSeed = (raw) => {
+      if (raw === void 0 || raw === null || raw === "")
+        return void 0;
+      const seed = Number(raw);
+      return Number.isFinite(seed) ? Math.trunc(seed) : void 0;
+    };
+    function buildSeedance1ProFastFalRequest(params) {
+      const { prompt, imageUrls, resolution, aspectRatio, dynamicInputs = {} } = params;
+      const requestedAspect = aspectRatio ?? dynamicInputs.aspect_ratio;
+      const start = resolveSeedance1ProFastStartImage({ imageUrls, inputs: dynamicInputs });
+      const kind = start ? "i2v" : "t2v";
+      const input = {
+        prompt,
+        resolution: normalizeSeedance1ProFastResolution(resolution ?? dynamicInputs.resolution),
+        duration: String(normalizeSeedance1ProFastDuration(dynamicInputs.duration)),
+        aspect_ratio: normalizeSeedance1ProFastAspect(requestedAspect),
+        enable_safety_checker: false
+      };
+      const cameraFixed = dynamicInputs.camera_fixed;
+      if (cameraFixed !== void 0 && cameraFixed !== null && cameraFixed !== "") {
+        input.camera_fixed = cameraFixed === true || cameraFixed === "true";
+      }
+      const seed = optionalSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      if (kind === "i2v")
+        input.image_url = start;
+      return { falModelId: exports.SEEDANCE_1_PRO_FAST_ENDPOINTS[kind], input };
+    }
+    function hardenSeedance1ProFastProxyInput(falModelId, input) {
+      const kind = seedance1ProFastKindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      input.resolution = normalizeSeedance1ProFastResolution(input.resolution);
+      input.duration = String(normalizeSeedance1ProFastDuration(input.duration));
+      input.aspect_ratio = normalizeSeedance1ProFastAspect(input.aspect_ratio);
+      delete input.num_frames;
+      if (kind === "t2v")
+        delete input.image_url;
+      return input;
+    }
+    function seedance1ProFastProxyRefusal(falModelId, input) {
+      const kind = seedance1ProFastKindFromEndpoint(falModelId);
+      if (!kind)
+        return null;
+      if (typeof input?.prompt !== "string" || !input.prompt.trim())
+        return "Seedance 1.0 Pro Fast : le prompt est obligatoire.";
+      if (kind === "i2v" && !(typeof input.image_url === "string" && input.image_url.trim())) {
+        return "Seedance 1.0 Pro Fast : l'image de d\xE9part est obligatoire en image \u2192 vid\xE9o.";
+      }
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/seedance2Standard.js
+var require_seedance2Standard = __commonJS({
+  "../packages/workflow-contracts/dist/seedance2Standard.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.isSeedance2StandardEndpoint = exports.SEEDANCE_2_STANDARD_PUBLISHED_USD_PER_SECOND = exports.SEEDANCE_2_STANDARD_USD_PER_1K_TOKENS = exports.SEEDANCE_2_STANDARD_ASPECTS = exports.SEEDANCE_2_STANDARD_DEFAULT_DURATION = exports.SEEDANCE_2_STANDARD_DURATIONS = exports.SEEDANCE_2_STANDARD_RESOLUTIONS = exports.SEEDANCE_2_STANDARD_ALL_ENDPOINTS = exports.SEEDANCE_2_STANDARD_ENDPOINTS = exports.SEEDANCE_2_STANDARD_MODEL_ID = void 0;
+    exports.seedance2StandardKindFromEndpoint = seedance2StandardKindFromEndpoint;
+    exports.normalizeSeedance2StandardResolution = normalizeSeedance2StandardResolution;
+    exports.normalizeSeedance2StandardDuration = normalizeSeedance2StandardDuration;
+    exports.normalizeSeedance2StandardAspect = normalizeSeedance2StandardAspect;
+    exports.seedance2StandardUsdPerSecond = seedance2StandardUsdPerSecond;
+    exports.seedance2StandardCreditCost = seedance2StandardCreditCost;
+    exports.seedance2StandardCreditCostFromInputs = seedance2StandardCreditCostFromInputs;
+    exports.resolveSeedance2StandardFrames = resolveSeedance2StandardFrames;
+    exports.buildSeedance2StandardFalRequest = buildSeedance2StandardFalRequest;
+    exports.hardenSeedance2StandardProxyInput = hardenSeedance2StandardProxyInput;
+    exports.seedance2StandardProxyRefusal = seedance2StandardProxyRefusal;
+    var seedanceDims_1 = require_seedanceDims();
+    exports.SEEDANCE_2_STANDARD_MODEL_ID = "bytedance-seedance-2-standard";
+    exports.SEEDANCE_2_STANDARD_ENDPOINTS = {
+      t2v: "bytedance/seedance-2.0/text-to-video",
+      i2v: "bytedance/seedance-2.0/image-to-video"
+    };
+    exports.SEEDANCE_2_STANDARD_ALL_ENDPOINTS = Object.values(exports.SEEDANCE_2_STANDARD_ENDPOINTS);
+    exports.SEEDANCE_2_STANDARD_RESOLUTIONS = ["720p", "480p", "1080p", "4k"];
+    exports.SEEDANCE_2_STANDARD_DURATIONS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    exports.SEEDANCE_2_STANDARD_DEFAULT_DURATION = 5;
+    exports.SEEDANCE_2_STANDARD_ASPECTS = seedanceDims_1.SEEDANCE_EXPLICIT_ASPECTS;
+    exports.SEEDANCE_2_STANDARD_USD_PER_1K_TOKENS = {
+      "480p": 0.014,
+      "720p": 0.014,
+      "1080p": 0.014,
+      "4k": 8e-3
+    };
+    exports.SEEDANCE_2_STANDARD_PUBLISHED_USD_PER_SECOND = {
+      "720p": 0.3034,
+      "1080p": 0.682
+    };
+    var RESOLUTION_ALIASES = {
+      "480p": "480p",
+      "720p": "720p",
+      "1080p": "1080p",
+      "4k": "4k"
+    };
+    var isSeedance2StandardEndpoint = (falModelId) => typeof falModelId === "string" && exports.SEEDANCE_2_STANDARD_ALL_ENDPOINTS.includes(falModelId);
+    exports.isSeedance2StandardEndpoint = isSeedance2StandardEndpoint;
+    function seedance2StandardKindFromEndpoint(falModelId) {
+      if (!(0, exports.isSeedance2StandardEndpoint)(falModelId))
+        return void 0;
+      return falModelId.endsWith("/image-to-video") ? "i2v" : "t2v";
+    }
+    function normalizeSeedance2StandardResolution(raw) {
+      const value = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+      return RESOLUTION_ALIASES[value] ?? "720p";
+    }
+    function normalizeSeedance2StandardDuration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.SEEDANCE_2_STANDARD_DEFAULT_DURATION;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0)
+        return exports.SEEDANCE_2_STANDARD_DEFAULT_DURATION;
+      return Math.min(15, Math.max(4, Math.trunc(n)));
+    }
+    function normalizeSeedance2StandardAspect(raw) {
+      return (0, seedanceDims_1.seedanceExplicitAspect)(raw) ?? seedanceDims_1.SEEDANCE_DEFAULT_EXPLICIT_ASPECT;
+    }
+    function seedance2StandardUsdPerSecond(resolution, aspect) {
+      const pixels = (0, seedanceDims_1.seedanceOutputPixels)("2.0", resolution, aspect) ?? 0;
+      const byTokens = (0, seedanceDims_1.seedanceTokensPerSecond)(pixels) * exports.SEEDANCE_2_STANDARD_USD_PER_1K_TOKENS[resolution] / 1e3;
+      return Math.max(byTokens, exports.SEEDANCE_2_STANDARD_PUBLISHED_USD_PER_SECOND[resolution] ?? 0);
+    }
+    function seedance2StandardCreditCost(params) {
+      const resolution = normalizeSeedance2StandardResolution(params.resolution);
+      const duration = normalizeSeedance2StandardDuration(params.duration);
+      const usdPerSecond = seedance2StandardUsdPerSecond(resolution, normalizeSeedance2StandardAspect(params.aspectRatio));
+      return (0, seedanceDims_1.seedanceCreditsFromUsd)(usdPerSecond * duration);
+    }
+    var pricedAspect = (inputs) => typeof inputs.falModelId === "string" && inputs.falModelId ? inputs.aspect_ratio : inputs.aspectRatio;
+    function seedance2StandardCreditCostFromInputs(inputs) {
+      return seedance2StandardCreditCost({
+        resolution: inputs.resolution,
+        duration: inputs.duration,
+        aspectRatio: pricedAspect(inputs)
+      });
+    }
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v, depth) => {
+        if (depth > 4)
+          return;
+        if (typeof v === "string" && v.trim())
+          out.push(v.trim());
+        else if (Array.isArray(v))
+          v.forEach((x) => push(x, depth + 1));
+      };
+      push(value, 0);
+      return out;
+    };
+    function resolveSeedance2StandardFrames(params) {
+      const inputs = params.dynamicInputs ?? {};
+      const namedStart = urlsOf(inputs.start_image ?? inputs.start_image_url ?? inputs.image_url)[0];
+      const namedEnd = urlsOf(inputs.end_image ?? inputs.end_image_url)[0];
+      const positional = urlsOf(params.imageUrls);
+      const start = namedStart ?? positional.find((u) => u !== namedEnd);
+      if (!start)
+        return {};
+      const end = namedEnd ?? positional.find((u) => u !== start);
+      return { start, end: end && end !== start ? end : void 0 };
+    }
+    function buildSeedance2StandardFalRequest(params) {
+      const { prompt, imageUrls, resolution, aspectRatio, dynamicInputs = {} } = params;
+      const requestedAspect = aspectRatio ?? dynamicInputs.aspect_ratio;
+      const frames = resolveSeedance2StandardFrames({ imageUrls, dynamicInputs });
+      const input = {
+        prompt,
+        resolution: normalizeSeedance2StandardResolution(resolution ?? dynamicInputs.resolution),
+        duration: String(normalizeSeedance2StandardDuration(dynamicInputs.duration)),
+        aspect_ratio: normalizeSeedance2StandardAspect(requestedAspect)
+      };
+      const audio = dynamicInputs.generate_audio;
+      if (audio !== void 0 && audio !== null && audio !== "")
+        input.generate_audio = !(audio === false || audio === "false");
+      if (!frames.start)
+        return { falModelId: exports.SEEDANCE_2_STANDARD_ENDPOINTS.t2v, input };
+      input.image_url = frames.start;
+      if (frames.end)
+        input.end_image_url = frames.end;
+      return { falModelId: exports.SEEDANCE_2_STANDARD_ENDPOINTS.i2v, input };
+    }
+    function hardenSeedance2StandardProxyInput(falModelId, input) {
+      const kind = seedance2StandardKindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      input.resolution = normalizeSeedance2StandardResolution(input.resolution);
+      input.duration = String(normalizeSeedance2StandardDuration(input.duration));
+      input.aspect_ratio = normalizeSeedance2StandardAspect(input.aspect_ratio);
+      if (kind === "t2v") {
+        delete input.image_url;
+        delete input.end_image_url;
+      }
+      return input;
+    }
+    function seedance2StandardProxyRefusal(falModelId, input) {
+      const kind = seedance2StandardKindFromEndpoint(falModelId);
+      if (!kind)
+        return null;
+      if (typeof input?.prompt !== "string" || !input.prompt.trim())
+        return "Seedance 2.0 : le prompt est obligatoire.";
+      if (kind === "i2v" && !(typeof input.image_url === "string" && input.image_url.trim())) {
+        return "Seedance 2.0 : l'image de d\xE9part est obligatoire en image \u2192 vid\xE9o.";
+      }
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/seedance15Text.js
+var require_seedance15Text = __commonJS({
+  "../packages/workflow-contracts/dist/seedance15Text.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.SEEDANCE15_TEXT_DEFAULT_DURATION = exports.SEEDANCE15_TEXT_ENDPOINT = void 0;
+    exports.normalizeSeedance15TextResolution = normalizeSeedance15TextResolution;
+    exports.normalizeSeedance15TextDuration = normalizeSeedance15TextDuration;
+    exports.normalizeSeedance15TextAspect = normalizeSeedance15TextAspect;
+    exports.seedance15TextCreditCost = seedance15TextCreditCost;
+    exports.seedance15TextCreditCostFromInputs = seedance15TextCreditCostFromInputs;
+    exports.buildSeedance15TextFalRequest = buildSeedance15TextFalRequest;
+    exports.hardenSeedance15TextProxyInput = hardenSeedance15TextProxyInput;
+    exports.seedance15TextProxyRefusal = seedance15TextProxyRefusal;
+    var seedanceDims_1 = require_seedanceDims();
+    exports.SEEDANCE15_TEXT_ENDPOINT = "fal-ai/bytedance/seedance/v1.5/pro/text-to-video";
+    exports.SEEDANCE15_TEXT_DEFAULT_DURATION = 5;
+    var RESOLUTIONS = /* @__PURE__ */ new Set(["480p", "720p", "1080p"]);
+    var ALIASES = { "0.5k": "1080p", "1k": "1080p", "2k": "480p", "4k": "480p" };
+    function normalizeSeedance15TextResolution(raw) {
+      const value = raw === void 0 || raw === null ? "" : String(raw).trim().toLowerCase();
+      if (RESOLUTIONS.has(value))
+        return value;
+      return ALIASES[value] ?? "720p";
+    }
+    function normalizeSeedance15TextDuration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.SEEDANCE15_TEXT_DEFAULT_DURATION;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0)
+        return exports.SEEDANCE15_TEXT_DEFAULT_DURATION;
+      return Math.min(12, Math.max(4, Math.trunc(n)));
+    }
+    function normalizeSeedance15TextAspect(raw) {
+      return (0, seedanceDims_1.seedanceExplicitAspect)(raw) ?? seedanceDims_1.SEEDANCE_DEFAULT_EXPLICIT_ASPECT;
+    }
+    var audioOn = (raw) => !(raw === false || raw === "false" || raw === 0 || raw === "0");
+    function seedance15TextCreditCost(params) {
+      const resolution = normalizeSeedance15TextResolution(params.resolution);
+      const duration = normalizeSeedance15TextDuration(params.duration);
+      const pixels = (0, seedanceDims_1.seedanceOutputPixels)("1.5", resolution, normalizeSeedance15TextAspect(params.aspectRatio)) ?? 0;
+      const usdPerToken = (audioOn(params.generateAudio) ? 2.4 : 1.2) / 1e6;
+      return (0, seedanceDims_1.seedanceCreditsFromUsd)((0, seedanceDims_1.seedanceTokensPerSecond)(pixels) * duration * usdPerToken);
+    }
+    var pricedAspect = (inputs) => typeof inputs.falModelId === "string" && inputs.falModelId ? inputs.aspect_ratio : inputs.aspectRatio;
+    function seedance15TextCreditCostFromInputs(inputs) {
+      return seedance15TextCreditCost({
+        resolution: inputs.resolution,
+        duration: inputs.duration,
+        aspectRatio: pricedAspect(inputs),
+        generateAudio: inputs.generate_audio
+      });
+    }
+    var optionalSeed = (raw) => {
+      if (raw === void 0 || raw === null || raw === "")
+        return void 0;
+      const seed = Number(raw);
+      return Number.isFinite(seed) ? Math.trunc(seed) : void 0;
+    };
+    function buildSeedance15TextFalRequest(params) {
+      const { prompt, resolution, aspectRatio, dynamicInputs = {} } = params;
+      const requestedAspect = aspectRatio ?? dynamicInputs.aspect_ratio;
+      const input = {
+        prompt,
+        resolution: normalizeSeedance15TextResolution(resolution ?? dynamicInputs.resolution),
+        duration: String(normalizeSeedance15TextDuration(dynamicInputs.duration)),
+        aspect_ratio: normalizeSeedance15TextAspect(requestedAspect),
+        generate_audio: audioOn(dynamicInputs.generate_audio),
+        enable_safety_checker: false
+      };
+      const cameraFixed = dynamicInputs.camera_fixed;
+      if (cameraFixed !== void 0 && cameraFixed !== null && cameraFixed !== "") {
+        input.camera_fixed = cameraFixed === true || cameraFixed === "true";
+      }
+      const seed = optionalSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      return { falModelId: exports.SEEDANCE15_TEXT_ENDPOINT, input };
+    }
+    function hardenSeedance15TextProxyInput(falModelId, input) {
+      if (falModelId !== exports.SEEDANCE15_TEXT_ENDPOINT || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      input.resolution = normalizeSeedance15TextResolution(input.resolution);
+      input.duration = String(normalizeSeedance15TextDuration(input.duration));
+      input.aspect_ratio = normalizeSeedance15TextAspect(input.aspect_ratio);
+      input.generate_audio = audioOn(input.generate_audio);
+      delete input.image_url;
+      delete input.end_image_url;
+      return input;
+    }
+    function seedance15TextProxyRefusal(falModelId, input) {
+      if (falModelId !== exports.SEEDANCE15_TEXT_ENDPOINT)
+        return null;
+      if (typeof input?.prompt !== "string" || !input.prompt.trim())
+        return "Seedance 1.5 Pro : le prompt est obligatoire.";
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/seedance25Draft.js
+var require_seedance25Draft = __commonJS({
+  "../packages/workflow-contracts/dist/seedance25Draft.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.SEEDANCE25_COMPLETE_MISSING_DRAFT_MESSAGE = exports.SEEDANCE25_DRAFT_ID_MAX_LENGTH = exports.SEEDANCE25_DRAFT_VALIDITY_MS = exports.SEEDANCE25_COMPLETE_USD_PER_SECOND = exports.SEEDANCE25_DRAFT_USD_PER_SECOND = exports.SEEDANCE25_DRAFT_ASPECTS = exports.SEEDANCE25_DRAFT_RESOLUTION = exports.SEEDANCE25_DRAFT_ENDPOINTS = exports.SEEDANCE25_DRAFT_COMPLETE_ENDPOINT = exports.SEEDANCE25_COMPLETE_MODEL_ID = exports.SEEDANCE25_DRAFT_MODEL_ID = void 0;
+    exports.readSeedance25DraftMeasure = readSeedance25DraftMeasure;
+    exports.normalizeSeedance25DraftAspect = normalizeSeedance25DraftAspect;
+    exports.seedance25DraftCreditCost = seedance25DraftCreditCost;
+    exports.seedance25DraftCreditCostFromInputs = seedance25DraftCreditCostFromInputs;
+    exports.buildSeedance25DraftFalRequest = buildSeedance25DraftFalRequest;
+    exports.readSeedance25DraftId = readSeedance25DraftId;
+    exports.readSeedance25CompleteDraftId = readSeedance25CompleteDraftId;
+    exports.seedance25CompleteCreditCost = seedance25CompleteCreditCost;
+    exports.seedance25CompleteCreditCostFromInputs = seedance25CompleteCreditCostFromInputs;
+    exports.buildSeedance25CompleteFalRequest = buildSeedance25CompleteFalRequest;
+    exports.seedance25CompletionRefusal = seedance25CompletionRefusal;
+    exports.seedance25DraftAiProxyRefusal = seedance25DraftAiProxyRefusal;
+    var seedance25_1 = require_seedance25();
+    var seedanceDims_1 = require_seedanceDims();
+    exports.SEEDANCE25_DRAFT_MODEL_ID = "bytedance-seedance-2-5-draft";
+    exports.SEEDANCE25_COMPLETE_MODEL_ID = "bytedance-seedance-2-5-complete";
+    exports.SEEDANCE25_DRAFT_COMPLETE_ENDPOINT = "bytedance/seedance-2.5/draft/complete";
+    exports.SEEDANCE25_DRAFT_ENDPOINTS = seedance25_1.SEEDANCE25_ENDPOINTS;
+    exports.SEEDANCE25_DRAFT_RESOLUTION = "480p";
+    exports.SEEDANCE25_DRAFT_ASPECTS = seedanceDims_1.SEEDANCE_EXPLICIT_ASPECTS;
+    exports.SEEDANCE25_DRAFT_USD_PER_SECOND = seedance25_1.SEEDANCE25_USD_PER_SECOND["480p"];
+    exports.SEEDANCE25_COMPLETE_USD_PER_SECOND = seedance25_1.SEEDANCE25_USD_PER_SECOND["1080p"];
+    var VIDEO_INPUT_RATE = 0.6;
+    exports.SEEDANCE25_DRAFT_VALIDITY_MS = 14 * 24 * 60 * 60 * 1e3;
+    exports.SEEDANCE25_DRAFT_ID_MAX_LENGTH = 8192;
+    var isFiniteNonNegative = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0;
+    function readSeedance25DraftMeasure(raw) {
+      if (!raw || typeof raw !== "object")
+        return void 0;
+      const r = raw;
+      if (!isFiniteNonNegative(r.outputSeconds) || r.outputSeconds <= 0)
+        return void 0;
+      if (!isFiniteNonNegative(r.inputVideoSeconds))
+        return void 0;
+      return { outputSeconds: r.outputSeconds, inputVideoSeconds: r.inputVideoSeconds };
+    }
+    var usdToCredits = (usdPerSecond, inputSeconds, outputSeconds) => (0, seedanceDims_1.seedanceCreditsFromUsd)(inputSeconds > 0 ? usdPerSecond * (inputSeconds + outputSeconds) * VIDEO_INPUT_RATE : usdPerSecond * outputSeconds);
+    function normalizeSeedance25DraftAspect(raw) {
+      return (0, seedanceDims_1.seedanceExplicitAspect)(raw) ?? seedanceDims_1.SEEDANCE_DEFAULT_EXPLICIT_ASPECT;
+    }
+    function seedance25DraftCreditCost(params) {
+      const output = (0, seedance25_1.normalizeSeedance25Duration)(params.duration);
+      const measured = isFiniteNonNegative(params.inputVideoSeconds) ? params.inputVideoSeconds : void 0;
+      const input = params.hasVideoInput ? measured ?? seedance25_1.SEEDANCE25_MAX_INPUT_VIDEO_SECONDS : 0;
+      return usdToCredits(exports.SEEDANCE25_DRAFT_USD_PER_SECOND, input, output);
+    }
+    function seedance25DraftCreditCostFromInputs(inputs) {
+      return seedance25DraftCreditCost({
+        duration: inputs.duration,
+        hasVideoInput: (0, seedance25_1.hasSeedance25VideoInput)(inputs),
+        inputVideoSeconds: inputs.inputVideoSeconds
+      });
+    }
+    function buildSeedance25DraftFalRequest(params) {
+      const { prompt, imageUrls = [], aspectRatio, dynamicInputs = {} } = params;
+      const aspect = normalizeSeedance25DraftAspect(aspectRatio ?? dynamicInputs.aspect_ratio);
+      const request = (0, seedance25_1.buildSeedance25FalRequest)({
+        prompt,
+        imageUrls,
+        resolution: exports.SEEDANCE25_DRAFT_RESOLUTION,
+        aspectRatio: aspect,
+        dynamicInputs
+      });
+      return {
+        falModelId: request.falModelId,
+        input: { ...request.input, resolution: exports.SEEDANCE25_DRAFT_RESOLUTION, aspect_ratio: aspect, draft: true }
+      };
+    }
+    function readSeedance25DraftId(response) {
+      if (!response || typeof response !== "object")
+        return void 0;
+      const raw = response.draft_id;
+      if (typeof raw !== "string")
+        return void 0;
+      const id = raw.trim();
+      return id && id.length <= exports.SEEDANCE25_DRAFT_ID_MAX_LENGTH ? id : void 0;
+    }
+    function readSeedance25CompleteDraftId(inputs = {}) {
+      for (const key of ["draft_id", "draftId"]) {
+        const raw = inputs[key];
+        const value = Array.isArray(raw) ? raw[0] : raw;
+        if (typeof value === "string" && value.trim()) {
+          const id = value.trim();
+          return id.length <= exports.SEEDANCE25_DRAFT_ID_MAX_LENGTH ? id : void 0;
+        }
+      }
+      return void 0;
+    }
+    function seedance25CompleteCreditCost(measure) {
+      if (!measure)
+        return usdToCredits(exports.SEEDANCE25_COMPLETE_USD_PER_SECOND, seedance25_1.SEEDANCE25_MAX_INPUT_VIDEO_SECONDS, seedance25_1.SEEDANCE25_MAX_DURATION);
+      return usdToCredits(exports.SEEDANCE25_COMPLETE_USD_PER_SECOND, measure.inputVideoSeconds, measure.outputSeconds);
+    }
+    function seedance25CompleteCreditCostFromInputs(inputs) {
+      return seedance25CompleteCreditCost(readSeedance25DraftMeasure(inputs.seedanceDraft));
+    }
+    exports.SEEDANCE25_COMPLETE_MISSING_DRAFT_MESSAGE = "Seedance 2.5 Complete a besoin du brouillon \xE0 finaliser : branche la sortie \xAB Brouillon \xBB d'un n\u0153ud Seedance 2.5 Draft sur son entr\xE9e draft_id.";
+    function buildSeedance25CompleteFalRequest(params) {
+      const draftId = readSeedance25CompleteDraftId(params.dynamicInputs ?? {});
+      if (!draftId)
+        throw (0, seedanceDims_1.seedancePriceRefusal)(exports.SEEDANCE25_COMPLETE_MISSING_DRAFT_MESSAGE);
+      return { falModelId: exports.SEEDANCE25_DRAFT_COMPLETE_ENDPOINT, input: { draft_id: draftId, resolution: "1080p" } };
+    }
+    function seedance25CompletionRefusal(params) {
+      if (!params.draftId)
+        return exports.SEEDANCE25_COMPLETE_MISSING_DRAFT_MESSAGE;
+      const record = params.record;
+      if (!record) {
+        return "Seedance 2.5 Complete : ce brouillon est inconnu de Beemm Vision (cr\xE9\xE9 ailleurs, ou sa mesure n'a pas pu \xEAtre enregistr\xE9e). Relance un brouillon Seedance 2.5 Draft, puis finalise-le.";
+      }
+      if (record.uid !== params.uid)
+        return "Seedance 2.5 Complete : ce brouillon appartient \xE0 un autre compte.";
+      const created = Number(record.createdAtMs);
+      if (!Number.isFinite(created) || params.nowMs - created > exports.SEEDANCE25_DRAFT_VALIDITY_MS) {
+        return "Seedance 2.5 Complete : ce brouillon a plus de 14 jours, FAL ne peut plus le finaliser. Relance un brouillon.";
+      }
+      if (!readSeedance25DraftMeasure(record)) {
+        return "Seedance 2.5 Complete : la dur\xE9e de ce brouillon n'a pas pu \xEAtre mesur\xE9e, son prix est inconnu. Relance un brouillon.";
+      }
+      return null;
+    }
+    function seedance25DraftAiProxyRefusal(falModelId, input) {
+      if (falModelId === exports.SEEDANCE25_DRAFT_COMPLETE_ENDPOINT) {
+        return "Seedance 2.5 Complete n'est disponible que dans un n\u0153ud de workflow (branch\xE9 sur un brouillon).";
+      }
+      const isGeneration = Object.values(seedance25_1.SEEDANCE25_ENDPOINTS).includes(falModelId);
+      const draft = input?.draft;
+      if (isGeneration && (draft === true || draft === "true")) {
+        return "Seedance 2.5 Draft n'est disponible que dans un n\u0153ud de workflow (le brouillon s'y finalise).";
+      }
+      return null;
+    }
+  }
+});
+
 // ../packages/workflow-contracts/dist/klingV3Turbo.js
 var require_klingV3Turbo = __commonJS({
   "../packages/workflow-contracts/dist/klingV3Turbo.js"(exports) {
@@ -3827,6 +6350,162 @@ var require_klingV3Turbo = __commonJS({
         delete input.aspect_ratio;
       }
       return input;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/klingV3MotionControl.js
+var require_klingV3MotionControl = __commonJS({
+  "../packages/workflow-contracts/dist/klingV3MotionControl.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.klingV3MotionControlCreditCostFromInputs = exports.normalizeKlingV3MotionOrientation = exports.normalizeKlingV3MotionControlTier = exports.isKlingV3MotionControlEndpoint = exports.KLING_V3_MOTION_CONTROL_AIPROXY_MESSAGE = exports.KLING_V3_MOTION_CONTROL_BASE_COST = exports.KLING_V3_MOTION_CONTROL_MILLI_USD_PER_SECOND = exports.KLING_V3_MOTION_CONTROL_FAL_MODEL_TO_ID = exports.KLING_V3_MOTION_CONTROL_ALL_ENDPOINTS = exports.KLING_V3_MOTION_CONTROL_ENDPOINTS = exports.KLING_V3_MOTION_MAX_PROMPT_LENGTH = exports.KLING_V3_MOTION_MIN_SOURCE_SECONDS = exports.KLING_V3_MOTION_MAX_SOURCE_SECONDS = exports.KLING_V3_MOTION_DEFAULT_ORIENTATION = exports.KLING_V3_MOTION_ORIENTATIONS = exports.KLING_V3_MOTION_CONTROL_DEFAULT_TIER = exports.KLING_V3_MOTION_CONTROL_RESOLUTIONS = exports.KLING_V3_MOTION_CONTROL_MODEL_IDS = exports.KLING_V3_MOTION_CONTROL_MODEL_ID = void 0;
+    exports.klingV3MotionControlTierFromEndpoint = klingV3MotionControlTierFromEndpoint;
+    exports.klingV3MotionControlAiProxyRefusal = klingV3MotionControlAiProxyRefusal;
+    exports.klingV3MotionControlCreditCost = klingV3MotionControlCreditCost;
+    exports.buildKlingV3MotionControlFalRequest = buildKlingV3MotionControlFalRequest;
+    exports.hardenKlingV3MotionControlProxyInput = hardenKlingV3MotionControlProxyInput;
+    exports.klingV3MotionControlProxyRefusal = klingV3MotionControlProxyRefusal;
+    exports.klingV3MotionControlSourceRefusal = klingV3MotionControlSourceRefusal;
+    var klingO3Shared_1 = require_klingO3Shared();
+    exports.KLING_V3_MOTION_CONTROL_MODEL_ID = "kling-v3-motion-control-video";
+    exports.KLING_V3_MOTION_CONTROL_MODEL_IDS = [exports.KLING_V3_MOTION_CONTROL_MODEL_ID];
+    exports.KLING_V3_MOTION_CONTROL_RESOLUTIONS = ["Standard", "Pro"];
+    exports.KLING_V3_MOTION_CONTROL_DEFAULT_TIER = "standard";
+    exports.KLING_V3_MOTION_ORIENTATIONS = ["video", "image"];
+    exports.KLING_V3_MOTION_DEFAULT_ORIENTATION = "video";
+    exports.KLING_V3_MOTION_MAX_SOURCE_SECONDS = {
+      video: 30.05,
+      image: 10.05
+    };
+    exports.KLING_V3_MOTION_MIN_SOURCE_SECONDS = 3;
+    exports.KLING_V3_MOTION_MAX_PROMPT_LENGTH = 2500;
+    exports.KLING_V3_MOTION_CONTROL_ENDPOINTS = {
+      standard: "fal-ai/kling-video/v3/standard/motion-control",
+      pro: "fal-ai/kling-video/v3/pro/motion-control"
+    };
+    exports.KLING_V3_MOTION_CONTROL_ALL_ENDPOINTS = [
+      exports.KLING_V3_MOTION_CONTROL_ENDPOINTS.standard,
+      exports.KLING_V3_MOTION_CONTROL_ENDPOINTS.pro
+    ];
+    exports.KLING_V3_MOTION_CONTROL_FAL_MODEL_TO_ID = Object.fromEntries(exports.KLING_V3_MOTION_CONTROL_ALL_ENDPOINTS.map((endpoint) => [endpoint, exports.KLING_V3_MOTION_CONTROL_MODEL_ID]));
+    exports.KLING_V3_MOTION_CONTROL_MILLI_USD_PER_SECOND = {
+      standard: 126,
+      pro: 168
+    };
+    exports.KLING_V3_MOTION_CONTROL_BASE_COST = (0, klingO3Shared_1.klingCreditsFromMilliUsd)(exports.KLING_V3_MOTION_CONTROL_MILLI_USD_PER_SECOND.standard, Math.ceil(exports.KLING_V3_MOTION_MAX_SOURCE_SECONDS.video));
+    function klingV3MotionControlTierFromEndpoint(falModelId) {
+      if (falModelId === exports.KLING_V3_MOTION_CONTROL_ENDPOINTS.standard)
+        return "standard";
+      if (falModelId === exports.KLING_V3_MOTION_CONTROL_ENDPOINTS.pro)
+        return "pro";
+      return void 0;
+    }
+    exports.KLING_V3_MOTION_CONTROL_AIPROXY_MESSAGE = "Kling V3 Motion Control ne se lance pas depuis le Board : son rendu peut d\xE9passer le d\xE9lai de cet appel (9 min). Lance-le depuis Generate ou depuis un n\u0153ud de workflow.";
+    function klingV3MotionControlAiProxyRefusal(falModelId) {
+      return (0, exports.isKlingV3MotionControlEndpoint)(falModelId) ? exports.KLING_V3_MOTION_CONTROL_AIPROXY_MESSAGE : null;
+    }
+    var isKlingV3MotionControlEndpoint = (falModelId) => klingV3MotionControlTierFromEndpoint(falModelId) !== void 0;
+    exports.isKlingV3MotionControlEndpoint = isKlingV3MotionControlEndpoint;
+    var normalizeKlingV3MotionControlTier = (raw) => (0, klingO3Shared_1.normalizeKlingTier)(raw, exports.KLING_V3_MOTION_CONTROL_DEFAULT_TIER);
+    exports.normalizeKlingV3MotionControlTier = normalizeKlingV3MotionControlTier;
+    var normalizeKlingV3MotionOrientation = (raw) => raw === "image" ? "image" : exports.KLING_V3_MOTION_DEFAULT_ORIENTATION;
+    exports.normalizeKlingV3MotionOrientation = normalizeKlingV3MotionOrientation;
+    function klingV3MotionControlCreditCost(params) {
+      const tier = (0, klingO3Shared_1.maxKlingTier)((0, exports.normalizeKlingV3MotionControlTier)(params.resolution), klingV3MotionControlTierFromEndpoint(params.falModelId));
+      const max = exports.KLING_V3_MOTION_MAX_SOURCE_SECONDS.video;
+      const seconds = (0, klingO3Shared_1.billedMeasuredSeconds)(params.sourceSeconds, max) ?? Math.ceil(max);
+      return (0, klingO3Shared_1.klingCreditsFromMilliUsd)(exports.KLING_V3_MOTION_CONTROL_MILLI_USD_PER_SECOND[tier], seconds);
+    }
+    var klingV3MotionControlCreditCostFromInputs = (inputs) => klingV3MotionControlCreditCost({
+      resolution: inputs.resolution,
+      falModelId: inputs.falModelId,
+      sourceSeconds: inputs.inputVideoSeconds
+    });
+    exports.klingV3MotionControlCreditCostFromInputs = klingV3MotionControlCreditCostFromInputs;
+    var hasText = (value) => typeof value === "string" && value.trim().length > 0;
+    var ELEMENT_ORIENTATION_MESSAGE = "Kling V3 Motion Control : l'\xE9l\xE9ment facial ne s'utilise qu'avec l'orientation \xAB vid\xE9o \xBB.";
+    function buildKlingV3MotionControlFalRequest(params) {
+      const { prompt, imageUrls = [], resolution, dynamicInputs = {} } = params;
+      const image = (0, klingO3Shared_1.firstKlingUrl)(dynamicInputs.image_url ?? dynamicInputs.image ?? dynamicInputs.start_image ?? dynamicInputs.start_image_url) ?? (0, klingO3Shared_1.firstKlingUrl)(imageUrls);
+      if (!image)
+        throw (0, klingO3Shared_1.klingBuildRefusal)("Kling V3 Motion Control n\xE9cessite une image du personnage.");
+      const video = (0, klingO3Shared_1.firstKlingUrl)(dynamicInputs.video_url ?? dynamicInputs.video_urls ?? dynamicInputs.video);
+      if (!video)
+        throw (0, klingO3Shared_1.klingBuildRefusal)("Kling V3 Motion Control n\xE9cessite une vid\xE9o de mouvement (video_url).");
+      const orientation = (0, exports.normalizeKlingV3MotionOrientation)(dynamicInputs.character_orientation);
+      const elements = (0, klingO3Shared_1.sanitizeKlingElements)(dynamicInputs.elements, { allowVideo: false });
+      if (elements && orientation !== "video")
+        throw (0, klingO3Shared_1.klingBuildRefusal)(ELEMENT_ORIENTATION_MESSAGE);
+      if (elements && elements.length > 1)
+        throw (0, klingO3Shared_1.klingBuildRefusal)("Kling V3 Motion Control : un seul \xE9l\xE9ment facial.");
+      const tier = (0, exports.normalizeKlingV3MotionControlTier)(resolution ?? dynamicInputs.resolution);
+      return {
+        falModelId: exports.KLING_V3_MOTION_CONTROL_ENDPOINTS[tier],
+        input: {
+          ...hasText(prompt) ? { prompt } : {},
+          image_url: image,
+          video_url: video,
+          character_orientation: orientation,
+          keep_original_sound: (0, klingO3Shared_1.readKlingBoolean)(dynamicInputs.keep_original_sound ?? dynamicInputs.keep_audio, true),
+          ...elements ? { elements } : {}
+        }
+      };
+    }
+    var ALLOWED_KEYS = /* @__PURE__ */ new Set(["prompt", "image_url", "video_url", "character_orientation", "keep_original_sound", "elements"]);
+    function hardenKlingV3MotionControlProxyInput(falModelId, input) {
+      if (!(0, exports.isKlingV3MotionControlEndpoint)(falModelId) || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      for (const key of Object.keys(input))
+        if (!ALLOWED_KEYS.has(key))
+          delete input[key];
+      if (!hasText(input.prompt))
+        delete input.prompt;
+      for (const key of ["image_url", "video_url"]) {
+        const url = (0, klingO3Shared_1.firstKlingUrl)(input[key]);
+        if (url)
+          input[key] = url;
+        else
+          delete input[key];
+      }
+      input.character_orientation = (0, exports.normalizeKlingV3MotionOrientation)(input.character_orientation);
+      input.keep_original_sound = (0, klingO3Shared_1.readKlingBoolean)(input.keep_original_sound, true);
+      const elements = (0, klingO3Shared_1.sanitizeKlingElements)(input.elements, { allowVideo: false });
+      if (elements)
+        input.elements = elements;
+      else
+        delete input.elements;
+      return input;
+    }
+    function klingV3MotionControlProxyRefusal(falModelId, input) {
+      if (!(0, exports.isKlingV3MotionControlEndpoint)(falModelId))
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (!(0, klingO3Shared_1.firstKlingUrl)(record.image_url))
+        return "Kling V3 Motion Control n\xE9cessite une image du personnage.";
+      if (!(0, klingO3Shared_1.firstKlingUrl)(record.video_url))
+        return "Kling V3 Motion Control n\xE9cessite une vid\xE9o de mouvement (video_url).";
+      const elements = Array.isArray(record.elements) ? record.elements.length : 0;
+      if (elements > 0 && (0, exports.normalizeKlingV3MotionOrientation)(record.character_orientation) !== "video")
+        return ELEMENT_ORIENTATION_MESSAGE;
+      if (elements > 1)
+        return "Kling V3 Motion Control : un seul \xE9l\xE9ment facial.";
+      return null;
+    }
+    function klingV3MotionControlSourceRefusal(falModelId, input, measuredSeconds) {
+      if (!(0, exports.isKlingV3MotionControlEndpoint)(falModelId))
+        return null;
+      const orientation = (0, exports.normalizeKlingV3MotionOrientation)(input?.character_orientation);
+      if (typeof measuredSeconds !== "number" || !Number.isFinite(measuredSeconds) || measuredSeconds < 0) {
+        return "Kling V3 Motion Control : impossible de mesurer la dur\xE9e de ta vid\xE9o de mouvement. R\xE9exporte-la en MP4 et importe-la dans le projet.";
+      }
+      if (measuredSeconds < exports.KLING_V3_MOTION_MIN_SOURCE_SECONDS) {
+        return `Kling V3 Motion Control demande une vid\xE9o d'au moins 3 secondes, la tienne en dure ${Math.round(measuredSeconds * 10) / 10}.`;
+      }
+      if (measuredSeconds > exports.KLING_V3_MOTION_MAX_SOURCE_SECONDS[orientation]) {
+        return orientation === "image" ? `En orientation \xAB image \xBB, Kling V3 Motion Control lit 10 secondes au maximum, ta vid\xE9o en dure ${Math.round(measuredSeconds * 10) / 10}. Recadre-la ou passe en orientation \xAB vid\xE9o \xBB (30 s).` : `Kling V3 Motion Control lit 30 secondes au maximum, ta vid\xE9o en dure ${Math.round(measuredSeconds * 10) / 10}. Recadre-la.`;
+      }
+      return null;
     }
   }
 });
@@ -4881,6 +7560,1049 @@ var require_pixverseC1 = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/pixverseV6Max.js
+var require_pixverseV6Max = __commonJS({
+  "../packages/workflow-contracts/dist/pixverseV6Max.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.PIXVERSE_V6_MAX_MILLI_USD_PER_SECOND = exports.PIXVERSE_V6_MAX_BILLED_EXTRA_FRAMES = exports.PIXVERSE_V6_MAX_FPS = exports.PIXVERSE_V6_MAX_SEED_MAX = exports.PIXVERSE_V6_MAX_MAX_PROMPT_BYTES = exports.PIXVERSE_V6_MAX_STYLES = exports.PIXVERSE_V6_MAX_DEFAULT_ASPECT = exports.PIXVERSE_V6_MAX_ASPECTS = exports.PIXVERSE_V6_MAX_DURATIONS = exports.PIXVERSE_V6_MAX_DEFAULT_DURATION = exports.PIXVERSE_V6_MAX_MAX_DURATION = exports.PIXVERSE_V6_MAX_MIN_DURATION = exports.PIXVERSE_V6_MAX_DEFAULT_RESOLUTION = exports.PIXVERSE_V6_MAX_RESOLUTIONS = exports.PIXVERSE_V6_MAX_ALL_ENDPOINTS = exports.PIXVERSE_V6_MAX_ENDPOINT_TO_KIND = exports.PIXVERSE_V6_MAX_ENDPOINTS = exports.PIXVERSE_V6_MAX_MODEL_ID = void 0;
+    exports.isPixverseV6MaxEndpoint = isPixverseV6MaxEndpoint;
+    exports.pixverseV6MaxKindFromEndpoint = pixverseV6MaxKindFromEndpoint;
+    exports.normalizePixverseV6MaxResolution = normalizePixverseV6MaxResolution;
+    exports.normalizePixverseV6MaxDuration = normalizePixverseV6MaxDuration;
+    exports.normalizePixverseV6MaxAspectRatio = normalizePixverseV6MaxAspectRatio;
+    exports.normalizePixverseV6MaxStyle = normalizePixverseV6MaxStyle;
+    exports.pixverseV6MaxAudioEnabled = pixverseV6MaxAudioEnabled;
+    exports.pixverseV6MaxMultiClipEnabled = pixverseV6MaxMultiClipEnabled;
+    exports.pixverseV6MaxCreditCost = pixverseV6MaxCreditCost;
+    exports.pixverseV6MaxCreditCostFromInputs = pixverseV6MaxCreditCostFromInputs;
+    exports.pixverseV6MaxPromptBytes = pixverseV6MaxPromptBytes;
+    exports.clampPixverseV6MaxPrompt = clampPixverseV6MaxPrompt;
+    exports.resolvePixverseV6MaxMedia = resolvePixverseV6MaxMedia;
+    exports.resolvePixverseV6MaxKind = resolvePixverseV6MaxKind;
+    exports.buildPixverseV6MaxFalRequest = buildPixverseV6MaxFalRequest;
+    exports.hardenPixverseV6MaxProxyInput = hardenPixverseV6MaxProxyInput;
+    exports.pixverseV6MaxProxyRefusal = pixverseV6MaxProxyRefusal;
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.PIXVERSE_V6_MAX_MODEL_ID = "pixverse-v6-max-video";
+    exports.PIXVERSE_V6_MAX_ENDPOINTS = {
+      t2v: "pixverse/v6/max/text-to-video",
+      i2v: "pixverse/v6/max/image-to-video"
+    };
+    exports.PIXVERSE_V6_MAX_ENDPOINT_TO_KIND = Object.fromEntries(Object.keys(exports.PIXVERSE_V6_MAX_ENDPOINTS).map((kind) => [exports.PIXVERSE_V6_MAX_ENDPOINTS[kind], kind]));
+    exports.PIXVERSE_V6_MAX_ALL_ENDPOINTS = Object.keys(exports.PIXVERSE_V6_MAX_ENDPOINT_TO_KIND);
+    exports.PIXVERSE_V6_MAX_RESOLUTIONS = ["720p", "1080p", "540p", "360p"];
+    exports.PIXVERSE_V6_MAX_DEFAULT_RESOLUTION = "720p";
+    exports.PIXVERSE_V6_MAX_MIN_DURATION = 1;
+    exports.PIXVERSE_V6_MAX_MAX_DURATION = 15;
+    exports.PIXVERSE_V6_MAX_DEFAULT_DURATION = 5;
+    exports.PIXVERSE_V6_MAX_DURATIONS = Array.from({ length: exports.PIXVERSE_V6_MAX_MAX_DURATION - exports.PIXVERSE_V6_MAX_MIN_DURATION + 1 }, (_, i) => i + exports.PIXVERSE_V6_MAX_MIN_DURATION);
+    exports.PIXVERSE_V6_MAX_ASPECTS = ["16:9", "4:3", "1:1", "3:4", "9:16", "2:3", "3:2", "21:9"];
+    exports.PIXVERSE_V6_MAX_DEFAULT_ASPECT = "16:9";
+    exports.PIXVERSE_V6_MAX_STYLES = ["anime", "3d_animation", "clay", "comic", "cyberpunk"];
+    exports.PIXVERSE_V6_MAX_MAX_PROMPT_BYTES = 2048;
+    exports.PIXVERSE_V6_MAX_SEED_MAX = 2147483647;
+    exports.PIXVERSE_V6_MAX_FPS = 24;
+    exports.PIXVERSE_V6_MAX_BILLED_EXTRA_FRAMES = 0;
+    exports.PIXVERSE_V6_MAX_MILLI_USD_PER_SECOND = {
+      "360p": { silent: 54, audio: 81 },
+      "540p": { silent: 81, audio: 99 },
+      "720p": { silent: 99, audio: 135 },
+      "1080p": { silent: 198, audio: 252 }
+    };
+    var RESOLUTION_SET = new Set(exports.PIXVERSE_V6_MAX_RESOLUTIONS);
+    var ASPECT_SET = new Set(exports.PIXVERSE_V6_MAX_ASPECTS);
+    var STYLE_SET = new Set(exports.PIXVERSE_V6_MAX_STYLES);
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach(push);
+        } else if (v && typeof v === "object") {
+          const record = v;
+          push(record.image_url);
+          push(record.url);
+        }
+      };
+      push(value);
+      return Array.from(new Set(out));
+    };
+    function isPixverseV6MaxEndpoint(falModelId) {
+      return typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(exports.PIXVERSE_V6_MAX_ENDPOINT_TO_KIND, falModelId);
+    }
+    function pixverseV6MaxKindFromEndpoint(falModelId) {
+      return isPixverseV6MaxEndpoint(falModelId) ? exports.PIXVERSE_V6_MAX_ENDPOINT_TO_KIND[falModelId] : void 0;
+    }
+    function normalizePixverseV6MaxResolution(raw) {
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(typeof raw === "string" ? raw : void 0, exports.PIXVERSE_V6_MAX_RESOLUTIONS);
+      return out !== void 0 && RESOLUTION_SET.has(out) ? out : exports.PIXVERSE_V6_MAX_DEFAULT_RESOLUTION;
+    }
+    function normalizePixverseV6MaxDuration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.PIXVERSE_V6_MAX_DEFAULT_DURATION;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.PIXVERSE_V6_MAX_DEFAULT_DURATION;
+      return Math.min(exports.PIXVERSE_V6_MAX_MAX_DURATION, Math.max(exports.PIXVERSE_V6_MAX_MIN_DURATION, Math.ceil(parsed)));
+    }
+    function normalizePixverseV6MaxAspectRatio(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return ASPECT_SET.has(value) ? value : exports.PIXVERSE_V6_MAX_DEFAULT_ASPECT;
+    }
+    function normalizePixverseV6MaxStyle(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return STYLE_SET.has(value) ? value : void 0;
+    }
+    var isTruthyFlag = (raw) => raw === true || raw === "true" || raw === 1 || raw === "1";
+    function pixverseV6MaxAudioEnabled(inputs) {
+      const source = inputs ?? {};
+      const explicit = source.generate_audio_switch;
+      if (explicit !== void 0 && explicit !== null && explicit !== "")
+        return isTruthyFlag(explicit);
+      return isTruthyFlag(source.generate_audio);
+    }
+    function pixverseV6MaxMultiClipEnabled(inputs) {
+      return isTruthyFlag((inputs ?? {}).generate_multi_clip_switch);
+    }
+    function pixverseV6MaxCreditCost(params) {
+      const resolution = normalizePixverseV6MaxResolution(params.resolution);
+      const seconds = normalizePixverseV6MaxDuration(params.duration);
+      const rate = exports.PIXVERSE_V6_MAX_MILLI_USD_PER_SECOND[resolution][params.audio ? "audio" : "silent"];
+      const frames = seconds * exports.PIXVERSE_V6_MAX_FPS + exports.PIXVERSE_V6_MAX_BILLED_EXTRA_FRAMES;
+      return Math.ceil(rate * frames / (exports.PIXVERSE_V6_MAX_FPS * 10));
+    }
+    function pixverseV6MaxCreditCostFromInputs(inputs) {
+      return pixverseV6MaxCreditCost({
+        resolution: inputs.resolution,
+        duration: inputs.duration,
+        audio: pixverseV6MaxAudioEnabled(inputs)
+      });
+    }
+    var utf8Bytes = (codePoint) => codePoint < 128 ? 1 : codePoint < 2048 ? 2 : codePoint < 65536 ? 3 : 4;
+    function pixverseV6MaxPromptBytes(prompt) {
+      let bytes = 0;
+      for (const ch of prompt)
+        bytes += utf8Bytes(ch.codePointAt(0) ?? 0);
+      return bytes;
+    }
+    function clampPixverseV6MaxPrompt(prompt) {
+      const text = typeof prompt === "string" ? prompt : "";
+      if (pixverseV6MaxPromptBytes(text) <= exports.PIXVERSE_V6_MAX_MAX_PROMPT_BYTES)
+        return text;
+      let bytes = 0;
+      let cut = "";
+      for (const ch of text) {
+        const next = bytes + utf8Bytes(ch.codePointAt(0) ?? 0);
+        if (next > exports.PIXVERSE_V6_MAX_MAX_PROMPT_BYTES)
+          break;
+        bytes = next;
+        cut += ch;
+      }
+      const boundary = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\n"));
+      return (boundary >= Math.floor(cut.length * 0.85) ? cut.slice(0, boundary) : cut).trim();
+    }
+    var START_KEYS = ["start_image", "start_image_url", "first_image_url", "image_url"];
+    function resolvePixverseV6MaxMedia(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      let start;
+      for (const key of START_KEYS) {
+        start = urlsOf(dynamicInputs[key])[0];
+        if (start)
+          break;
+      }
+      if (!start)
+        start = urlsOf(params.imageUrls)[0];
+      return start ? { kind: "i2v", start } : { kind: "t2v" };
+    }
+    function resolvePixverseV6MaxKind(params) {
+      return resolvePixverseV6MaxMedia(params).kind;
+    }
+    var optionalSeed = (raw) => {
+      if (raw === void 0 || raw === null || raw === "")
+        return void 0;
+      const seed = Number(raw);
+      if (!Number.isFinite(seed))
+        return void 0;
+      const trunc = Math.trunc(seed);
+      if (trunc < 0 || trunc > exports.PIXVERSE_V6_MAX_SEED_MAX)
+        return void 0;
+      return trunc;
+    };
+    function buildPixverseV6MaxFalRequest(params) {
+      const { prompt, imageUrls = [], resolution, aspectRatio, dynamicInputs = {} } = params;
+      const media = resolvePixverseV6MaxMedia({ imageUrls, dynamicInputs });
+      const input = {
+        prompt: clampPixverseV6MaxPrompt(prompt),
+        resolution: normalizePixverseV6MaxResolution(resolution ?? dynamicInputs.resolution),
+        duration: normalizePixverseV6MaxDuration(dynamicInputs.duration),
+        generate_audio_switch: pixverseV6MaxAudioEnabled(dynamicInputs)
+      };
+      const negative = clampPixverseV6MaxPrompt(dynamicInputs.negative_prompt);
+      if (negative.trim())
+        input.negative_prompt = negative;
+      const style = normalizePixverseV6MaxStyle(dynamicInputs.style);
+      if (style)
+        input.style = style;
+      if (pixverseV6MaxMultiClipEnabled(dynamicInputs))
+        input.generate_multi_clip_switch = true;
+      const seed = optionalSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      if (media.kind === "i2v") {
+        return { falModelId: exports.PIXVERSE_V6_MAX_ENDPOINTS.i2v, input: { ...input, image_url: media.start } };
+      }
+      const aspect = normalizePixverseV6MaxAspectRatio(aspectRatio ?? (typeof dynamicInputs.aspect_ratio === "string" ? dynamicInputs.aspect_ratio : null));
+      return { falModelId: exports.PIXVERSE_V6_MAX_ENDPOINTS.t2v, input: { ...input, aspect_ratio: aspect } };
+    }
+    var PIXVERSE_V6_MAX_STRIPPED_FIELDS = [
+      "enable_safety_checker",
+      "sync_mode",
+      "generate_audio",
+      "thinking_type"
+    ];
+    function hardenPixverseV6MaxProxyInput(falModelId, input) {
+      const kind = pixverseV6MaxKindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      input.generate_audio_switch = pixverseV6MaxAudioEnabled(input);
+      for (const key of PIXVERSE_V6_MAX_STRIPPED_FIELDS)
+        delete input[key];
+      input.resolution = normalizePixverseV6MaxResolution(input.resolution);
+      input.duration = normalizePixverseV6MaxDuration(input.duration);
+      const seed = optionalSeed(input.seed);
+      if (seed === void 0)
+        delete input.seed;
+      else
+        input.seed = seed;
+      const style = normalizePixverseV6MaxStyle(input.style);
+      if (style)
+        input.style = style;
+      else
+        delete input.style;
+      if ("generate_multi_clip_switch" in input) {
+        if (pixverseV6MaxMultiClipEnabled(input))
+          input.generate_multi_clip_switch = true;
+        else
+          delete input.generate_multi_clip_switch;
+      }
+      if ("negative_prompt" in input) {
+        const negative = clampPixverseV6MaxPrompt(input.negative_prompt);
+        if (negative.trim())
+          input.negative_prompt = negative;
+        else
+          delete input.negative_prompt;
+      }
+      if (kind === "i2v") {
+        delete input.aspect_ratio;
+        const url = urlsOf(input.image_url)[0];
+        if (url)
+          input.image_url = url;
+        else
+          delete input.image_url;
+      } else {
+        input.aspect_ratio = normalizePixverseV6MaxAspectRatio(input.aspect_ratio);
+        delete input.image_url;
+      }
+      return input;
+    }
+    function pixverseV6MaxProxyRefusal(falModelId, input) {
+      const kind = pixverseV6MaxKindFromEndpoint(falModelId);
+      if (!kind)
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (typeof record.prompt !== "string" || !record.prompt.trim()) {
+        return "PixVerse V6 Max n\xE9cessite un prompt (texte non vide).";
+      }
+      if (pixverseV6MaxPromptBytes(record.prompt) > exports.PIXVERSE_V6_MAX_MAX_PROMPT_BYTES) {
+        return "PixVerse V6 Max : le prompt d\xE9passe 2048 octets (UTF-8). Raccourcis-le.";
+      }
+      if (kind === "i2v" && !urlsOf(record.image_url)[0]) {
+        return "PixVerse V6 Max (image \u2192 vid\xE9o) n\xE9cessite une image en entr\xE9e (image de d\xE9part).";
+      }
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/heygenVideo.js
+var require_heygenVideo = __commonJS({
+  "../packages/workflow-contracts/dist/heygenVideo.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.HEYGEN_VIDEO_AUDIO_ONLY_MESSAGE = exports.HEYGEN_VIDEO_MISSING_IMAGE_MESSAGE = exports.HEYGEN_VIDEO_MISSING_PROMPT_MESSAGE = exports.HEYGEN_VIDEO_CREDITS_PER_SECOND = exports.HEYGEN_VIDEO_SEED_MAX = exports.HEYGEN_VIDEO_MAX_PROMPT_LENGTH = exports.HEYGEN_VIDEO_MAX_REFERENCE_AUDIOS = exports.HEYGEN_VIDEO_MAX_REFERENCE_VIDEOS = exports.HEYGEN_VIDEO_MAX_REFERENCE_IMAGES = exports.HEYGEN_VIDEO_ASPECTS = exports.HEYGEN_VIDEO_R2V_ASPECTS = exports.HEYGEN_VIDEO_T2V_ASPECTS = exports.HEYGEN_VIDEO_DEFAULT_PROMPT_ENHANCEMENT = exports.HEYGEN_VIDEO_PROMPT_ENHANCEMENTS = exports.HEYGEN_VIDEO_DURATIONS = exports.HEYGEN_VIDEO_DEFAULT_DURATION = exports.HEYGEN_VIDEO_MAX_DURATION = exports.HEYGEN_VIDEO_MIN_DURATION = exports.HEYGEN_VIDEO_DEFAULT_RESOLUTION = exports.HEYGEN_VIDEO_RESOLUTIONS = exports.HEYGEN_VIDEO_ALL_ENDPOINTS = exports.HEYGEN_VIDEO_ENDPOINTS = exports.HEYGEN_VIDEO_MODEL_ID = void 0;
+    exports.isHeygenVideoEndpoint = isHeygenVideoEndpoint;
+    exports.heygenVideoKindFromEndpoint = heygenVideoKindFromEndpoint;
+    exports.normalizeHeygenVideoResolution = normalizeHeygenVideoResolution;
+    exports.normalizeHeygenVideoDuration = normalizeHeygenVideoDuration;
+    exports.normalizeHeygenVideoPromptEnhancement = normalizeHeygenVideoPromptEnhancement;
+    exports.normalizeHeygenVideoAspectRatio = normalizeHeygenVideoAspectRatio;
+    exports.heygenVideoCreditCost = heygenVideoCreditCost;
+    exports.heygenVideoCreditCostFromInputs = heygenVideoCreditCostFromInputs;
+    exports.resolveHeygenVideoMedia = resolveHeygenVideoMedia;
+    exports.buildHeygenVideoFalRequest = buildHeygenVideoFalRequest;
+    exports.hardenHeygenVideoProxyInput = hardenHeygenVideoProxyInput;
+    exports.heygenVideoProxyRefusal = heygenVideoProxyRefusal;
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.HEYGEN_VIDEO_MODEL_ID = "heygen-video";
+    exports.HEYGEN_VIDEO_ENDPOINTS = {
+      t2v: "heygen/heygen-video/text-to-video",
+      i2v: "heygen/heygen-video/image-to-video",
+      r2v: "heygen/heygen-video/reference-to-video"
+    };
+    exports.HEYGEN_VIDEO_ALL_ENDPOINTS = [
+      exports.HEYGEN_VIDEO_ENDPOINTS.t2v,
+      exports.HEYGEN_VIDEO_ENDPOINTS.i2v,
+      exports.HEYGEN_VIDEO_ENDPOINTS.r2v
+    ];
+    var ENDPOINT_TO_KIND = {
+      [exports.HEYGEN_VIDEO_ENDPOINTS.t2v]: "t2v",
+      [exports.HEYGEN_VIDEO_ENDPOINTS.i2v]: "i2v",
+      [exports.HEYGEN_VIDEO_ENDPOINTS.r2v]: "r2v"
+    };
+    exports.HEYGEN_VIDEO_RESOLUTIONS = ["768p", "480p", "1080p", "2k"];
+    exports.HEYGEN_VIDEO_DEFAULT_RESOLUTION = "768p";
+    exports.HEYGEN_VIDEO_MIN_DURATION = 5;
+    exports.HEYGEN_VIDEO_MAX_DURATION = 15;
+    exports.HEYGEN_VIDEO_DEFAULT_DURATION = 5;
+    exports.HEYGEN_VIDEO_DURATIONS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    exports.HEYGEN_VIDEO_PROMPT_ENHANCEMENTS = [
+      "turbo",
+      "quality",
+      "ultraquality",
+      "disabled"
+    ];
+    exports.HEYGEN_VIDEO_DEFAULT_PROMPT_ENHANCEMENT = "turbo";
+    exports.HEYGEN_VIDEO_T2V_ASPECTS = ["16:9", "21:9", "4:3", "1:1", "3:4", "9:16"];
+    exports.HEYGEN_VIDEO_R2V_ASPECTS = ["adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"];
+    exports.HEYGEN_VIDEO_ASPECTS = ["adaptive", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9"];
+    exports.HEYGEN_VIDEO_MAX_REFERENCE_IMAGES = 9;
+    exports.HEYGEN_VIDEO_MAX_REFERENCE_VIDEOS = 3;
+    exports.HEYGEN_VIDEO_MAX_REFERENCE_AUDIOS = 3;
+    exports.HEYGEN_VIDEO_MAX_PROMPT_LENGTH = 32e3;
+    exports.HEYGEN_VIDEO_SEED_MAX = 4294967295;
+    exports.HEYGEN_VIDEO_CREDITS_PER_SECOND = {
+      "480p": 2,
+      "768p": 2,
+      "1080p": 6,
+      "2k": 6
+    };
+    exports.HEYGEN_VIDEO_MISSING_PROMPT_MESSAGE = "HeyGen Video : le prompt est requis.";
+    exports.HEYGEN_VIDEO_MISSING_IMAGE_MESSAGE = "HeyGen Video n\xE9cessite une image en entr\xE9e (image de d\xE9part) pour l'image \u2192 vid\xE9o.";
+    exports.HEYGEN_VIDEO_AUDIO_ONLY_MESSAGE = "HeyGen Video : un audio de r\xE9f\xE9rence n\xE9cessite au moins une image ou vid\xE9o de r\xE9f\xE9rence.";
+    var RESOLUTION_SET = new Set(exports.HEYGEN_VIDEO_RESOLUTIONS);
+    var T2V_ASPECT_SET = new Set(exports.HEYGEN_VIDEO_T2V_ASPECTS);
+    var R2V_ASPECT_SET = new Set(exports.HEYGEN_VIDEO_R2V_ASPECTS);
+    var ENHANCEMENT_SET = new Set(exports.HEYGEN_VIDEO_PROMPT_ENHANCEMENTS);
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach(push);
+        }
+      };
+      push(value);
+      return Array.from(new Set(out));
+    };
+    var firstUrlOf = (inputs, keys) => {
+      for (const key of keys) {
+        const url = urlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      return void 0;
+    };
+    var IMAGE_REFERENCE_KEYS = ["reference_image_urls", "reference_images", "reference_image", "reference_image_url"];
+    var VIDEO_REFERENCE_KEYS = [
+      "reference_video_urls",
+      "reference_videos",
+      "reference_video",
+      "reference_video_url",
+      "video_urls",
+      "video_url",
+      "video"
+    ];
+    var AUDIO_REFERENCE_KEYS = [
+      "reference_audio_urls",
+      "reference_audios",
+      "reference_audio",
+      "reference_audio_url",
+      "audio_urls",
+      "audio_url",
+      "audio"
+    ];
+    var START_KEYS = ["start_image", "start_image_url", "image_url"];
+    function isHeygenVideoEndpoint(falModelId) {
+      return typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(ENDPOINT_TO_KIND, falModelId);
+    }
+    function heygenVideoKindFromEndpoint(falModelId) {
+      return isHeygenVideoEndpoint(falModelId) ? ENDPOINT_TO_KIND[falModelId] : void 0;
+    }
+    function normalizeHeygenVideoResolution(raw) {
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(typeof raw === "string" ? raw : void 0, exports.HEYGEN_VIDEO_RESOLUTIONS);
+      return out !== void 0 && RESOLUTION_SET.has(out) ? out : exports.HEYGEN_VIDEO_DEFAULT_RESOLUTION;
+    }
+    function normalizeHeygenVideoDuration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.HEYGEN_VIDEO_DEFAULT_DURATION;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.HEYGEN_VIDEO_DEFAULT_DURATION;
+      return Math.min(exports.HEYGEN_VIDEO_MAX_DURATION, Math.max(exports.HEYGEN_VIDEO_MIN_DURATION, Math.ceil(parsed)));
+    }
+    function normalizeHeygenVideoPromptEnhancement(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return ENHANCEMENT_SET.has(value) ? value : exports.HEYGEN_VIDEO_DEFAULT_PROMPT_ENHANCEMENT;
+    }
+    function normalizeHeygenVideoAspectRatio(raw, kind) {
+      if (kind === "i2v")
+        return void 0;
+      const value = typeof raw === "string" ? raw.trim() : "";
+      if (kind === "t2v")
+        return T2V_ASPECT_SET.has(value) ? value : void 0;
+      if (value === "auto")
+        return "adaptive";
+      return R2V_ASPECT_SET.has(value) ? value : void 0;
+    }
+    function heygenVideoCreditCost(params) {
+      const resolution = normalizeHeygenVideoResolution(params.resolution);
+      return exports.HEYGEN_VIDEO_CREDITS_PER_SECOND[resolution] * normalizeHeygenVideoDuration(params.duration);
+    }
+    function heygenVideoCreditCostFromInputs(inputs) {
+      return heygenVideoCreditCost({ resolution: inputs.resolution, duration: inputs.duration });
+    }
+    function resolveHeygenVideoMedia(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const references = urlsOf(IMAGE_REFERENCE_KEYS.map((key) => dynamicInputs[key]));
+      const videos = urlsOf(VIDEO_REFERENCE_KEYS.map((key) => dynamicInputs[key])).slice(0, exports.HEYGEN_VIDEO_MAX_REFERENCE_VIDEOS);
+      const audios = urlsOf(AUDIO_REFERENCE_KEYS.map((key) => dynamicInputs[key])).slice(0, exports.HEYGEN_VIDEO_MAX_REFERENCE_AUDIOS);
+      const namedStart = firstUrlOf(dynamicInputs, START_KEYS);
+      const positional = urlsOf(params.imageUrls).filter((url) => !references.includes(url));
+      const start = namedStart ?? positional[0];
+      if (references.length > 0 || videos.length > 0 || audios.length > 0) {
+        const images = Array.from(new Set([...references, start].filter((u) => Boolean(u)))).slice(0, exports.HEYGEN_VIDEO_MAX_REFERENCE_IMAGES);
+        return { kind: "r2v", images, videos, audios };
+      }
+      if (start)
+        return { kind: "i2v", start, images: [], videos: [], audios: [] };
+      return { kind: "t2v", images: [], videos: [], audios: [] };
+    }
+    var optionalSeed = (raw) => {
+      if (raw === void 0 || raw === null || raw === "" || typeof raw === "boolean")
+        return void 0;
+      const seed = Number(raw);
+      if (!Number.isFinite(seed))
+        return void 0;
+      const trunc = Math.trunc(seed);
+      return trunc >= 0 && trunc <= exports.HEYGEN_VIDEO_SEED_MAX ? trunc : void 0;
+    };
+    var clampPrompt = (prompt) => {
+      const text = typeof prompt === "string" ? prompt : "";
+      return text.length > exports.HEYGEN_VIDEO_MAX_PROMPT_LENGTH ? text.slice(0, exports.HEYGEN_VIDEO_MAX_PROMPT_LENGTH) : text;
+    };
+    function buildHeygenVideoFalRequest(params) {
+      const { prompt, imageUrls = [], resolution, aspectRatio, dynamicInputs = {} } = params;
+      const text = clampPrompt(prompt);
+      if (!text.trim())
+        throw refusal(exports.HEYGEN_VIDEO_MISSING_PROMPT_MESSAGE);
+      const media = resolveHeygenVideoMedia({ imageUrls, dynamicInputs });
+      if (media.kind === "r2v" && media.audios.length > 0 && media.images.length === 0 && media.videos.length === 0) {
+        throw refusal(exports.HEYGEN_VIDEO_AUDIO_ONLY_MESSAGE);
+      }
+      const input = {
+        prompt: text,
+        duration: normalizeHeygenVideoDuration(dynamicInputs.duration),
+        resolution: normalizeHeygenVideoResolution(resolution ?? dynamicInputs.resolution),
+        prompt_enhancement: normalizeHeygenVideoPromptEnhancement(dynamicInputs.prompt_enhancement)
+      };
+      const seed = optionalSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      const aspect = normalizeHeygenVideoAspectRatio(aspectRatio ?? dynamicInputs.aspect_ratio, media.kind);
+      if (aspect)
+        input.aspect_ratio = aspect;
+      if (media.kind === "i2v") {
+        return { falModelId: exports.HEYGEN_VIDEO_ENDPOINTS.i2v, input: { ...input, image_url: media.start } };
+      }
+      if (media.kind === "r2v") {
+        return {
+          falModelId: exports.HEYGEN_VIDEO_ENDPOINTS.r2v,
+          input: {
+            ...input,
+            ...media.images.length > 0 ? { reference_image_urls: media.images } : {},
+            ...media.videos.length > 0 ? { reference_video_urls: media.videos } : {},
+            ...media.audios.length > 0 ? { reference_audio_urls: media.audios } : {}
+          }
+        };
+      }
+      return { falModelId: exports.HEYGEN_VIDEO_ENDPOINTS.t2v, input };
+    }
+    var writeList = (input, key, urls) => {
+      if (urls.length > 0)
+        input[key] = urls;
+      else
+        delete input[key];
+    };
+    function hardenHeygenVideoProxyInput(falModelId, input) {
+      const kind = heygenVideoKindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      input.duration = normalizeHeygenVideoDuration(input.duration);
+      input.resolution = normalizeHeygenVideoResolution(input.resolution);
+      input.prompt_enhancement = normalizeHeygenVideoPromptEnhancement(input.prompt_enhancement);
+      if (typeof input.prompt === "string")
+        input.prompt = clampPrompt(input.prompt);
+      const seed = optionalSeed(input.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      else
+        delete input.seed;
+      const aspect = normalizeHeygenVideoAspectRatio(input.aspect_ratio, kind);
+      if (aspect)
+        input.aspect_ratio = aspect;
+      else
+        delete input.aspect_ratio;
+      delete input.sync_mode;
+      if (kind === "i2v") {
+        const start = urlsOf(input.image_url)[0];
+        if (start)
+          input.image_url = start;
+        else
+          delete input.image_url;
+      } else {
+        delete input.image_url;
+      }
+      if (kind === "r2v") {
+        writeList(input, "reference_image_urls", urlsOf(input.reference_image_urls).slice(0, exports.HEYGEN_VIDEO_MAX_REFERENCE_IMAGES));
+        writeList(input, "reference_video_urls", urlsOf(input.reference_video_urls).slice(0, exports.HEYGEN_VIDEO_MAX_REFERENCE_VIDEOS));
+        writeList(input, "reference_audio_urls", urlsOf(input.reference_audio_urls).slice(0, exports.HEYGEN_VIDEO_MAX_REFERENCE_AUDIOS));
+      } else {
+        delete input.reference_image_urls;
+        delete input.reference_video_urls;
+        delete input.reference_audio_urls;
+      }
+      return input;
+    }
+    function heygenVideoProxyRefusal(falModelId, input) {
+      const kind = heygenVideoKindFromEndpoint(falModelId);
+      if (!kind)
+        return null;
+      if (!input || typeof input !== "object" || Array.isArray(input))
+        return exports.HEYGEN_VIDEO_MISSING_PROMPT_MESSAGE;
+      if (typeof input.prompt !== "string" || !input.prompt.trim())
+        return exports.HEYGEN_VIDEO_MISSING_PROMPT_MESSAGE;
+      if (kind === "i2v" && !urlsOf(input.image_url)[0])
+        return exports.HEYGEN_VIDEO_MISSING_IMAGE_MESSAGE;
+      if (kind === "r2v" && urlsOf(input.reference_audio_urls).length > 0 && urlsOf(input.reference_image_urls).length === 0 && urlsOf(input.reference_video_urls).length === 0) {
+        return exports.HEYGEN_VIDEO_AUDIO_ONLY_MESSAGE;
+      }
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/mischief1.js
+var require_mischief1 = __commonJS({
+  "../packages/workflow-contracts/dist/mischief1.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.MISCHIEF_1_MISSING_PROMPT_MESSAGE = exports.MISCHIEF_1_MISSING_IMAGE_MESSAGE = exports.MISCHIEF_1_MILLI_USD_PER_SECOND = exports.MISCHIEF_1_SEED_MAX = exports.MISCHIEF_1_MAX_PROMPT_LENGTH = exports.MISCHIEF_1_IMAGE_TRANSFORMS = exports.MISCHIEF_1_PROMPT_PROCESSINGS = exports.MISCHIEF_1_DEFAULT_DURATION = exports.MISCHIEF_1_DURATIONS = exports.MISCHIEF_1_DEFAULT_RESOLUTION = exports.MISCHIEF_1_RESOLUTIONS = exports.MISCHIEF_1_ALL_ENDPOINTS = exports.MISCHIEF_1_ENDPOINT = exports.MISCHIEF_1_MODEL_ID = void 0;
+    exports.isMischief1Endpoint = isMischief1Endpoint;
+    exports.normalizeMischief1Resolution = normalizeMischief1Resolution;
+    exports.normalizeMischief1Duration = normalizeMischief1Duration;
+    exports.normalizeMischief1PromptProcessing = normalizeMischief1PromptProcessing;
+    exports.normalizeMischief1ImageTransform = normalizeMischief1ImageTransform;
+    exports.mischief1CreditCost = mischief1CreditCost;
+    exports.mischief1CreditCostFromInputs = mischief1CreditCostFromInputs;
+    exports.resolveMischief1StartImage = resolveMischief1StartImage;
+    exports.buildMischief1FalRequest = buildMischief1FalRequest;
+    exports.hardenMischief1ProxyInput = hardenMischief1ProxyInput;
+    exports.mischief1ProxyRefusal = mischief1ProxyRefusal;
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.MISCHIEF_1_MODEL_ID = "mischief-1-video";
+    exports.MISCHIEF_1_ENDPOINT = "tbc/mischief-1/image-to-video";
+    exports.MISCHIEF_1_ALL_ENDPOINTS = [exports.MISCHIEF_1_ENDPOINT];
+    exports.MISCHIEF_1_RESOLUTIONS = ["720p", "480p"];
+    exports.MISCHIEF_1_DEFAULT_RESOLUTION = "720p";
+    exports.MISCHIEF_1_DURATIONS = [3, 5];
+    exports.MISCHIEF_1_DEFAULT_DURATION = 5;
+    exports.MISCHIEF_1_PROMPT_PROCESSINGS = ["enhanced", "original"];
+    exports.MISCHIEF_1_IMAGE_TRANSFORMS = ["center_crop", "resize"];
+    exports.MISCHIEF_1_MAX_PROMPT_LENGTH = 2e3;
+    exports.MISCHIEF_1_SEED_MAX = 2147483647;
+    exports.MISCHIEF_1_MILLI_USD_PER_SECOND = {
+      "480p": 5,
+      "720p": 10
+    };
+    exports.MISCHIEF_1_MISSING_IMAGE_MESSAGE = "Mischief 1 n\xE9cessite une image en entr\xE9e (image de d\xE9part) : image \u2192 vid\xE9o seulement.";
+    exports.MISCHIEF_1_MISSING_PROMPT_MESSAGE = "Mischief 1 : le prompt est requis.";
+    var RESOLUTION_SET = new Set(exports.MISCHIEF_1_RESOLUTIONS);
+    var PROCESSING_SET = new Set(exports.MISCHIEF_1_PROMPT_PROCESSINGS);
+    var TRANSFORM_SET = new Set(exports.MISCHIEF_1_IMAGE_TRANSFORMS);
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach(push);
+        }
+      };
+      push(value);
+      return Array.from(new Set(out));
+    };
+    var START_KEYS = ["start_image", "start_image_url", "image_url"];
+    function isMischief1Endpoint(falModelId) {
+      return falModelId === exports.MISCHIEF_1_ENDPOINT;
+    }
+    function normalizeMischief1Resolution(raw) {
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(typeof raw === "string" ? raw : void 0, exports.MISCHIEF_1_RESOLUTIONS);
+      return out !== void 0 && RESOLUTION_SET.has(out) ? out : exports.MISCHIEF_1_DEFAULT_RESOLUTION;
+    }
+    function normalizeMischief1Duration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.MISCHIEF_1_DEFAULT_DURATION;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.MISCHIEF_1_DEFAULT_DURATION;
+      return parsed <= 3 ? 3 : 5;
+    }
+    function normalizeMischief1PromptProcessing(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return PROCESSING_SET.has(value) ? value : "enhanced";
+    }
+    function normalizeMischief1ImageTransform(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return TRANSFORM_SET.has(value) ? value : "center_crop";
+    }
+    function mischief1CreditCost(params) {
+      const resolution = normalizeMischief1Resolution(params.resolution);
+      const seconds = normalizeMischief1Duration(params.duration);
+      return Math.ceil(exports.MISCHIEF_1_MILLI_USD_PER_SECOND[resolution] * seconds / 10);
+    }
+    function mischief1CreditCostFromInputs(inputs) {
+      return mischief1CreditCost({ resolution: inputs.resolution, duration: inputs.duration });
+    }
+    function resolveMischief1StartImage(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      for (const key of START_KEYS) {
+        const url = urlsOf(dynamicInputs[key])[0];
+        if (url)
+          return url;
+      }
+      return urlsOf(params.imageUrls)[0];
+    }
+    var optionalSeed = (raw) => {
+      if (raw === void 0 || raw === null || raw === "" || typeof raw === "boolean")
+        return void 0;
+      const seed = Number(raw);
+      if (!Number.isFinite(seed))
+        return void 0;
+      const trunc = Math.trunc(seed);
+      return trunc >= 0 && trunc <= exports.MISCHIEF_1_SEED_MAX ? trunc : void 0;
+    };
+    var clampPrompt = (prompt) => {
+      const text = typeof prompt === "string" ? prompt : "";
+      return text.length > exports.MISCHIEF_1_MAX_PROMPT_LENGTH ? text.slice(0, exports.MISCHIEF_1_MAX_PROMPT_LENGTH) : text;
+    };
+    function buildMischief1FalRequest(params) {
+      const { prompt, imageUrls, resolution, dynamicInputs = {} } = params;
+      const start = resolveMischief1StartImage({ imageUrls, dynamicInputs });
+      if (!start)
+        throw refusal(exports.MISCHIEF_1_MISSING_IMAGE_MESSAGE);
+      const text = clampPrompt(prompt);
+      if (!text.trim())
+        throw refusal(exports.MISCHIEF_1_MISSING_PROMPT_MESSAGE);
+      const input = {
+        prompt: text,
+        image_url: start,
+        resolution: normalizeMischief1Resolution(resolution ?? dynamicInputs.resolution),
+        duration: normalizeMischief1Duration(dynamicInputs.duration),
+        prompt_processing: normalizeMischief1PromptProcessing(dynamicInputs.prompt_processing),
+        image_transform: normalizeMischief1ImageTransform(dynamicInputs.image_transform)
+      };
+      const seed = optionalSeed(dynamicInputs.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      return { falModelId: exports.MISCHIEF_1_ENDPOINT, input };
+    }
+    var MISCHIEF_1_FIELDS = /* @__PURE__ */ new Set([
+      "prompt",
+      "image_url",
+      "resolution",
+      "duration",
+      "seed",
+      "image_transform",
+      "prompt_processing"
+    ]);
+    function hardenMischief1ProxyInput(falModelId, input) {
+      if (!isMischief1Endpoint(falModelId) || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      for (const key of Object.keys(input))
+        if (!MISCHIEF_1_FIELDS.has(key))
+          delete input[key];
+      input.resolution = normalizeMischief1Resolution(input.resolution);
+      input.duration = normalizeMischief1Duration(input.duration);
+      input.prompt_processing = normalizeMischief1PromptProcessing(input.prompt_processing);
+      input.image_transform = normalizeMischief1ImageTransform(input.image_transform);
+      if (typeof input.prompt === "string")
+        input.prompt = clampPrompt(input.prompt);
+      const start = urlsOf(input.image_url)[0];
+      if (start)
+        input.image_url = start;
+      else
+        delete input.image_url;
+      const seed = optionalSeed(input.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      else
+        delete input.seed;
+      return input;
+    }
+    function mischief1ProxyRefusal(falModelId, input) {
+      if (!isMischief1Endpoint(falModelId))
+        return null;
+      if (!input || typeof input !== "object" || Array.isArray(input))
+        return exports.MISCHIEF_1_MISSING_IMAGE_MESSAGE;
+      if (!urlsOf(input.image_url)[0])
+        return exports.MISCHIEF_1_MISSING_IMAGE_MESSAGE;
+      if (typeof input.prompt !== "string" || !input.prompt.trim())
+        return exports.MISCHIEF_1_MISSING_PROMPT_MESSAGE;
+      return null;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/creatifyBoreal.js
+var require_creatifyBoreal = __commonJS({
+  "../packages/workflow-contracts/dist/creatifyBoreal.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.CREATIFY_BOREAL_MISSING_PROMPT_MESSAGE = exports.CREATIFY_BOREAL_CREDITS_PER_SECOND = exports.CREATIFY_BOREAL_MAX_PROMPT_LENGTH = exports.CREATIFY_BOREAL_DURATIONS = exports.CREATIFY_BOREAL_DEFAULT_DURATION = exports.CREATIFY_BOREAL_MAX_DURATION = exports.CREATIFY_BOREAL_MIN_DURATION = exports.CREATIFY_BOREAL_DEFAULT_ASPECT = exports.CREATIFY_BOREAL_ASPECTS = exports.CREATIFY_BOREAL_DEFAULT_RESOLUTION = exports.CREATIFY_BOREAL_RESOLUTIONS = exports.CREATIFY_BOREAL_ALL_ENDPOINTS = exports.CREATIFY_BOREAL_ENDPOINT = exports.CREATIFY_BOREAL_MODEL_ID = void 0;
+    exports.isCreatifyBorealEndpoint = isCreatifyBorealEndpoint;
+    exports.normalizeCreatifyBorealResolution = normalizeCreatifyBorealResolution;
+    exports.normalizeCreatifyBorealDuration = normalizeCreatifyBorealDuration;
+    exports.normalizeCreatifyBorealAspectRatio = normalizeCreatifyBorealAspectRatio;
+    exports.creatifyBorealCreditCost = creatifyBorealCreditCost;
+    exports.creatifyBorealCreditCostFromInputs = creatifyBorealCreditCostFromInputs;
+    exports.resolveCreatifyBorealImage = resolveCreatifyBorealImage;
+    exports.resolveCreatifyBorealAudio = resolveCreatifyBorealAudio;
+    exports.buildCreatifyBorealFalRequest = buildCreatifyBorealFalRequest;
+    exports.hardenCreatifyBorealProxyInput = hardenCreatifyBorealProxyInput;
+    exports.creatifyBorealProxyRefusal = creatifyBorealProxyRefusal;
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.CREATIFY_BOREAL_MODEL_ID = "creatify-boreal-video";
+    exports.CREATIFY_BOREAL_ENDPOINT = "creatify/boreal";
+    exports.CREATIFY_BOREAL_ALL_ENDPOINTS = [exports.CREATIFY_BOREAL_ENDPOINT];
+    exports.CREATIFY_BOREAL_RESOLUTIONS = ["720p", "1080p", "2k"];
+    exports.CREATIFY_BOREAL_DEFAULT_RESOLUTION = "720p";
+    exports.CREATIFY_BOREAL_ASPECTS = ["auto", "16:9", "9:16", "1:1", "4:3", "3:4"];
+    exports.CREATIFY_BOREAL_DEFAULT_ASPECT = "auto";
+    exports.CREATIFY_BOREAL_MIN_DURATION = 1;
+    exports.CREATIFY_BOREAL_MAX_DURATION = 20;
+    exports.CREATIFY_BOREAL_DEFAULT_DURATION = 10;
+    exports.CREATIFY_BOREAL_DURATIONS = Array.from({ length: 20 }, (_, i) => i + 1);
+    exports.CREATIFY_BOREAL_MAX_PROMPT_LENGTH = 5e3;
+    exports.CREATIFY_BOREAL_CREDITS_PER_SECOND = {
+      "720p": 1,
+      "1080p": 3,
+      "2k": 12
+    };
+    exports.CREATIFY_BOREAL_MISSING_PROMPT_MESSAGE = "Boreal : le prompt est requis.";
+    var RESOLUTION_SET = new Set(exports.CREATIFY_BOREAL_RESOLUTIONS);
+    var ASPECT_SET = new Set(exports.CREATIFY_BOREAL_ASPECTS);
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach(push);
+        }
+      };
+      push(value);
+      return Array.from(new Set(out));
+    };
+    var firstUrlOf = (inputs, keys) => {
+      for (const key of keys) {
+        const url = urlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      return void 0;
+    };
+    var IMAGE_KEYS = ["image_url", "start_image", "start_image_url", "reference_image", "reference_image_url", "reference_image_urls"];
+    var AUDIO_KEYS = ["audio_url", "audio", "audio_urls", "reference_audio", "reference_audio_url", "reference_audio_urls"];
+    function isCreatifyBorealEndpoint(falModelId) {
+      return falModelId === exports.CREATIFY_BOREAL_ENDPOINT;
+    }
+    function normalizeCreatifyBorealResolution(raw) {
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(typeof raw === "string" ? raw : void 0, exports.CREATIFY_BOREAL_RESOLUTIONS);
+      return out !== void 0 && RESOLUTION_SET.has(out) ? out : exports.CREATIFY_BOREAL_DEFAULT_RESOLUTION;
+    }
+    function normalizeCreatifyBorealDuration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.CREATIFY_BOREAL_DEFAULT_DURATION;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.CREATIFY_BOREAL_DEFAULT_DURATION;
+      return Math.min(exports.CREATIFY_BOREAL_MAX_DURATION, Math.max(exports.CREATIFY_BOREAL_MIN_DURATION, Math.ceil(parsed)));
+    }
+    function normalizeCreatifyBorealAspectRatio(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      if (value === "adaptive")
+        return "auto";
+      return ASPECT_SET.has(value) ? value : exports.CREATIFY_BOREAL_DEFAULT_ASPECT;
+    }
+    function creatifyBorealCreditCost(params) {
+      const resolution = normalizeCreatifyBorealResolution(params.resolution);
+      return exports.CREATIFY_BOREAL_CREDITS_PER_SECOND[resolution] * normalizeCreatifyBorealDuration(params.duration);
+    }
+    function creatifyBorealCreditCostFromInputs(inputs) {
+      return creatifyBorealCreditCost({ resolution: inputs.resolution, duration: inputs.duration });
+    }
+    function resolveCreatifyBorealImage(params) {
+      return firstUrlOf(params.dynamicInputs ?? {}, IMAGE_KEYS) ?? urlsOf(params.imageUrls)[0];
+    }
+    function resolveCreatifyBorealAudio(dynamicInputs = {}) {
+      return firstUrlOf(dynamicInputs, AUDIO_KEYS);
+    }
+    var clampText = (value, max) => {
+      const text = typeof value === "string" ? value : "";
+      return text.length > max ? text.slice(0, max) : text;
+    };
+    function buildCreatifyBorealFalRequest(params) {
+      const { prompt, imageUrls, resolution, aspectRatio, dynamicInputs = {} } = params;
+      const text = clampText(prompt, exports.CREATIFY_BOREAL_MAX_PROMPT_LENGTH);
+      if (!text.trim())
+        throw refusal(exports.CREATIFY_BOREAL_MISSING_PROMPT_MESSAGE);
+      const input = {
+        prompt: text,
+        resolution: normalizeCreatifyBorealResolution(resolution ?? dynamicInputs.resolution),
+        aspect_ratio: normalizeCreatifyBorealAspectRatio(aspectRatio ?? dynamicInputs.aspect_ratio),
+        duration: normalizeCreatifyBorealDuration(dynamicInputs.duration)
+      };
+      const image = resolveCreatifyBorealImage({ imageUrls, dynamicInputs });
+      if (image)
+        input.image_url = image;
+      const audio = resolveCreatifyBorealAudio(dynamicInputs);
+      if (audio)
+        input.audio_url = audio;
+      if (typeof dynamicInputs.negative_prompt === "string" && dynamicInputs.negative_prompt.trim()) {
+        input.negative_prompt = dynamicInputs.negative_prompt;
+      }
+      return { falModelId: exports.CREATIFY_BOREAL_ENDPOINT, input };
+    }
+    function hardenCreatifyBorealProxyInput(falModelId, input) {
+      if (!isCreatifyBorealEndpoint(falModelId) || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      input.duration = normalizeCreatifyBorealDuration(input.duration);
+      input.resolution = normalizeCreatifyBorealResolution(input.resolution);
+      input.aspect_ratio = normalizeCreatifyBorealAspectRatio(input.aspect_ratio);
+      if (typeof input.prompt === "string")
+        input.prompt = clampText(input.prompt, exports.CREATIFY_BOREAL_MAX_PROMPT_LENGTH);
+      for (const key of ["image_url", "audio_url"]) {
+        const url = urlsOf(input[key])[0];
+        if (url)
+          input[key] = url;
+        else
+          delete input[key];
+      }
+      if (input.negative_prompt !== void 0 && typeof input.negative_prompt !== "string")
+        delete input.negative_prompt;
+      delete input.manifest_disclosure;
+      delete input.enable_safety_checker;
+      delete input.sync_mode;
+      return input;
+    }
+    function creatifyBorealProxyRefusal(falModelId, input) {
+      if (!isCreatifyBorealEndpoint(falModelId))
+        return null;
+      if (!input || typeof input !== "object" || Array.isArray(input))
+        return exports.CREATIFY_BOREAL_MISSING_PROMPT_MESSAGE;
+      return typeof input.prompt === "string" && input.prompt.trim() ? null : exports.CREATIFY_BOREAL_MISSING_PROMPT_MESSAGE;
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/pixelcutLoopingVideo.js
+var require_pixelcutLoopingVideo = __commonJS({
+  "../packages/workflow-contracts/dist/pixelcutLoopingVideo.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.PIXELCUT_LOOPING_VIDEO_MISSING_IMAGE_MESSAGE = exports.PIXELCUT_LOOPING_VIDEO_CREDITS_PER_SECOND = exports.PIXELCUT_LOOPING_VIDEO_MAX_PROMPT_LENGTH = exports.PIXELCUT_LOOPING_VIDEO_MOTIONS = exports.PIXELCUT_LOOPING_VIDEO_DURATIONS = exports.PIXELCUT_LOOPING_VIDEO_DEFAULT_DURATION = exports.PIXELCUT_LOOPING_VIDEO_MAX_DURATION = exports.PIXELCUT_LOOPING_VIDEO_MIN_DURATION = exports.PIXELCUT_LOOPING_VIDEO_DEFAULT_RESOLUTION = exports.PIXELCUT_LOOPING_VIDEO_RESOLUTIONS = exports.PIXELCUT_LOOPING_VIDEO_ALL_ENDPOINTS = exports.PIXELCUT_LOOPING_VIDEO_ENDPOINT = exports.PIXELCUT_LOOPING_VIDEO_MODEL_ID = void 0;
+    exports.isPixelcutLoopingVideoEndpoint = isPixelcutLoopingVideoEndpoint;
+    exports.normalizePixelcutLoopingVideoResolution = normalizePixelcutLoopingVideoResolution;
+    exports.normalizePixelcutLoopingVideoDuration = normalizePixelcutLoopingVideoDuration;
+    exports.normalizePixelcutLoopingVideoMotion = normalizePixelcutLoopingVideoMotion;
+    exports.pixelcutLoopingVideoIncludesAudio = pixelcutLoopingVideoIncludesAudio;
+    exports.pixelcutLoopingVideoCreditCost = pixelcutLoopingVideoCreditCost;
+    exports.pixelcutLoopingVideoCreditCostFromInputs = pixelcutLoopingVideoCreditCostFromInputs;
+    exports.resolvePixelcutLoopingVideoImage = resolvePixelcutLoopingVideoImage;
+    exports.buildPixelcutLoopingVideoFalRequest = buildPixelcutLoopingVideoFalRequest;
+    exports.hardenPixelcutLoopingVideoProxyInput = hardenPixelcutLoopingVideoProxyInput;
+    exports.pixelcutLoopingVideoProxyRefusal = pixelcutLoopingVideoProxyRefusal;
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.PIXELCUT_LOOPING_VIDEO_MODEL_ID = "pixelcut-looping-video";
+    exports.PIXELCUT_LOOPING_VIDEO_ENDPOINT = "pixelcut/looping-video";
+    exports.PIXELCUT_LOOPING_VIDEO_ALL_ENDPOINTS = [exports.PIXELCUT_LOOPING_VIDEO_ENDPOINT];
+    exports.PIXELCUT_LOOPING_VIDEO_RESOLUTIONS = ["1080p", "768p", "480p"];
+    exports.PIXELCUT_LOOPING_VIDEO_DEFAULT_RESOLUTION = "1080p";
+    exports.PIXELCUT_LOOPING_VIDEO_MIN_DURATION = 5;
+    exports.PIXELCUT_LOOPING_VIDEO_MAX_DURATION = 15;
+    exports.PIXELCUT_LOOPING_VIDEO_DEFAULT_DURATION = 5;
+    exports.PIXELCUT_LOOPING_VIDEO_DURATIONS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    exports.PIXELCUT_LOOPING_VIDEO_MOTIONS = ["subtle", "spin"];
+    exports.PIXELCUT_LOOPING_VIDEO_MAX_PROMPT_LENGTH = 4e3;
+    exports.PIXELCUT_LOOPING_VIDEO_CREDITS_PER_SECOND = {
+      "480p": 8,
+      "768p": 16,
+      "1080p": 32
+    };
+    exports.PIXELCUT_LOOPING_VIDEO_MISSING_IMAGE_MESSAGE = "Pixelcut Looping Video n\xE9cessite une image en entr\xE9e (la photo du produit).";
+    var RESOLUTION_SET = new Set(exports.PIXELCUT_LOOPING_VIDEO_RESOLUTIONS);
+    var MOTION_SET = new Set(exports.PIXELCUT_LOOPING_VIDEO_MOTIONS);
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach(push);
+        }
+      };
+      push(value);
+      return Array.from(new Set(out));
+    };
+    var START_KEYS = ["start_image", "start_image_url", "image_url"];
+    function isPixelcutLoopingVideoEndpoint(falModelId) {
+      return falModelId === exports.PIXELCUT_LOOPING_VIDEO_ENDPOINT;
+    }
+    function normalizePixelcutLoopingVideoResolution(raw) {
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(typeof raw === "string" ? raw : void 0, exports.PIXELCUT_LOOPING_VIDEO_RESOLUTIONS);
+      return out !== void 0 && RESOLUTION_SET.has(out) ? out : exports.PIXELCUT_LOOPING_VIDEO_DEFAULT_RESOLUTION;
+    }
+    function normalizePixelcutLoopingVideoDuration(raw) {
+      if (raw === void 0 || raw === null || raw === "" || raw === "auto")
+        return exports.PIXELCUT_LOOPING_VIDEO_DEFAULT_DURATION;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.PIXELCUT_LOOPING_VIDEO_DEFAULT_DURATION;
+      return Math.min(exports.PIXELCUT_LOOPING_VIDEO_MAX_DURATION, Math.max(exports.PIXELCUT_LOOPING_VIDEO_MIN_DURATION, Math.ceil(parsed)));
+    }
+    function normalizePixelcutLoopingVideoMotion(raw) {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return MOTION_SET.has(value) ? value : "subtle";
+    }
+    var isTruthyFlag = (raw) => raw === true || raw === "true" || raw === 1 || raw === "1";
+    function pixelcutLoopingVideoIncludesAudio(inputs) {
+      const source = inputs ?? {};
+      const explicit = source.include_audio;
+      if (explicit !== void 0 && explicit !== null && explicit !== "")
+        return isTruthyFlag(explicit);
+      return isTruthyFlag(source.generate_audio);
+    }
+    function pixelcutLoopingVideoCreditCost(params) {
+      const resolution = normalizePixelcutLoopingVideoResolution(params.resolution);
+      return exports.PIXELCUT_LOOPING_VIDEO_CREDITS_PER_SECOND[resolution] * normalizePixelcutLoopingVideoDuration(params.duration);
+    }
+    function pixelcutLoopingVideoCreditCostFromInputs(inputs) {
+      return pixelcutLoopingVideoCreditCost({ resolution: inputs.resolution, duration: inputs.duration });
+    }
+    function resolvePixelcutLoopingVideoImage(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      for (const key of START_KEYS) {
+        const url = urlsOf(dynamicInputs[key])[0];
+        if (url)
+          return url;
+      }
+      return urlsOf(params.imageUrls)[0];
+    }
+    var clampPrompt = (prompt) => {
+      const text = typeof prompt === "string" ? prompt : "";
+      return text.length > exports.PIXELCUT_LOOPING_VIDEO_MAX_PROMPT_LENGTH ? text.slice(0, exports.PIXELCUT_LOOPING_VIDEO_MAX_PROMPT_LENGTH) : text;
+    };
+    function buildPixelcutLoopingVideoFalRequest(params) {
+      const { prompt, imageUrls, resolution, dynamicInputs = {} } = params;
+      const image = resolvePixelcutLoopingVideoImage({ imageUrls, dynamicInputs });
+      if (!image)
+        throw refusal(exports.PIXELCUT_LOOPING_VIDEO_MISSING_IMAGE_MESSAGE);
+      const input = {
+        image_url: image,
+        duration: normalizePixelcutLoopingVideoDuration(dynamicInputs.duration),
+        resolution: normalizePixelcutLoopingVideoResolution(resolution ?? dynamicInputs.resolution),
+        motion: normalizePixelcutLoopingVideoMotion(dynamicInputs.motion),
+        include_audio: pixelcutLoopingVideoIncludesAudio(dynamicInputs)
+      };
+      const text = clampPrompt(prompt);
+      if (text.trim())
+        input.prompt = text;
+      return { falModelId: exports.PIXELCUT_LOOPING_VIDEO_ENDPOINT, input };
+    }
+    var PIXELCUT_LOOPING_VIDEO_FIELDS = /* @__PURE__ */ new Set(["image_url", "prompt", "duration", "resolution", "motion", "include_audio"]);
+    function hardenPixelcutLoopingVideoProxyInput(falModelId, input) {
+      if (!isPixelcutLoopingVideoEndpoint(falModelId) || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      const includeAudio = pixelcutLoopingVideoIncludesAudio(input);
+      for (const key of Object.keys(input))
+        if (!PIXELCUT_LOOPING_VIDEO_FIELDS.has(key))
+          delete input[key];
+      input.duration = normalizePixelcutLoopingVideoDuration(input.duration);
+      input.resolution = normalizePixelcutLoopingVideoResolution(input.resolution);
+      input.motion = normalizePixelcutLoopingVideoMotion(input.motion);
+      input.include_audio = includeAudio;
+      if (input.prompt !== void 0) {
+        const text = clampPrompt(input.prompt);
+        if (text.trim())
+          input.prompt = text;
+        else
+          delete input.prompt;
+      }
+      const image = urlsOf(input.image_url)[0];
+      if (image)
+        input.image_url = image;
+      else
+        delete input.image_url;
+      return input;
+    }
+    function pixelcutLoopingVideoProxyRefusal(falModelId, input) {
+      if (!isPixelcutLoopingVideoEndpoint(falModelId))
+        return null;
+      if (!input || typeof input !== "object" || Array.isArray(input))
+        return exports.PIXELCUT_LOOPING_VIDEO_MISSING_IMAGE_MESSAGE;
+      return urlsOf(input.image_url)[0] ? null : exports.PIXELCUT_LOOPING_VIDEO_MISSING_IMAGE_MESSAGE;
+    }
+  }
+});
+
 // ../packages/workflow-contracts/dist/klingV4.js
 var require_klingV4 = __commonJS({
   "../packages/workflow-contracts/dist/klingV4.js"(exports) {
@@ -5417,6 +9139,529 @@ var require_klingV4 = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/klingV4FlashSwitch.js
+var require_klingV4FlashSwitch = __commonJS({
+  "../packages/workflow-contracts/dist/klingV4FlashSwitch.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.KLING_V4_FLASH_OPEN = void 0;
+    exports.KLING_V4_FLASH_OPEN = true;
+  }
+});
+
+// ../packages/workflow-contracts/dist/klingV4Flash.js
+var require_klingV4Flash = __commonJS({
+  "../packages/workflow-contracts/dist/klingV4Flash.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.KLING_V4_FLASH_AIPROXY_MESSAGE = exports.KLING_V4_FLASH_EDIT_BASE_COST = exports.KLING_V4_FLASH_BASE_COST = exports.clampKlingV4FlashPrompt = exports.normalizeKlingV4FlashR2vAspectRatio = exports.normalizeKlingV4FlashT2vAspectRatio = exports.KLING_V4_FLASH_MILLI_USD_PER_SECOND = exports.KLING_V4_FLASH_MIN_INPUT_VIDEO_SECONDS = exports.KLING_V4_FLASH_SECONDS_TOLERANCE_PER_CLIP = exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS = exports.KLING_V4_FLASH_MAX_ELEMENT_VIEWS = exports.KLING_V4_FLASH_MAX_VIDEO_ELEMENTS = exports.KLING_V4_FLASH_MAX_ELEMENTS = exports.KLING_V4_FLASH_MAX_REFERENCE_VIDEOS = exports.KLING_V4_FLASH_MAX_REFERENCE_IMAGES = exports.KLING_V4_FLASH_MAX_PROMPT_LENGTH = exports.KLING_V4_FLASH_IMPOSED_ASPECT_NEEDS_PROMPT = exports.KLING_V4_FLASH_R2V_ASPECTS = exports.KLING_V4_FLASH_T2V_ASPECTS = exports.KLING_V4_FLASH_DURATIONS = exports.KLING_V4_FLASH_DEFAULT_DURATION = exports.KLING_V4_FLASH_MAX_DURATION = exports.KLING_V4_FLASH_MIN_DURATION = exports.KLING_V4_FLASH_DEFAULT_RESOLUTION = exports.KLING_V4_FLASH_RESOLUTIONS = exports.KLING_V4_FLASH_MIN_INVOCATION_BUDGET_MS = exports.KLING_V4_FLASH_CLI_MESSAGE = exports.KLING_V4_FLASH_CLOSED_MESSAGE = exports.KLING_V4_FLASH_OPEN_ENDPOINTS = exports.KLING_V4_FLASH_OPEN_FAL_MODEL_TO_ID = exports.KLING_V4_FLASH_OPEN_MODEL_IDS = exports.KLING_V4_FLASH_FAL_MODEL_TO_ID = exports.KLING_V4_FLASH_ALL_ENDPOINTS = exports.KLING_V4_FLASH_ENDPOINT_TO_KIND = exports.KLING_V4_FLASH_ENDPOINTS = exports.KLING_V4_FLASH_MODEL_IDS = exports.KLING_V4_FLASH_EDIT_MODEL_ID = exports.KLING_V4_FLASH_MODEL_ID = exports.KLING_V4_FLASH_OPEN = void 0;
+    exports.klingV4FlashClosedRejection = klingV4FlashClosedRejection;
+    exports.klingV4FlashCliRefusal = klingV4FlashCliRefusal;
+    exports.klingV4FlashDeadlineRefusal = klingV4FlashDeadlineRefusal;
+    exports.klingV4FlashEngineRefusal = klingV4FlashEngineRefusal;
+    exports.klingV4FlashImposesAspect = klingV4FlashImposesAspect;
+    exports.klingV4FlashHonorsImposedAspect = klingV4FlashHonorsImposedAspect;
+    exports.isKlingV4FlashEndpoint = isKlingV4FlashEndpoint;
+    exports.klingV4FlashKindFromEndpoint = klingV4FlashKindFromEndpoint;
+    exports.assertKlingV4FlashOpen = assertKlingV4FlashOpen;
+    exports.normalizeKlingV4FlashResolution = normalizeKlingV4FlashResolution;
+    exports.normalizeKlingV4FlashDuration = normalizeKlingV4FlashDuration;
+    exports.normalizeKlingV4FlashEditDuration = normalizeKlingV4FlashEditDuration;
+    exports.klingV4FlashReferenceVideos = klingV4FlashReferenceVideos;
+    exports.normalizeKlingV4FlashElements = normalizeKlingV4FlashElements;
+    exports.klingV4FlashHasElementVideo = klingV4FlashHasElementVideo;
+    exports.resolveKlingV4FlashMedia = resolveKlingV4FlashMedia;
+    exports.resolveKlingV4FlashEditMedia = resolveKlingV4FlashEditMedia;
+    exports.klingV4FlashCreditCost = klingV4FlashCreditCost;
+    exports.klingV4FlashCreditCostFromInputs = klingV4FlashCreditCostFromInputs;
+    exports.buildKlingV4FlashFalRequest = buildKlingV4FlashFalRequest;
+    exports.klingV4FlashAiProxyRefusal = klingV4FlashAiProxyRefusal;
+    exports.hardenKlingV4FlashProxyInput = hardenKlingV4FlashProxyInput;
+    exports.klingV4FlashProxyRefusal = klingV4FlashProxyRefusal;
+    exports.klingV4FlashMeasuredRefusal = klingV4FlashMeasuredRefusal;
+    var klingV4_1 = require_klingV4();
+    var klingV4FlashSwitch_1 = require_klingV4FlashSwitch();
+    Object.defineProperty(exports, "KLING_V4_FLASH_OPEN", { enumerable: true, get: function() {
+      return klingV4FlashSwitch_1.KLING_V4_FLASH_OPEN;
+    } });
+    exports.KLING_V4_FLASH_MODEL_ID = "kling-v4-flash-video";
+    exports.KLING_V4_FLASH_EDIT_MODEL_ID = "kling-v4-flash-video-edit";
+    exports.KLING_V4_FLASH_MODEL_IDS = [exports.KLING_V4_FLASH_MODEL_ID, exports.KLING_V4_FLASH_EDIT_MODEL_ID];
+    exports.KLING_V4_FLASH_ENDPOINTS = {
+      t2v: "kling/v4/flash/text-to-video",
+      i2v: "kling/v4/flash/image-to-video",
+      r2v: "kling/v4/flash/reference-to-video",
+      edit: "kling/v4/flash/video-to-video"
+    };
+    exports.KLING_V4_FLASH_ENDPOINT_TO_KIND = Object.fromEntries(Object.keys(exports.KLING_V4_FLASH_ENDPOINTS).map((kind) => [exports.KLING_V4_FLASH_ENDPOINTS[kind], kind]));
+    exports.KLING_V4_FLASH_ALL_ENDPOINTS = Object.keys(exports.KLING_V4_FLASH_ENDPOINT_TO_KIND);
+    exports.KLING_V4_FLASH_FAL_MODEL_TO_ID = {
+      [exports.KLING_V4_FLASH_ENDPOINTS.t2v]: exports.KLING_V4_FLASH_MODEL_ID,
+      [exports.KLING_V4_FLASH_ENDPOINTS.i2v]: exports.KLING_V4_FLASH_MODEL_ID,
+      [exports.KLING_V4_FLASH_ENDPOINTS.r2v]: exports.KLING_V4_FLASH_MODEL_ID,
+      [exports.KLING_V4_FLASH_ENDPOINTS.edit]: exports.KLING_V4_FLASH_EDIT_MODEL_ID
+    };
+    exports.KLING_V4_FLASH_OPEN_MODEL_IDS = klingV4FlashSwitch_1.KLING_V4_FLASH_OPEN ? exports.KLING_V4_FLASH_MODEL_IDS : [];
+    exports.KLING_V4_FLASH_OPEN_FAL_MODEL_TO_ID = Object.fromEntries(Object.entries(exports.KLING_V4_FLASH_FAL_MODEL_TO_ID).filter(([, id]) => exports.KLING_V4_FLASH_OPEN_MODEL_IDS.includes(id)));
+    exports.KLING_V4_FLASH_OPEN_ENDPOINTS = Object.keys(exports.KLING_V4_FLASH_OPEN_FAL_MODEL_TO_ID);
+    exports.KLING_V4_FLASH_CLOSED_MESSAGE = "Kling 4.0 Flash n'est pas encore disponible : son temps de rendu n'est pas encore v\xE9rifi\xE9. Choisis Kling 4.0 ou un autre mod\xE8le vid\xE9o.";
+    function klingV4FlashClosedRejection(modelId, openIds = exports.KLING_V4_FLASH_OPEN_MODEL_IDS) {
+      if (typeof modelId !== "string")
+        return null;
+      const id = modelId.trim();
+      return exports.KLING_V4_FLASH_MODEL_IDS.includes(id) && !openIds.includes(id) ? exports.KLING_V4_FLASH_CLOSED_MESSAGE : null;
+    }
+    exports.KLING_V4_FLASH_CLI_MESSAGE = "Kling 4.0 Flash ne se lance pas depuis le CLI : son rendu peut d\xE9passer le d\xE9lai de l'appel (9 min). Lance ce workflow depuis le canvas Beemm Vision, ou choisis un autre mod\xE8le vid\xE9o.";
+    function klingV4FlashCliRefusal(modelId) {
+      return typeof modelId === "string" && exports.KLING_V4_FLASH_MODEL_IDS.includes(modelId.trim()) ? exports.KLING_V4_FLASH_CLI_MESSAGE : null;
+    }
+    exports.KLING_V4_FLASH_MIN_INVOCATION_BUDGET_MS = 20 * 6e4;
+    function klingV4FlashDeadlineRefusal(modelId, invocationDeadlineAtMs, nowMs) {
+      if (typeof modelId !== "string" || !exports.KLING_V4_FLASH_MODEL_IDS.includes(modelId.trim()))
+        return null;
+      const known = typeof invocationDeadlineAtMs === "number" && Number.isFinite(invocationDeadlineAtMs);
+      const remainingMs = known ? invocationDeadlineAtMs - nowMs : -1;
+      if (remainingMs >= exports.KLING_V4_FLASH_MIN_INVOCATION_BUDGET_MS)
+        return null;
+      const left = known ? `il n'en reste que ${Math.max(0, Math.floor(remainingMs / 6e4))} min` : "son d\xE9lai n'est pas connu";
+      return `Kling 4.0 Flash a besoin d'au moins ${exports.KLING_V4_FLASH_MIN_INVOCATION_BUDGET_MS / 6e4} min d'attente et cette ex\xE9cution ne les a pas (${left}). Lance ce workflow depuis le canvas Beemm Vision, ou choisis un autre mod\xE8le vid\xE9o.`;
+    }
+    function klingV4FlashEngineRefusal(params) {
+      const { modelIds, surface, invocationDeadlineAtMs, nowMs, openIds = exports.KLING_V4_FLASH_OPEN_MODEL_IDS } = params;
+      for (const check of [
+        (id) => surface === "cli" ? klingV4FlashCliRefusal(id) : null,
+        (id) => klingV4FlashClosedRejection(id, openIds),
+        (id) => klingV4FlashDeadlineRefusal(id, invocationDeadlineAtMs, nowMs)
+      ]) {
+        for (const id of modelIds) {
+          const refusal2 = check(id);
+          if (refusal2)
+            return refusal2;
+        }
+      }
+      return null;
+    }
+    exports.KLING_V4_FLASH_RESOLUTIONS = ["720p"];
+    exports.KLING_V4_FLASH_DEFAULT_RESOLUTION = "720p";
+    exports.KLING_V4_FLASH_MIN_DURATION = 3;
+    exports.KLING_V4_FLASH_MAX_DURATION = 20;
+    exports.KLING_V4_FLASH_DEFAULT_DURATION = 5;
+    exports.KLING_V4_FLASH_DURATIONS = Array.from({ length: exports.KLING_V4_FLASH_MAX_DURATION - exports.KLING_V4_FLASH_MIN_DURATION + 1 }, (_, i) => i + exports.KLING_V4_FLASH_MIN_DURATION);
+    exports.KLING_V4_FLASH_T2V_ASPECTS = ["16:9", "9:16", "1:1", "21:9"];
+    exports.KLING_V4_FLASH_R2V_ASPECTS = ["auto", "16:9", "9:16", "1:1", "21:9"];
+    function klingV4FlashImposesAspect(raw) {
+      return typeof raw === "string" && exports.KLING_V4_FLASH_T2V_ASPECTS.includes(raw.trim());
+    }
+    function klingV4FlashHonorsImposedAspect(aspectRatio, prompt) {
+      return klingV4FlashImposesAspect(aspectRatio) && typeof prompt === "string" && prompt.trim().length > 0;
+    }
+    exports.KLING_V4_FLASH_IMPOSED_ASPECT_NEEDS_PROMPT = "\xC9cris un prompt pour imposer ce format \xE0 l'image de d\xE9part, ou choisis auto pour garder son cadrage.";
+    exports.KLING_V4_FLASH_MAX_PROMPT_LENGTH = 26e3;
+    exports.KLING_V4_FLASH_MAX_REFERENCE_IMAGES = 10;
+    exports.KLING_V4_FLASH_MAX_REFERENCE_VIDEOS = 5;
+    exports.KLING_V4_FLASH_MAX_ELEMENTS = 7;
+    exports.KLING_V4_FLASH_MAX_VIDEO_ELEMENTS = 3;
+    exports.KLING_V4_FLASH_MAX_ELEMENT_VIEWS = 3;
+    exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS = 20.05;
+    exports.KLING_V4_FLASH_SECONDS_TOLERANCE_PER_CLIP = 0.25;
+    exports.KLING_V4_FLASH_MIN_INPUT_VIDEO_SECONDS = 3;
+    exports.KLING_V4_FLASH_MILLI_USD_PER_SECOND = {
+      standard: 94,
+      video: 63
+    };
+    function isKlingV4FlashEndpoint(falModelId) {
+      return typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(exports.KLING_V4_FLASH_ENDPOINT_TO_KIND, falModelId);
+    }
+    function klingV4FlashKindFromEndpoint(falModelId) {
+      return isKlingV4FlashEndpoint(falModelId) ? exports.KLING_V4_FLASH_ENDPOINT_TO_KIND[falModelId] : void 0;
+    }
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    function assertKlingV4FlashOpen(modelId, openIds = exports.KLING_V4_FLASH_OPEN_MODEL_IDS) {
+      const closed = klingV4FlashClosedRejection(modelId, openIds);
+      if (closed)
+        throw refusal(closed);
+    }
+    function normalizeKlingV4FlashResolution(_raw) {
+      return exports.KLING_V4_FLASH_DEFAULT_RESOLUTION;
+    }
+    var isBlank = (raw) => raw === void 0 || raw === null || raw === "";
+    function normalizeKlingV4FlashDuration(raw) {
+      if (isBlank(raw) || raw === "auto")
+        return exports.KLING_V4_FLASH_DEFAULT_DURATION;
+      const parsed = Number(String(raw).trim().replace(/s$/i, ""));
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        return exports.KLING_V4_FLASH_DEFAULT_DURATION;
+      return Math.min(exports.KLING_V4_FLASH_MAX_DURATION, Math.max(exports.KLING_V4_FLASH_MIN_DURATION, Math.ceil(parsed)));
+    }
+    function normalizeKlingV4FlashEditDuration(raw) {
+      if (isBlank(raw) || raw === "auto")
+        return void 0;
+      return normalizeKlingV4FlashDuration(raw);
+    }
+    var normalizeKlingV4FlashT2vAspectRatio = (raw) => (0, klingV4_1.normalizeKlingV4T2vAspectRatio)(raw);
+    exports.normalizeKlingV4FlashT2vAspectRatio = normalizeKlingV4FlashT2vAspectRatio;
+    var normalizeKlingV4FlashR2vAspectRatio = (raw) => (0, klingV4_1.normalizeKlingV4R2vAspectRatio)(raw);
+    exports.normalizeKlingV4FlashR2vAspectRatio = normalizeKlingV4FlashR2vAspectRatio;
+    var clampKlingV4FlashPrompt = (prompt) => (0, klingV4_1.clampKlingV4Prompt)(prompt);
+    exports.clampKlingV4FlashPrompt = clampKlingV4FlashPrompt;
+    var urlsOf = (value) => {
+      const out = [];
+      const push = (v) => {
+        if (typeof v === "string") {
+          if (v.trim())
+            out.push(v.trim());
+        } else if (Array.isArray(v)) {
+          v.forEach(push);
+        } else if (v && typeof v === "object") {
+          const record = v;
+          push(record.image_url);
+          push(record.url);
+        }
+      };
+      push(value);
+      return Array.from(new Set(out));
+    };
+    var firstUrlOf = (inputs, keys) => {
+      for (const key of keys) {
+        const url = urlsOf(inputs[key])[0];
+        if (url)
+          return url;
+      }
+      return void 0;
+    };
+    var REFERENCE_IMAGE_KEYS = ["reference_image_urls", "reference_images", "reference_image", "reference_image_url"];
+    var REFERENCE_VIDEO_KEYS = [
+      "video_urls",
+      "reference_video_urls",
+      "reference_videos",
+      "reference_video",
+      "reference_video_url"
+    ];
+    var START_KEYS = ["start_image", "start_image_url", "image_url"];
+    var END_KEYS = ["end_image", "end_image_url"];
+    var SOURCE_VIDEO_KEYS = ["video_url", "video_urls", "video", "videos"];
+    function klingV4FlashReferenceVideos(inputs = {}) {
+      return urlsOf(REFERENCE_VIDEO_KEYS.map((key) => inputs[key])).slice(0, exports.KLING_V4_FLASH_MAX_REFERENCE_VIDEOS);
+    }
+    function normalizeKlingV4FlashElements(raw) {
+      if (isBlank(raw))
+        return { elements: [] };
+      if (!Array.isArray(raw))
+        return { elements: [], problem: "Kling 4.0 Flash : `elements` doit \xEAtre une liste d'\xE9l\xE9ments." };
+      const elements = [];
+      let videos = 0;
+      for (let i = 0; i < raw.length; i += 1) {
+        if (elements.length >= exports.KLING_V4_FLASH_MAX_ELEMENTS)
+          break;
+        const entry = raw[i];
+        const record = entry && typeof entry === "object" && !Array.isArray(entry) ? entry : null;
+        const frontal = record ? urlsOf(record.frontal_image_url)[0] : void 0;
+        const views = record ? urlsOf(record.reference_image_urls).filter((u) => u !== frontal).slice(0, exports.KLING_V4_FLASH_MAX_ELEMENT_VIEWS) : [];
+        const video = record ? urlsOf(record.video_url)[0] : void 0;
+        if (!frontal && !video) {
+          return {
+            elements: [],
+            problem: `Kling 4.0 Flash : l'\xE9l\xE9ment ${i + 1} doit avoir une image de face (frontal_image_url) ou une vid\xE9o (video_url).`
+          };
+        }
+        if (video) {
+          if (videos >= exports.KLING_V4_FLASH_MAX_VIDEO_ELEMENTS)
+            break;
+          videos += 1;
+        }
+        const element = {};
+        if (frontal)
+          element.frontal_image_url = frontal;
+        if (views.length > 0)
+          element.reference_image_urls = views;
+        if (video)
+          element.video_url = video;
+        elements.push(element);
+      }
+      return { elements };
+    }
+    function klingV4FlashHasElementVideo(elements) {
+      return elements.some((element) => Boolean(element.video_url));
+    }
+    function resolveKlingV4FlashMedia(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const references = urlsOf(REFERENCE_IMAGE_KEYS.map((key) => dynamicInputs[key]));
+      const videos = klingV4FlashReferenceVideos(dynamicInputs);
+      const { elements, problem } = normalizeKlingV4FlashElements(dynamicInputs.elements);
+      const namedStart = firstUrlOf(dynamicInputs, START_KEYS);
+      const namedEnds = urlsOf(END_KEYS.map((key) => dynamicInputs[key]));
+      const named = namedStart !== void 0 || namedEnds.length > 0;
+      const positional = urlsOf(params.imageUrls).filter((url) => !references.includes(url));
+      const frames = named ? [...namedStart ? [namedStart] : [], ...namedEnds] : positional;
+      const start = frames[0];
+      const extra = frames.slice(1).filter((url) => url !== start);
+      if (references.length > 0 || extra.length > 0 || videos.length > 0 || elements.length > 0 || problem) {
+        const room = exports.KLING_V4_FLASH_MAX_REFERENCE_IMAGES - (start ? 1 : 0);
+        const images = Array.from(/* @__PURE__ */ new Set([...references, ...extra])).filter((url) => url !== start).slice(0, room);
+        return { kind: "r2v", start, images, videos, elements, ...problem ? { problem } : {} };
+      }
+      if (start) {
+        const kind = klingV4FlashHonorsImposedAspect(params.aspectRatio, params.prompt) ? "r2v" : "i2v";
+        return { kind, start, images: [], videos: [], elements: [] };
+      }
+      return { kind: "t2v", images: [], videos: [], elements: [] };
+    }
+    function resolveKlingV4FlashEditMedia(params) {
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const source = urlsOf(SOURCE_VIDEO_KEYS.map((key) => dynamicInputs[key]))[0];
+      const images = urlsOf([
+        ...REFERENCE_IMAGE_KEYS.map((key) => dynamicInputs[key]),
+        dynamicInputs.image_urls,
+        params.imageUrls
+      ]).slice(0, exports.KLING_V4_FLASH_MAX_REFERENCE_IMAGES);
+      const { elements, problem } = normalizeKlingV4FlashElements(dynamicInputs.elements);
+      return { source, images, elements, ...problem ? { problem } : {} };
+    }
+    var creditsFor = (milliUsdPerSecond, seconds) => Math.ceil(Math.round(milliUsdPerSecond * seconds / 10 * 1e6) / 1e6);
+    var measuredSeconds = (raw) => typeof raw === "number" && Number.isFinite(raw) && raw >= 0 ? Math.round(raw * 1e6) / 1e6 : void 0;
+    var billedMeasuredSeconds = (measured, clips) => {
+      const rounded = Math.ceil(Math.round((measured - exports.KLING_V4_FLASH_SECONDS_TOLERANCE_PER_CLIP * Math.max(1, clips)) * 1e6) / 1e6);
+      return Math.min(exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS, Math.max(measured, rounded));
+    };
+    function klingV4FlashCreditCost(params) {
+      const rate = exports.KLING_V4_FLASH_MILLI_USD_PER_SECOND[params.videoPriced ? "video" : "standard"];
+      return creditsFor(rate, (0, klingV4_1.klingV4BilledSeconds)(params));
+    }
+    function klingV4FlashCreditCostFromInputs(inputs, modelId) {
+      const fromSlug = klingV4FlashKindFromEndpoint(inputs.falModelId);
+      const isEdit = fromSlug ? fromSlug === "edit" : modelId === exports.KLING_V4_FLASH_EDIT_MODEL_ID;
+      const measured = measuredSeconds(inputs.inputVideoSeconds);
+      if (isEdit) {
+        const requested = normalizeKlingV4FlashEditDuration(inputs.duration);
+        if (measured === void 0) {
+          return klingV4FlashCreditCost({
+            videoPriced: true,
+            outputSeconds: requested ?? exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS,
+            inputSeconds: exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS
+          });
+        }
+        const source = billedMeasuredSeconds(measured, 1);
+        const elementVideo2 = klingV4FlashHasElementVideo(normalizeKlingV4FlashElements(inputs.elements).elements);
+        const inputSeconds2 = elementVideo2 ? Math.max(source, exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS) : source;
+        return klingV4FlashCreditCost({ videoPriced: true, outputSeconds: requested ?? source, inputSeconds: inputSeconds2 });
+      }
+      const outputSeconds = normalizeKlingV4FlashDuration(inputs.duration);
+      const media = fromSlug ? { kind: fromSlug, videos: klingV4FlashReferenceVideos(inputs), elements: normalizeKlingV4FlashElements(inputs.elements).elements } : resolveKlingV4FlashMedia({
+        imageUrls: inputs.image_urls,
+        dynamicInputs: inputs,
+        aspectRatio: inputs.aspectRatio ?? inputs.aspect_ratio,
+        prompt: inputs.prompt
+      });
+      const elementVideo = media.kind === "r2v" && klingV4FlashHasElementVideo(media.elements);
+      const videoPriced = media.kind === "r2v" && (media.videos.length > 0 || elementVideo);
+      const billed = measured === void 0 ? void 0 : billedMeasuredSeconds(measured, media.videos.length);
+      const inputSeconds = !videoPriced ? 0 : elementVideo ? Math.max(billed ?? 0, exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS) : billed ?? exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS;
+      return klingV4FlashCreditCost({ videoPriced, outputSeconds, inputSeconds });
+    }
+    exports.KLING_V4_FLASH_BASE_COST = klingV4FlashCreditCost({
+      videoPriced: false,
+      outputSeconds: exports.KLING_V4_FLASH_DEFAULT_DURATION,
+      inputSeconds: 0
+    });
+    exports.KLING_V4_FLASH_EDIT_BASE_COST = klingV4FlashCreditCost({
+      videoPriced: true,
+      outputSeconds: exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS,
+      inputSeconds: exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS
+    });
+    function buildKlingV4FlashFalRequest(params) {
+      const { modelId, prompt, imageUrls = [], aspectRatio, dynamicInputs = {} } = params;
+      const palier = normalizeKlingV4FlashResolution();
+      const requestedAspect = aspectRatio ?? (typeof dynamicInputs.aspect_ratio === "string" ? dynamicInputs.aspect_ratio : null);
+      const text = (0, exports.clampKlingV4FlashPrompt)(prompt);
+      if (modelId === exports.KLING_V4_FLASH_EDIT_MODEL_ID) {
+        const media2 = resolveKlingV4FlashEditMedia({ imageUrls, dynamicInputs });
+        if (media2.problem)
+          throw refusal(media2.problem);
+        if (!media2.source)
+          throw refusal("Kling 4.0 Flash (\xE9dition) n\xE9cessite une vid\xE9o \xE0 \xE9diter (video_url).");
+        if (!text.trim())
+          throw refusal("Kling 4.0 Flash (\xE9dition) n\xE9cessite une consigne (prompt).");
+        const input2 = { prompt: text, video_url: media2.source, resolution: palier };
+        const duration2 = normalizeKlingV4FlashEditDuration(dynamicInputs.duration);
+        if (duration2 !== void 0)
+          input2.duration = duration2;
+        if (media2.images.length > 0)
+          input2.image_urls = media2.images;
+        if (media2.elements.length > 0)
+          input2.elements = media2.elements;
+        return { falModelId: exports.KLING_V4_FLASH_ENDPOINTS.edit, input: input2 };
+      }
+      const media = resolveKlingV4FlashMedia({ imageUrls, dynamicInputs, aspectRatio: requestedAspect, prompt: text });
+      if (media.problem)
+        throw refusal(media.problem);
+      const duration = normalizeKlingV4FlashDuration(dynamicInputs.duration);
+      if (media.kind === "i2v") {
+        const input2 = { start_image_url: media.start, duration, resolution: palier };
+        if (text.trim())
+          input2.prompt = text;
+        return { falModelId: exports.KLING_V4_FLASH_ENDPOINTS.i2v, input: input2 };
+      }
+      if (!text.trim())
+        throw refusal("Kling 4.0 Flash n\xE9cessite un prompt.");
+      const input = { prompt: text, duration, resolution: palier };
+      if (media.kind === "r2v") {
+        input.aspect_ratio = (0, exports.normalizeKlingV4FlashR2vAspectRatio)(requestedAspect);
+        if (media.start)
+          input.start_image_url = media.start;
+        if (media.images.length > 0)
+          input.image_urls = media.images;
+        if (media.videos.length > 0)
+          input.video_urls = media.videos;
+        if (media.elements.length > 0)
+          input.elements = media.elements;
+        return { falModelId: exports.KLING_V4_FLASH_ENDPOINTS.r2v, input };
+      }
+      input.aspect_ratio = (0, exports.normalizeKlingV4FlashT2vAspectRatio)(requestedAspect);
+      return { falModelId: exports.KLING_V4_FLASH_ENDPOINTS.t2v, input };
+    }
+    exports.KLING_V4_FLASH_AIPROXY_MESSAGE = "Kling 4.0 Flash ne se lance pas depuis le Board : son rendu peut d\xE9passer le d\xE9lai de cet appel (9 min). Lance-le depuis Generate ou depuis un n\u0153ud de workflow.";
+    function klingV4FlashAiProxyRefusal(falModelId) {
+      return isKlingV4FlashEndpoint(falModelId) ? exports.KLING_V4_FLASH_AIPROXY_MESSAGE : null;
+    }
+    var MEDIA_FIELDS_BY_KIND = {
+      t2v: [],
+      i2v: ["start_image_url"],
+      r2v: ["start_image_url", "image_urls", "video_urls", "elements"],
+      edit: ["video_url", "image_urls", "elements"]
+    };
+    var ALL_MEDIA_FIELDS = ["start_image_url", "end_image_url", "image_urls", "video_urls", "video_url", "elements"];
+    function hardenKlingV4FlashProxyInput(falModelId, input) {
+      const kind = klingV4FlashKindFromEndpoint(falModelId);
+      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      delete input.sync_mode;
+      delete input.multi_prompt;
+      delete input.voice_ids;
+      delete input.end_image_url;
+      delete input.middle_image_urls;
+      if (typeof input.prompt === "string")
+        input.prompt = (0, exports.clampKlingV4FlashPrompt)(input.prompt);
+      else
+        delete input.prompt;
+      input.resolution = normalizeKlingV4FlashResolution(input.resolution);
+      if (kind === "edit") {
+        delete input.aspect_ratio;
+        const duration = normalizeKlingV4FlashEditDuration(input.duration);
+        if (duration === void 0)
+          delete input.duration;
+        else
+          input.duration = duration;
+      } else {
+        input.duration = normalizeKlingV4FlashDuration(input.duration);
+        if (kind === "t2v")
+          input.aspect_ratio = (0, exports.normalizeKlingV4FlashT2vAspectRatio)(input.aspect_ratio);
+        else if (kind === "r2v")
+          input.aspect_ratio = (0, exports.normalizeKlingV4FlashR2vAspectRatio)(input.aspect_ratio);
+        else
+          delete input.aspect_ratio;
+      }
+      const kept = new Set(MEDIA_FIELDS_BY_KIND[kind]);
+      for (const key of ALL_MEDIA_FIELDS)
+        if (!kept.has(key))
+          delete input[key];
+      for (const key of ["start_image_url", "video_url"]) {
+        if (!kept.has(key))
+          continue;
+        const url = urlsOf(input[key])[0];
+        if (url)
+          input[key] = url;
+        else
+          delete input[key];
+      }
+      if (kind === "r2v" || kind === "edit") {
+        const start = typeof input.start_image_url === "string" ? input.start_image_url : void 0;
+        const room = exports.KLING_V4_FLASH_MAX_REFERENCE_IMAGES - (start ? 1 : 0);
+        const images = urlsOf(input.image_urls).filter((url) => url !== start).slice(0, room);
+        if (images.length > 0)
+          input.image_urls = images;
+        else
+          delete input.image_urls;
+        const normalized = normalizeKlingV4FlashElements(input.elements);
+        if (!normalized.problem) {
+          if (normalized.elements.length > 0)
+            input.elements = normalized.elements;
+          else
+            delete input.elements;
+        }
+      }
+      if (kind === "r2v") {
+        const videos = urlsOf(input.video_urls).slice(0, exports.KLING_V4_FLASH_MAX_REFERENCE_VIDEOS);
+        if (videos.length > 0)
+          input.video_urls = videos;
+        else
+          delete input.video_urls;
+      }
+      return input;
+    }
+    function klingV4FlashProxyRefusal(falModelId, input) {
+      const kind = klingV4FlashKindFromEndpoint(falModelId);
+      if (!kind)
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      const hasPrompt = typeof record.prompt === "string" && record.prompt.trim().length > 0;
+      if (kind === "edit") {
+        if (!hasPrompt)
+          return "Kling 4.0 Flash (\xE9dition) n\xE9cessite une consigne (prompt).";
+        if (!urlsOf(record.video_url)[0])
+          return "Kling 4.0 Flash (\xE9dition) n\xE9cessite une vid\xE9o \xE0 \xE9diter (video_url).";
+        return normalizeKlingV4FlashElements(record.elements).problem ?? null;
+      }
+      if (kind === "i2v") {
+        return urlsOf(record.start_image_url)[0] ? null : "Kling 4.0 Flash (image \u2192 vid\xE9o) n\xE9cessite une image de d\xE9part.";
+      }
+      if (!hasPrompt)
+        return "Kling 4.0 Flash n\xE9cessite un prompt.";
+      if (kind === "r2v")
+        return normalizeKlingV4FlashElements(record.elements).problem ?? null;
+      return null;
+    }
+    var SECONDS_TOLERANCE = 1e-3;
+    var MAX_SECONDS_MARGIN_PER_CLIP = exports.KLING_V4_FLASH_SECONDS_TOLERANCE_PER_CLIP;
+    function klingV4FlashMeasuredRefusal(falModelId, payload, videoSeconds) {
+      const kind = klingV4FlashKindFromEndpoint(falModelId);
+      if (!kind || typeof videoSeconds !== "number" || !Number.isFinite(videoSeconds) || videoSeconds < 0)
+        return null;
+      const record = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+      const seconds = (n) => `${(Math.round(n * 100) / 100).toString().replace(".", ",")} s`;
+      const elementVideos = normalizeKlingV4FlashElements(record.elements).elements.filter((e) => e.video_url).length;
+      if (kind === "edit") {
+        if (!urlsOf(record.video_url)[0])
+          return null;
+        if (videoSeconds < exports.KLING_V4_FLASH_MIN_INPUT_VIDEO_SECONDS - SECONDS_TOLERANCE) {
+          return `Kling 4.0 Flash (\xE9dition) : la vid\xE9o \xE0 \xE9diter doit durer au moins 3 s (ici ${seconds(videoSeconds)}).`;
+        }
+        const atLeast2 = videoSeconds + exports.KLING_V4_FLASH_MIN_INPUT_VIDEO_SECONDS * elementVideos;
+        if (atLeast2 > exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS + MAX_SECONDS_MARGIN_PER_CLIP) {
+          return `Kling 4.0 Flash (\xE9dition) : la vid\xE9o \xE0 \xE9diter doit durer au plus 20 s, vid\xE9os d'\xE9l\xE9ments comprises (ici ${seconds(videoSeconds)}${elementVideos > 0 ? ` + ${elementVideos} \xE9l\xE9ment(s) vid\xE9o` : ""}) : raccourcis-la.`;
+        }
+        return null;
+      }
+      if (kind !== "r2v")
+        return null;
+      const videos = urlsOf(record.video_urls);
+      if (videos.length === 0)
+        return null;
+      if (videoSeconds < exports.KLING_V4_FLASH_MIN_INPUT_VIDEO_SECONDS * videos.length - SECONDS_TOLERANCE) {
+        return `Kling 4.0 Flash : chaque vid\xE9o de r\xE9f\xE9rence doit durer au moins 3 s (${videos.length} vid\xE9os, ${seconds(videoSeconds)} au total).`;
+      }
+      const atLeast = videoSeconds + exports.KLING_V4_FLASH_MIN_INPUT_VIDEO_SECONDS * elementVideos;
+      if (atLeast > exports.KLING_V4_FLASH_MAX_INPUT_VIDEO_SECONDS + MAX_SECONDS_MARGIN_PER_CLIP * videos.length) {
+        return `Kling 4.0 Flash : les vid\xE9os de r\xE9f\xE9rence durent au plus 20 s cumul\xE9es, vid\xE9os d'\xE9l\xE9ments comprises (ici ${seconds(videoSeconds)}${elementVideos > 0 ? ` + ${elementVideos} \xE9l\xE9ment(s) vid\xE9o` : ""}) : raccourcis-les.`;
+      }
+      return null;
+    }
+  }
+});
+
 // ../packages/workflow-contracts/dist/klingV3.js
 var require_klingV3 = __commonJS({
   "../packages/workflow-contracts/dist/klingV3.js"(exports) {
@@ -5943,6 +10188,558 @@ var require_minimaxH3MaxStyles = __commonJS({
       if (seed !== void 0)
         input.seed = seed;
       return { falModelId: exports.H3MAX_STYLE_ENDPOINTS[style], input };
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/measuredMediaDuration.js
+var require_measuredMediaDuration = __commonJS({
+  "../packages/workflow-contracts/dist/measuredMediaDuration.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.optionalFalSeed = exports.firstMediaUrl = exports.billableMeasuredSeconds = exports.measuredOrMaxSeconds = exports.billableSecondsFromMeasure = exports.measuredDurationOf = exports.measuredAudioDurationModelIds = exports.isMeasuredDurationModel = exports.measuredDurationRule = exports.MEASURED_DURATION_MIN_INVOCATION_BUDGET_MS = exports.MEASURED_DURATION_FRAME_MARGIN_SECONDS = exports.MEASURED_DURATION_RULES = void 0;
+    exports.adultOnlyModelRefusal = adultOnlyModelRefusal;
+    exports.measuredDurationRefusal = measuredDurationRefusal;
+    exports.measuredDurationEngineRefusal = measuredDurationEngineRefusal;
+    exports.measuredDurationAiProxyRefusal = measuredDurationAiProxyRefusal;
+    exports.MEASURED_DURATION_RULES = {
+      // H3 Max Relight : vidéo source de 56 images (24 fps) à 15 s, MP4 / MOV
+      // (minimaxH3MaxRelight.ts).
+      "minimax-h3-max-relight-video": {
+        label: "H3 Max Relight",
+        endpoints: ["minimax/h3-max/relight"],
+        video: { minSeconds: 56 / 24, maxSeconds: 15 },
+        formatsHint: "Formats accept\xE9s : vid\xE9o MP4 ou MOV, de 2,4 \xE0 15 s."
+      },
+      // H3 Max Lip Sync : audio de 5 à 30 s (FAL : 15 min ; latence inconnue),
+      // WAV PCM ou M4A, les formats dont on lit la durée exacte (minimaxH3MaxLipSync.ts).
+      "minimax-h3-max-lip-sync-video": {
+        label: "H3 Max Lip Sync",
+        endpoints: ["minimax/h3-max/lip-sync/image-to-video"],
+        audio: { minSeconds: 5, maxSeconds: 30, containers: ["wav", "mp4"] },
+        formatsHint: "Formats accept\xE9s : audio WAV ou M4A, de 5 \xE0 30 s (convertis un MP3 en WAV ou en M4A)."
+      },
+      // OmniHuman v2 : audio WAV PCM seulement (FAL : WAV ou MP3 ; un MP3 ne se
+      // mesure pas exactement), 4 à 30 s (FAL : 300 s ; latence inconnue).
+      "omnihuman-v2-video": {
+        label: "OmniHuman v2",
+        endpoints: ["bytedance/omnihuman/v2"],
+        audio: { minSeconds: 4, maxSeconds: 30, containers: ["wav"] },
+        formatsHint: "Format accept\xE9 : audio WAV, de 4 \xE0 30 s (convertis un MP3 en WAV).",
+        adultOnlyAlternatives: "Kling AI Avatar, H3 Max Lip Sync ou sync-3 Avatar"
+      },
+      // Kling AI Avatar v2 : audio WAV PCM ou M4A, 2 à 30 s (latence inconnue) ;
+      // paliers Standard / Pro (klingAiAvatarV2.ts).
+      "kling-ai-avatar-v2-video": {
+        label: "Kling AI Avatar",
+        endpoints: ["fal-ai/kling-video/ai-avatar/v2/standard", "fal-ai/kling-video/ai-avatar/v2/pro"],
+        audio: { minSeconds: 2, maxSeconds: 30, containers: ["wav", "mp4"] },
+        formatsHint: "Formats accept\xE9s : audio WAV ou M4A, de 2 \xE0 30 s (convertis un MP3 en WAV ou en M4A)."
+      },
+      // sync-3 Avatar : audio WAV PCM ou M4A, 1 à 30 s (sync3Avatar.ts).
+      "sync-3-avatar-video": {
+        label: "sync-3 Avatar",
+        endpoints: ["fal-ai/sync-lipsync/v3/image-to-video"],
+        audio: { minSeconds: 1, maxSeconds: 30, containers: ["wav", "mp4"] },
+        formatsHint: "Formats accept\xE9s : audio WAV ou M4A, de 1 \xE0 30 s (convertis un MP3 en WAV ou en M4A)."
+      },
+      // sync-3 Lipsync : vidéo MP4 / MOV et audio WAV PCM ou M4A, 1 à 30 s chacun ;
+      // la sortie dépend de `sync_mode` et des deux durées (sync3Lipsync.ts).
+      "sync-3-lipsync-video": {
+        label: "sync-3 Lipsync",
+        endpoints: ["fal-ai/sync-lipsync/v3"],
+        video: { minSeconds: 1, maxSeconds: 30 },
+        audio: { minSeconds: 1, maxSeconds: 30, containers: ["wav", "mp4"] },
+        formatsHint: "Formats accept\xE9s : vid\xE9o MP4 ou MOV et audio WAV ou M4A, de 1 \xE0 30 s chacun."
+      },
+      // Kling LipSync : vidéo MP4 / MOV de 2 à 10 s (facturée par tranches de 5 s),
+      // audio WAV PCM ou M4A de 2 à 60 s — les bornes du fournisseur (klingLipsync.ts).
+      "kling-lipsync-video": {
+        label: "Kling LipSync",
+        endpoints: ["fal-ai/kling-video/lipsync/audio-to-video"],
+        video: { minSeconds: 2, maxSeconds: 10 },
+        audio: { minSeconds: 2, maxSeconds: 60, containers: ["wav", "mp4"] },
+        formatsHint: "Formats accept\xE9s : vid\xE9o MP4 ou MOV de 2 \xE0 10 s, audio WAV ou M4A de 2 \xE0 60 s."
+      },
+      // HeyGen Lipsync : vidéo MP4 / MOV et audio WAV PCM ou M4A, 1 à 30 s chacun,
+      // audio pas plus long que la vidéo (sortie à la durée de la vidéo, heygenLipsync.ts).
+      "heygen-lipsync-video": {
+        label: "HeyGen Lipsync",
+        endpoints: ["fal-ai/heygen/v3/lipsync/speed", "fal-ai/heygen/v3/lipsync/precision"],
+        video: { minSeconds: 1, maxSeconds: 30 },
+        audio: { minSeconds: 1, maxSeconds: 30, containers: ["wav", "mp4"] },
+        audioWithinVideo: true,
+        formatsHint: "Formats accept\xE9s : vid\xE9o MP4 ou MOV et audio WAV ou M4A, de 1 \xE0 30 s, audio plus court que la vid\xE9o.",
+        adultOnlyAlternatives: "sync-3 Lipsync ou Kling LipSync"
+      }
+    };
+    exports.MEASURED_DURATION_FRAME_MARGIN_SECONDS = 0.05;
+    var MAX_SECONDS_TOLERANCE = 0.05;
+    var MIN_SECONDS_TOLERANCE = 1e-3;
+    exports.MEASURED_DURATION_MIN_INVOCATION_BUDGET_MS = 20 * 6e4;
+    var ownRule = (modelId) => {
+      if (typeof modelId !== "string")
+        return void 0;
+      const id = modelId.trim();
+      return Object.prototype.hasOwnProperty.call(exports.MEASURED_DURATION_RULES, id) ? exports.MEASURED_DURATION_RULES[id] : void 0;
+    };
+    var measuredDurationRule = (modelId) => ownRule(modelId);
+    exports.measuredDurationRule = measuredDurationRule;
+    var isMeasuredDurationModel = (modelId) => ownRule(modelId) !== void 0;
+    exports.isMeasuredDurationModel = isMeasuredDurationModel;
+    var measuredAudioDurationModelIds = () => Object.entries(exports.MEASURED_DURATION_RULES).filter(([, rule]) => rule.audio !== void 0).map(([id]) => id);
+    exports.measuredAudioDurationModelIds = measuredAudioDurationModelIds;
+    var finiteSeconds = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : void 0;
+    var measuredDurationOf = (inputs, media) => finiteSeconds(media === "audio" ? inputs?.inputAudioSeconds : inputs?.inputVideoSeconds);
+    exports.measuredDurationOf = measuredDurationOf;
+    var billableSecondsFromMeasure = (measuredSeconds, minSeconds) => Math.max(Math.ceil(minSeconds - MIN_SECONDS_TOLERANCE), Math.ceil(measuredSeconds + exports.MEASURED_DURATION_FRAME_MARGIN_SECONDS - 1e-9));
+    exports.billableSecondsFromMeasure = billableSecondsFromMeasure;
+    var measuredOrMaxSeconds = (modelId, inputs, media) => {
+      const bounds = ownRule(modelId)?.[media];
+      if (!bounds)
+        return 0;
+      return (0, exports.measuredDurationOf)(inputs, media) ?? bounds.maxSeconds;
+    };
+    exports.measuredOrMaxSeconds = measuredOrMaxSeconds;
+    var billableMeasuredSeconds = (modelId, inputs, media) => {
+      const bounds = ownRule(modelId)?.[media];
+      if (!bounds)
+        return 0;
+      const measured = (0, exports.measuredDurationOf)(inputs, media);
+      return measured === void 0 ? bounds.maxSeconds : (0, exports.billableSecondsFromMeasure)(measured, bounds.minSeconds);
+    };
+    exports.billableMeasuredSeconds = billableMeasuredSeconds;
+    var formatSeconds = (s) => `${(Math.round(s * 10) / 10).toString().replace(".", ",")} s`;
+    var boundsRefusal = (rule, media, bounds, seconds) => {
+      const noun = media === "audio" ? "un audio" : "une vid\xE9o";
+      const what = media === "audio" ? "ton audio" : "ta vid\xE9o";
+      if (seconds < bounds.minSeconds - MIN_SECONDS_TOLERANCE) {
+        return `${rule.label} demande ${noun} d'au moins ${formatSeconds(bounds.minSeconds)} (${what} : ${formatSeconds(seconds)}).`;
+      }
+      if (seconds > bounds.maxSeconds + MAX_SECONDS_TOLERANCE) {
+        return `${rule.label} accepte ${noun} de ${formatSeconds(bounds.maxSeconds)} au plus (${what} : ${formatSeconds(seconds)}). Raccourcis-${media === "audio" ? "le" : "la"}, puis relance.`;
+      }
+      return null;
+    };
+    function adultOnlyModelRefusal(modelId, level) {
+      const alternatives = ownRule(modelId)?.adultOnlyAlternatives;
+      if (!alternatives || level === "standard")
+        return null;
+      return `Ce mod\xE8le n'est pas disponible pour les comptes de moins de 18 ans. Choisis ${alternatives}.`;
+    }
+    function measuredDurationRefusal(modelId, measured) {
+      const rule = ownRule(modelId);
+      if (!rule)
+        return null;
+      const video = finiteSeconds(measured?.inputVideoSeconds);
+      const audio = finiteSeconds(measured?.inputAudioSeconds);
+      for (const media of ["video", "audio"]) {
+        if (!rule[media])
+          continue;
+        const seconds = media === "audio" ? audio : video;
+        if (seconds === void 0) {
+          return `${rule.label} est factur\xE9 \xE0 la dur\xE9e exacte de ${media === "audio" ? "ton audio" : "ta vid\xE9o"}, et elle n'a pas pu \xEAtre mesur\xE9e avant l'envoi. ${rule.formatsHint} Importe le fichier dans Beemm Vision, puis relance.`;
+        }
+      }
+      if (rule.audio && !rule.audio.containers.includes(measured?.audioContainer)) {
+        return `${rule.label} : format audio non accept\xE9. ${rule.formatsHint}`;
+      }
+      if (rule.video && video !== void 0) {
+        const refusal = boundsRefusal(rule, "video", rule.video, video);
+        if (refusal)
+          return refusal;
+      }
+      if (rule.audio && audio !== void 0) {
+        const refusal = boundsRefusal(rule, "audio", rule.audio, audio);
+        if (refusal)
+          return refusal;
+      }
+      if (rule.audioWithinVideo && audio !== void 0 && video !== void 0 && audio > video + MAX_SECONDS_TOLERANCE) {
+        return `${rule.label} garde la dur\xE9e de ta vid\xE9o : ton audio (${formatSeconds(audio)}) doit \xEAtre plus court que ta vid\xE9o (${formatSeconds(video)}).`;
+      }
+      return null;
+    }
+    function measuredDurationEngineRefusal(params) {
+      const rule = params.modelIds.map(ownRule).find(Boolean);
+      if (!rule)
+        return null;
+      if (params.surface === "cli") {
+        return `${rule.label} ne se lance pas depuis le CLI : son rendu peut d\xE9passer le d\xE9lai de l'appel (9 min). Lance ce workflow depuis le canvas Beemm Vision.`;
+      }
+      const deadline = params.invocationDeadlineAtMs;
+      const known = typeof deadline === "number" && Number.isFinite(deadline);
+      const remainingMs = known ? deadline - params.nowMs : -1;
+      if (remainingMs >= exports.MEASURED_DURATION_MIN_INVOCATION_BUDGET_MS)
+        return null;
+      const left = known ? `il n'en reste que ${Math.max(0, Math.floor(remainingMs / 6e4))} min` : "son d\xE9lai n'est pas connu";
+      return `${rule.label} a besoin d'au moins ${exports.MEASURED_DURATION_MIN_INVOCATION_BUDGET_MS / 6e4} min d'attente et cette ex\xE9cution ne les a pas (${left}). Lance ce workflow depuis le canvas Beemm Vision.`;
+    }
+    function measuredDurationAiProxyRefusal(falModelId) {
+      if (typeof falModelId !== "string")
+        return null;
+      const endpoint = falModelId.trim();
+      const rule = Object.values(exports.MEASURED_DURATION_RULES).find((r) => r.endpoints.includes(endpoint));
+      if (!rule)
+        return null;
+      return `${rule.label} se lance depuis un n\u0153ud de workflow : sa dur\xE9e doit \xEAtre mesur\xE9e avant l'envoi, ce que cet appel direct ne fait pas.`;
+    }
+    var firstMediaUrl = (...values) => {
+      for (const value of values) {
+        const list = Array.isArray(value) ? value : [value];
+        for (const entry of list) {
+          if (typeof entry === "string" && entry.trim())
+            return entry.trim();
+        }
+      }
+      return void 0;
+    };
+    exports.firstMediaUrl = firstMediaUrl;
+    var optionalFalSeed = (raw) => {
+      if (raw === void 0 || raw === null || raw === "")
+        return void 0;
+      const seed = Number(raw);
+      return Number.isFinite(seed) ? Math.min(2147483647, Math.max(0, Math.trunc(seed))) : void 0;
+    };
+    exports.optionalFalSeed = optionalFalSeed;
+  }
+});
+
+// ../packages/workflow-contracts/dist/minimaxH3MaxRelight.js
+var require_minimaxH3MaxRelight = __commonJS({
+  "../packages/workflow-contracts/dist/minimaxH3MaxRelight.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.h3MaxRelightCreditCost = exports.normalizeH3MaxRelightAspectRatio = exports.H3MAX_RELIGHT_ASPECTS = exports.H3MAX_RELIGHT_RESOLUTIONS = exports.H3MAX_RELIGHT_MAX_SECONDS = exports.H3MAX_RELIGHT_MIN_SECONDS = exports.H3MAX_RELIGHT_ENDPOINT = exports.H3MAX_RELIGHT_MODEL_ID = void 0;
+    exports.buildH3MaxRelightFalRequest = buildH3MaxRelightFalRequest;
+    var minimaxH3MaxExtend_1 = require_minimaxH3MaxExtend();
+    var measuredMediaDuration_1 = require_measuredMediaDuration();
+    exports.H3MAX_RELIGHT_MODEL_ID = "minimax-h3-max-relight-video";
+    exports.H3MAX_RELIGHT_ENDPOINT = "minimax/h3-max/relight";
+    exports.H3MAX_RELIGHT_MIN_SECONDS = 56 / 24;
+    exports.H3MAX_RELIGHT_MAX_SECONDS = 15;
+    exports.H3MAX_RELIGHT_RESOLUTIONS = minimaxH3MaxExtend_1.H3MAX_EXTEND_RESOLUTIONS;
+    exports.H3MAX_RELIGHT_ASPECTS = ["auto", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"];
+    var FAL_ASPECTS = /* @__PURE__ */ new Set(["adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"]);
+    var normalizeH3MaxRelightAspectRatio = (raw) => {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return FAL_ASPECTS.has(value) ? value : "adaptive";
+    };
+    exports.normalizeH3MaxRelightAspectRatio = normalizeH3MaxRelightAspectRatio;
+    var h3MaxRelightCreditCost = (inputs) => (0, minimaxH3MaxExtend_1.h3MaxExtendCreditsPerSecond)("max", inputs?.resolution) * (0, measuredMediaDuration_1.billableMeasuredSeconds)(exports.H3MAX_RELIGHT_MODEL_ID, inputs, "video");
+    exports.h3MaxRelightCreditCost = h3MaxRelightCreditCost;
+    var firstUrl = (...values) => {
+      for (const value of values) {
+        const list = Array.isArray(value) ? value : [value];
+        for (const entry of list) {
+          if (typeof entry === "string" && entry.trim())
+            return entry.trim();
+        }
+      }
+      return void 0;
+    };
+    function buildH3MaxRelightFalRequest(params) {
+      const dyn = params.dynamicInputs ?? {};
+      const videoUrl = firstUrl(dyn.video_url, dyn.video_urls, dyn.video, dyn.source_video);
+      if (!videoUrl)
+        throw new Error("H3 Max Relight n\xE9cessite une vid\xE9o source (video_url).");
+      const sphereUrl = firstUrl(params.imageUrls, dyn.reference_image_url, dyn.reference_image, dyn.image);
+      if (!sphereUrl)
+        throw new Error("H3 Max Relight n\xE9cessite l'image de la sph\xE8re d'\xE9clairage.");
+      const input = {
+        video_url: videoUrl,
+        reference_image_url: sphereUrl,
+        resolution: (0, minimaxH3MaxExtend_1.normalizeH3MaxExtendResolution)(params.resolution ?? dyn.resolution),
+        aspect_ratio: (0, exports.normalizeH3MaxRelightAspectRatio)(params.aspectRatio ?? dyn.aspect_ratio)
+      };
+      const seed = Number(dyn.seed);
+      if (dyn.seed !== void 0 && dyn.seed !== null && dyn.seed !== "" && Number.isFinite(seed)) {
+        input.seed = Math.min(2147483647, Math.max(0, Math.trunc(seed)));
+      }
+      return { falModelId: exports.H3MAX_RELIGHT_ENDPOINT, input };
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/minimaxH3MaxLipSync.js
+var require_minimaxH3MaxLipSync = __commonJS({
+  "../packages/workflow-contracts/dist/minimaxH3MaxLipSync.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.h3MaxLipSyncCreditCost = exports.H3MAX_LIP_SYNC_RESOLUTIONS = exports.H3MAX_LIP_SYNC_LONG_VIDEO_FACTOR = exports.H3MAX_LIP_SYNC_LONG_VIDEO_SECONDS = exports.H3MAX_LIP_SYNC_MAX_SECONDS = exports.H3MAX_LIP_SYNC_MIN_SECONDS = exports.H3MAX_LIP_SYNC_ENDPOINT = exports.H3MAX_LIP_SYNC_MODEL_ID = void 0;
+    exports.buildH3MaxLipSyncFalRequest = buildH3MaxLipSyncFalRequest;
+    var minimaxH3MaxExtend_1 = require_minimaxH3MaxExtend();
+    var measuredMediaDuration_1 = require_measuredMediaDuration();
+    exports.H3MAX_LIP_SYNC_MODEL_ID = "minimax-h3-max-lip-sync-video";
+    exports.H3MAX_LIP_SYNC_ENDPOINT = "minimax/h3-max/lip-sync/image-to-video";
+    exports.H3MAX_LIP_SYNC_MIN_SECONDS = 5;
+    exports.H3MAX_LIP_SYNC_MAX_SECONDS = 30;
+    exports.H3MAX_LIP_SYNC_LONG_VIDEO_SECONDS = 15;
+    exports.H3MAX_LIP_SYNC_LONG_VIDEO_FACTOR = 1.2;
+    exports.H3MAX_LIP_SYNC_RESOLUTIONS = minimaxH3MaxExtend_1.H3MAX_EXTEND_RESOLUTIONS;
+    var h3MaxLipSyncCreditCost = (inputs) => {
+      const seconds = (0, measuredMediaDuration_1.billableMeasuredSeconds)(exports.H3MAX_LIP_SYNC_MODEL_ID, inputs, "audio");
+      const factor = seconds > exports.H3MAX_LIP_SYNC_LONG_VIDEO_SECONDS ? exports.H3MAX_LIP_SYNC_LONG_VIDEO_FACTOR : 1;
+      const credits = (0, minimaxH3MaxExtend_1.h3MaxExtendCreditsPerSecond)("max", inputs?.resolution) * seconds * factor;
+      return Math.ceil(Math.round(credits * 1e6) / 1e6);
+    };
+    exports.h3MaxLipSyncCreditCost = h3MaxLipSyncCreditCost;
+    var firstUrl = (...values) => {
+      for (const value of values) {
+        const list = Array.isArray(value) ? value : [value];
+        for (const entry of list) {
+          if (typeof entry === "string" && entry.trim())
+            return entry.trim();
+        }
+      }
+      return void 0;
+    };
+    function buildH3MaxLipSyncFalRequest(params) {
+      const dyn = params.dynamicInputs ?? {};
+      const imageUrl = firstUrl(params.imageUrls, dyn.image_url, dyn.start_image);
+      if (!imageUrl)
+        throw new Error("H3 Max Lip Sync n\xE9cessite l'image du visage \xE0 animer.");
+      const audioUrl = firstUrl(dyn.audio_url, dyn.audio_urls, dyn.audio);
+      if (!audioUrl)
+        throw new Error("H3 Max Lip Sync n\xE9cessite un audio (audio_url).");
+      const input = {
+        image_url: imageUrl,
+        audio_url: audioUrl,
+        resolution: (0, minimaxH3MaxExtend_1.normalizeH3MaxExtendResolution)(params.resolution ?? dyn.resolution)
+      };
+      if (dyn.enable_transcription === false || dyn.enable_transcription === "false")
+        input.enable_transcription = false;
+      const seed = Number(dyn.seed);
+      if (dyn.seed !== void 0 && dyn.seed !== null && dyn.seed !== "" && Number.isFinite(seed)) {
+        input.seed = Math.min(2147483647, Math.max(0, Math.trunc(seed)));
+      }
+      return { falModelId: exports.H3MAX_LIP_SYNC_ENDPOINT, input };
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/heygenLipsync.js
+var require_heygenLipsync = __commonJS({
+  "../packages/workflow-contracts/dist/heygenLipsync.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.heygenLipsyncCreditCost = exports.heygenLipsyncTierFromEndpoint = exports.normalizeHeygenLipsyncTier = exports.HEYGEN_LIPSYNC_TIERS = exports.HEYGEN_LIPSYNC_ENDPOINTS = exports.HEYGEN_LIPSYNC_MODEL_ID = void 0;
+    exports.buildHeygenLipsyncFalRequest = buildHeygenLipsyncFalRequest;
+    var measuredMediaDuration_1 = require_measuredMediaDuration();
+    exports.HEYGEN_LIPSYNC_MODEL_ID = "heygen-lipsync-video";
+    exports.HEYGEN_LIPSYNC_ENDPOINTS = {
+      Speed: "fal-ai/heygen/v3/lipsync/speed",
+      Precision: "fal-ai/heygen/v3/lipsync/precision"
+    };
+    exports.HEYGEN_LIPSYNC_TIERS = ["Speed", "Precision"];
+    var CREDITS_PER_SECOND = { Speed: 5, Precision: 10 };
+    var normalizeHeygenLipsyncTier = (raw) => typeof raw === "string" && raw.trim().toLowerCase() === "precision" ? "Precision" : "Speed";
+    exports.normalizeHeygenLipsyncTier = normalizeHeygenLipsyncTier;
+    var heygenLipsyncTierFromEndpoint = (falModelId) => falModelId === exports.HEYGEN_LIPSYNC_ENDPOINTS.Precision ? "Precision" : falModelId === exports.HEYGEN_LIPSYNC_ENDPOINTS.Speed ? "Speed" : null;
+    exports.heygenLipsyncTierFromEndpoint = heygenLipsyncTierFromEndpoint;
+    var heygenLipsyncCreditCost = (inputs) => {
+      const tier = (0, exports.heygenLipsyncTierFromEndpoint)(inputs?.falModelId) ?? (0, exports.normalizeHeygenLipsyncTier)(inputs?.resolution);
+      return CREDITS_PER_SECOND[tier] * (0, measuredMediaDuration_1.billableMeasuredSeconds)(exports.HEYGEN_LIPSYNC_MODEL_ID, inputs, "video");
+    };
+    exports.heygenLipsyncCreditCost = heygenLipsyncCreditCost;
+    var optionalTrue = (value) => value === true || value === "true";
+    function buildHeygenLipsyncFalRequest(params) {
+      const dyn = params.dynamicInputs ?? {};
+      const videoUrl = (0, measuredMediaDuration_1.firstMediaUrl)(dyn.video_url, dyn.video_urls, dyn.video);
+      if (!videoUrl)
+        throw new Error("HeyGen Lipsync n\xE9cessite une vid\xE9o source (video_url).");
+      const audioUrl = (0, measuredMediaDuration_1.firstMediaUrl)(dyn.audio_url, dyn.audio_urls, dyn.audio);
+      if (!audioUrl)
+        throw new Error("HeyGen Lipsync n\xE9cessite un audio (audio_url).");
+      const input = {
+        video_url: videoUrl,
+        audio_url: audioUrl,
+        // Durée de sortie = durée de la vidéo : la seule que l'on facture exactement.
+        enable_dynamic_duration: false
+      };
+      if (optionalTrue(dyn.disable_music_track))
+        input.disable_music_track = true;
+      if (optionalTrue(dyn.enable_speech_enhancement))
+        input.enable_speech_enhancement = true;
+      if (optionalTrue(dyn.enable_caption))
+        input.enable_caption = true;
+      const tier = (0, exports.normalizeHeygenLipsyncTier)(params.resolution ?? dyn.resolution);
+      return { falModelId: exports.HEYGEN_LIPSYNC_ENDPOINTS[tier], input };
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/klingLipsync.js
+var require_klingLipsync = __commonJS({
+  "../packages/workflow-contracts/dist/klingLipsync.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.klingLipsyncCreditCost = exports.klingLipsyncBilledSeconds = exports.KLING_LIPSYNC_BILLING_STEP_SECONDS = exports.KLING_LIPSYNC_ENDPOINT = exports.KLING_LIPSYNC_MODEL_ID = void 0;
+    exports.buildKlingLipsyncFalRequest = buildKlingLipsyncFalRequest;
+    var measuredMediaDuration_1 = require_measuredMediaDuration();
+    exports.KLING_LIPSYNC_MODEL_ID = "kling-lipsync-video";
+    exports.KLING_LIPSYNC_ENDPOINT = "fal-ai/kling-video/lipsync/audio-to-video";
+    exports.KLING_LIPSYNC_BILLING_STEP_SECONDS = 5;
+    var klingLipsyncBilledSeconds = (videoSeconds) => exports.KLING_LIPSYNC_BILLING_STEP_SECONDS * Math.max(1, Math.ceil(videoSeconds / exports.KLING_LIPSYNC_BILLING_STEP_SECONDS - 1e-9));
+    exports.klingLipsyncBilledSeconds = klingLipsyncBilledSeconds;
+    var klingLipsyncCreditCost = (inputs) => Math.ceil(14 * (0, exports.klingLipsyncBilledSeconds)((0, measuredMediaDuration_1.measuredOrMaxSeconds)(exports.KLING_LIPSYNC_MODEL_ID, inputs, "video")) / 10);
+    exports.klingLipsyncCreditCost = klingLipsyncCreditCost;
+    function buildKlingLipsyncFalRequest(params) {
+      const dyn = params.dynamicInputs ?? {};
+      const videoUrl = (0, measuredMediaDuration_1.firstMediaUrl)(dyn.video_url, dyn.video_urls, dyn.video);
+      if (!videoUrl)
+        throw new Error("Kling LipSync n\xE9cessite une vid\xE9o source (video_url).");
+      const audioUrl = (0, measuredMediaDuration_1.firstMediaUrl)(dyn.audio_url, dyn.audio_urls, dyn.audio);
+      if (!audioUrl)
+        throw new Error("Kling LipSync n\xE9cessite un audio (audio_url).");
+      return { falModelId: exports.KLING_LIPSYNC_ENDPOINT, input: { video_url: videoUrl, audio_url: audioUrl } };
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/sync3Lipsync.js
+var require_sync3Lipsync = __commonJS({
+  "../packages/workflow-contracts/dist/sync3Lipsync.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.sync3LipsyncCreditCost = exports.SYNC3_LIPSYNC_MAX_OUTPUT_SECONDS = exports.sync3OutputSeconds = exports.normalizeSync3SyncMode = exports.SYNC3_DEFAULT_SYNC_MODE = exports.SYNC3_SYNC_MODES = exports.SYNC3_LIPSYNC_ENDPOINT = exports.SYNC3_LIPSYNC_MODEL_ID = void 0;
+    exports.buildSync3LipsyncFalRequest = buildSync3LipsyncFalRequest;
+    var measuredMediaDuration_1 = require_measuredMediaDuration();
+    exports.SYNC3_LIPSYNC_MODEL_ID = "sync-3-lipsync-video";
+    exports.SYNC3_LIPSYNC_ENDPOINT = "fal-ai/sync-lipsync/v3";
+    exports.SYNC3_SYNC_MODES = ["cut_off", "loop", "bounce", "silence", "remap"];
+    exports.SYNC3_DEFAULT_SYNC_MODE = "cut_off";
+    var normalizeSync3SyncMode = (raw) => {
+      const value = typeof raw === "string" ? raw.trim() : "";
+      return exports.SYNC3_SYNC_MODES.includes(value) ? value : exports.SYNC3_DEFAULT_SYNC_MODE;
+    };
+    exports.normalizeSync3SyncMode = normalizeSync3SyncMode;
+    var sync3OutputSeconds = (mode, videoSeconds, audioSeconds) => {
+      if (mode === "cut_off")
+        return Math.min(videoSeconds, audioSeconds);
+      if (mode === "silence")
+        return Math.max(videoSeconds, audioSeconds);
+      return audioSeconds;
+    };
+    exports.sync3OutputSeconds = sync3OutputSeconds;
+    var TEN_THOUSANDTHS_USD_PER_SECOND = 1333;
+    exports.SYNC3_LIPSYNC_MAX_OUTPUT_SECONDS = 30;
+    var sync3LipsyncCreditCost = (inputs) => {
+      const anyMeasured = (0, measuredMediaDuration_1.measuredDurationOf)(inputs, "video") !== void 0 || (0, measuredMediaDuration_1.measuredDurationOf)(inputs, "audio") !== void 0;
+      const seconds = anyMeasured ? Math.max(1, Math.ceil((0, exports.sync3OutputSeconds)((0, exports.normalizeSync3SyncMode)(inputs?.sync_mode), (0, measuredMediaDuration_1.measuredOrMaxSeconds)(exports.SYNC3_LIPSYNC_MODEL_ID, inputs, "video"), (0, measuredMediaDuration_1.measuredOrMaxSeconds)(exports.SYNC3_LIPSYNC_MODEL_ID, inputs, "audio")) + measuredMediaDuration_1.MEASURED_DURATION_FRAME_MARGIN_SECONDS - 1e-9)) : exports.SYNC3_LIPSYNC_MAX_OUTPUT_SECONDS;
+      return Math.ceil(TEN_THOUSANDTHS_USD_PER_SECOND * seconds / 100);
+    };
+    exports.sync3LipsyncCreditCost = sync3LipsyncCreditCost;
+    function buildSync3LipsyncFalRequest(params) {
+      const dyn = params.dynamicInputs ?? {};
+      const videoUrl = (0, measuredMediaDuration_1.firstMediaUrl)(dyn.video_url, dyn.video_urls, dyn.video);
+      if (!videoUrl)
+        throw new Error("sync-3 Lipsync n\xE9cessite une vid\xE9o source (video_url).");
+      const audioUrl = (0, measuredMediaDuration_1.firstMediaUrl)(dyn.audio_url, dyn.audio_urls, dyn.audio);
+      if (!audioUrl)
+        throw new Error("sync-3 Lipsync n\xE9cessite un audio (audio_url).");
+      return {
+        falModelId: exports.SYNC3_LIPSYNC_ENDPOINT,
+        input: { video_url: videoUrl, audio_url: audioUrl, sync_mode: (0, exports.normalizeSync3SyncMode)(dyn.sync_mode) }
+      };
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/sync3Avatar.js
+var require_sync3Avatar = __commonJS({
+  "../packages/workflow-contracts/dist/sync3Avatar.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.sync3AvatarCreditCost = exports.SYNC3_TEN_THOUSANDTHS_USD_PER_SECOND = exports.SYNC3_AVATAR_ENDPOINT = exports.SYNC3_AVATAR_MODEL_ID = void 0;
+    exports.buildSync3AvatarFalRequest = buildSync3AvatarFalRequest;
+    var measuredMediaDuration_1 = require_measuredMediaDuration();
+    exports.SYNC3_AVATAR_MODEL_ID = "sync-3-avatar-video";
+    exports.SYNC3_AVATAR_ENDPOINT = "fal-ai/sync-lipsync/v3/image-to-video";
+    exports.SYNC3_TEN_THOUSANDTHS_USD_PER_SECOND = 1333;
+    var sync3AvatarCreditCost = (inputs) => Math.ceil(exports.SYNC3_TEN_THOUSANDTHS_USD_PER_SECOND * (0, measuredMediaDuration_1.billableMeasuredSeconds)(exports.SYNC3_AVATAR_MODEL_ID, inputs, "audio") / 100);
+    exports.sync3AvatarCreditCost = sync3AvatarCreditCost;
+    function buildSync3AvatarFalRequest(params) {
+      const dyn = params.dynamicInputs ?? {};
+      const imageUrl = (0, measuredMediaDuration_1.firstMediaUrl)(params.imageUrls, dyn.image_url, dyn.start_image);
+      if (!imageUrl)
+        throw new Error("sync-3 Avatar n\xE9cessite l'image du visage \xE0 animer.");
+      const audioUrl = (0, measuredMediaDuration_1.firstMediaUrl)(dyn.audio_url, dyn.audio_urls, dyn.audio);
+      if (!audioUrl)
+        throw new Error("sync-3 Avatar n\xE9cessite un audio (audio_url).");
+      return { falModelId: exports.SYNC3_AVATAR_ENDPOINT, input: { image_url: imageUrl, audio_url: audioUrl } };
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/klingAiAvatarV2.js
+var require_klingAiAvatarV2 = __commonJS({
+  "../packages/workflow-contracts/dist/klingAiAvatarV2.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.klingAiAvatarV2CreditCost = exports.klingAiAvatarV2TierFromEndpoint = exports.normalizeKlingAiAvatarV2Tier = exports.KLING_AI_AVATAR_V2_TIERS = exports.KLING_AI_AVATAR_V2_ENDPOINTS = exports.KLING_AI_AVATAR_V2_MODEL_ID = void 0;
+    exports.buildKlingAiAvatarV2FalRequest = buildKlingAiAvatarV2FalRequest;
+    var measuredMediaDuration_1 = require_measuredMediaDuration();
+    exports.KLING_AI_AVATAR_V2_MODEL_ID = "kling-ai-avatar-v2-video";
+    exports.KLING_AI_AVATAR_V2_ENDPOINTS = {
+      Standard: "fal-ai/kling-video/ai-avatar/v2/standard",
+      Pro: "fal-ai/kling-video/ai-avatar/v2/pro"
+    };
+    exports.KLING_AI_AVATAR_V2_TIERS = ["Standard", "Pro"];
+    var TEN_THOUSANDTHS_USD_PER_SECOND = { Standard: 562, Pro: 1150 };
+    var normalizeKlingAiAvatarV2Tier = (raw) => typeof raw === "string" && raw.trim().toLowerCase() === "pro" ? "Pro" : "Standard";
+    exports.normalizeKlingAiAvatarV2Tier = normalizeKlingAiAvatarV2Tier;
+    var klingAiAvatarV2TierFromEndpoint = (falModelId) => falModelId === exports.KLING_AI_AVATAR_V2_ENDPOINTS.Pro ? "Pro" : falModelId === exports.KLING_AI_AVATAR_V2_ENDPOINTS.Standard ? "Standard" : null;
+    exports.klingAiAvatarV2TierFromEndpoint = klingAiAvatarV2TierFromEndpoint;
+    var klingAiAvatarV2CreditCost = (inputs) => {
+      const tier = (0, exports.klingAiAvatarV2TierFromEndpoint)(inputs?.falModelId) ?? (0, exports.normalizeKlingAiAvatarV2Tier)(inputs?.resolution);
+      const seconds = (0, measuredMediaDuration_1.billableMeasuredSeconds)(exports.KLING_AI_AVATAR_V2_MODEL_ID, inputs, "audio");
+      return Math.ceil(TEN_THOUSANDTHS_USD_PER_SECOND[tier] * seconds / 100);
+    };
+    exports.klingAiAvatarV2CreditCost = klingAiAvatarV2CreditCost;
+    function buildKlingAiAvatarV2FalRequest(params) {
+      const dyn = params.dynamicInputs ?? {};
+      const imageUrl = (0, measuredMediaDuration_1.firstMediaUrl)(params.imageUrls, dyn.image_url, dyn.start_image);
+      if (!imageUrl)
+        throw new Error("Kling AI Avatar n\xE9cessite l'image de l'avatar.");
+      const audioUrl = (0, measuredMediaDuration_1.firstMediaUrl)(dyn.audio_url, dyn.audio_urls, dyn.audio);
+      if (!audioUrl)
+        throw new Error("Kling AI Avatar n\xE9cessite un audio (audio_url).");
+      const input = { image_url: imageUrl, audio_url: audioUrl };
+      const prompt = typeof params.prompt === "string" ? params.prompt.trim() : "";
+      if (prompt)
+        input.prompt = prompt;
+      const tier = (0, exports.normalizeKlingAiAvatarV2Tier)(params.resolution ?? dyn.resolution);
+      return { falModelId: exports.KLING_AI_AVATAR_V2_ENDPOINTS[tier], input };
+    }
+  }
+});
+
+// ../packages/workflow-contracts/dist/omnihumanV2.js
+var require_omnihumanV2 = __commonJS({
+  "../packages/workflow-contracts/dist/omnihumanV2.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.omnihumanV2CreditCost = exports.OMNIHUMAN_V2_ENDPOINT = exports.OMNIHUMAN_V2_MODEL_ID = void 0;
+    exports.buildOmnihumanV2FalRequest = buildOmnihumanV2FalRequest;
+    var measuredMediaDuration_1 = require_measuredMediaDuration();
+    exports.OMNIHUMAN_V2_MODEL_ID = "omnihuman-v2-video";
+    exports.OMNIHUMAN_V2_ENDPOINT = "bytedance/omnihuman/v2";
+    var TENTH_CREDITS_PER_SECOND = 105;
+    var omnihumanV2CreditCost = (inputs) => Math.ceil(TENTH_CREDITS_PER_SECOND * (0, measuredMediaDuration_1.billableMeasuredSeconds)(exports.OMNIHUMAN_V2_MODEL_ID, inputs, "audio") / 10);
+    exports.omnihumanV2CreditCost = omnihumanV2CreditCost;
+    function buildOmnihumanV2FalRequest(params) {
+      const dyn = params.dynamicInputs ?? {};
+      const imageUrl = (0, measuredMediaDuration_1.firstMediaUrl)(params.imageUrls, dyn.image_url, dyn.start_image);
+      if (!imageUrl)
+        throw new Error("OmniHuman v2 n\xE9cessite l'image de la personne \xE0 animer.");
+      const audioUrl = (0, measuredMediaDuration_1.firstMediaUrl)(dyn.audio_url, dyn.audio_urls, dyn.audio);
+      if (!audioUrl)
+        throw new Error("OmniHuman v2 n\xE9cessite un audio (audio_url).");
+      const input = { image_url: imageUrl, audio_url: audioUrl };
+      const prompt = typeof params.prompt === "string" ? params.prompt.trim() : "";
+      if (prompt)
+        input.prompt = prompt;
+      return { falModelId: exports.OMNIHUMAN_V2_ENDPOINT, input };
     }
   }
 });
@@ -6732,6 +11529,397 @@ var require_flux3Klein = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/minimaxH3Image.js
+var require_minimaxH3Image = __commonJS({
+  "../packages/workflow-contracts/dist/minimaxH3Image.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.h3ImageSizeOutputTokens = exports.normalizeH3ImageSize = exports.h3ImageBuilderImageSize = exports.isValidH3ImageSize = exports.normalizeH3ImageAspectRatio = exports.H3_IMAGE_ASPECT_RATIOS = exports.normalizeH3ImageResolution = exports.H3_IMAGE_DEFAULT_RESOLUTION = exports.H3_IMAGE_RESOLUTIONS = exports.clampH3ImagePrompt = exports.h3ImagePromptBytes = exports.h3ImageTextTokens = exports.h3ImageInputImageTokens = exports.h3ImageOutputTokens = exports.H3_IMAGE_MEASURED_USAGE = exports.H3_IMAGE_MAX_PROMPT_BYTES = exports.H3_IMAGE_EXPANSION_TOKENS_PER_INPUT_IMAGE = exports.H3_IMAGE_EXPANSION_TOKENS = exports.H3_IMAGE_INPUT_PIXELS_PER_TOKEN = exports.H3_IMAGE_INPUT_IMAGE_EXTRA_TOKENS = exports.H3_IMAGE_INPUT_IMAGE_TOKEN_CAP = exports.H3_IMAGE_TOKEN_SIDE = exports.H3_IMAGE_OUTPUT_TOKEN_FLOOR = exports.H3_IMAGE_USD_PER_MILLION_TOKENS = exports.H3_IMAGE_MAX_INPUT_IMAGE_PIXELS = exports.H3_IMAGE_DEFAULT_T2I_SIZE = exports.H3_IMAGE_MAX_RATIO = exports.H3_IMAGE_MAX_SIDE = exports.H3_IMAGE_MIN_SIDE = exports.H3_IMAGE_MAX_PIXELS = exports.H3_IMAGE_MIN_PIXELS = exports.H3_IMAGE_MAX_NUM_IMAGES = exports.H3_IMAGE_MAX_INPUT_IMAGES = exports.h3ImageModelSpec = exports.h3ImageEndpointSpec = exports.isH3ImageModelId = exports.isH3ImageEndpoint = exports.H3_IMAGE_FAL_MODEL_TO_ID = exports.H3_IMAGE_ALL_ENDPOINTS = exports.H3_IMAGE_EDIT_MODEL_IDS = exports.H3_IMAGE_MODEL_IDS = exports.H3_IMAGE_ENDPOINTS = exports.H3_IMAGE_HIGHSPEED_EDIT_ENDPOINT = exports.H3_IMAGE_HIGHSPEED_T2I_ENDPOINT = exports.H3_IMAGE_EDIT_ENDPOINT = exports.H3_IMAGE_T2I_ENDPOINT = exports.H3_IMAGE_HIGHSPEED_T2I_ID = exports.H3_IMAGE_HIGHSPEED_ID = exports.H3_IMAGE_T2I_ID = exports.H3_IMAGE_ID = void 0;
+    exports.h3ImageUsageOverrun = exports.h3ImageUsageUsd = exports.readH3ImageUsage = exports.h3ImageMeasuredRefusal = exports.H3_IMAGE_INPUT_TOO_LARGE_MESSAGE = exports.h3ImageProxyRefusal = exports.hardenH3ImageProxyInput = exports.buildH3ImageFalRequest = exports.H3_IMAGE_BASE_COST = exports.h3ImageCreditCost = exports.h3ImageUsd = exports.h3ImageBilledInputImages = exports.h3ImageReferenceUrls = exports.normalizeH3ImageOutputFormat = exports.h3ImageExpansionEnabled = void 0;
+    exports.H3_IMAGE_ID = "h3-image";
+    exports.H3_IMAGE_T2I_ID = "h3-image-t2i";
+    exports.H3_IMAGE_HIGHSPEED_ID = "h3-image-highspeed";
+    exports.H3_IMAGE_HIGHSPEED_T2I_ID = "h3-image-highspeed-t2i";
+    exports.H3_IMAGE_T2I_ENDPOINT = "minimax/h3-image/text-to-image";
+    exports.H3_IMAGE_EDIT_ENDPOINT = "minimax/h3-image/edit";
+    exports.H3_IMAGE_HIGHSPEED_T2I_ENDPOINT = "minimax/h3-image/highspeed/text-to-image";
+    exports.H3_IMAGE_HIGHSPEED_EDIT_ENDPOINT = "minimax/h3-image/highspeed/edit";
+    exports.H3_IMAGE_ENDPOINTS = {
+      [exports.H3_IMAGE_ID]: exports.H3_IMAGE_EDIT_ENDPOINT,
+      [exports.H3_IMAGE_T2I_ID]: exports.H3_IMAGE_T2I_ENDPOINT,
+      [exports.H3_IMAGE_HIGHSPEED_ID]: exports.H3_IMAGE_HIGHSPEED_EDIT_ENDPOINT,
+      [exports.H3_IMAGE_HIGHSPEED_T2I_ID]: exports.H3_IMAGE_HIGHSPEED_T2I_ENDPOINT
+    };
+    var MODEL_SPECS = {
+      [exports.H3_IMAGE_ID]: { variant: "standard", mode: "edit" },
+      [exports.H3_IMAGE_T2I_ID]: { variant: "standard", mode: "t2i" },
+      [exports.H3_IMAGE_HIGHSPEED_ID]: { variant: "highspeed", mode: "edit" },
+      [exports.H3_IMAGE_HIGHSPEED_T2I_ID]: { variant: "highspeed", mode: "t2i" }
+    };
+    var ENDPOINT_SPECS = Object.fromEntries(Object.entries(exports.H3_IMAGE_ENDPOINTS).map(([id, endpoint]) => [endpoint, MODEL_SPECS[id]]));
+    exports.H3_IMAGE_MODEL_IDS = Object.keys(exports.H3_IMAGE_ENDPOINTS);
+    exports.H3_IMAGE_EDIT_MODEL_IDS = [exports.H3_IMAGE_ID, exports.H3_IMAGE_HIGHSPEED_ID];
+    exports.H3_IMAGE_ALL_ENDPOINTS = Object.values(exports.H3_IMAGE_ENDPOINTS);
+    exports.H3_IMAGE_FAL_MODEL_TO_ID = Object.fromEntries(Object.entries(exports.H3_IMAGE_ENDPOINTS).map(([id, endpoint]) => [endpoint, id]));
+    var isH3ImageEndpoint = (falModelId) => typeof falModelId === "string" && Object.prototype.hasOwnProperty.call(ENDPOINT_SPECS, falModelId);
+    exports.isH3ImageEndpoint = isH3ImageEndpoint;
+    var isH3ImageModelId = (modelId) => typeof modelId === "string" && Object.prototype.hasOwnProperty.call(MODEL_SPECS, modelId);
+    exports.isH3ImageModelId = isH3ImageModelId;
+    var h3ImageEndpointSpec = (falModelId) => (0, exports.isH3ImageEndpoint)(falModelId) ? ENDPOINT_SPECS[falModelId] : null;
+    exports.h3ImageEndpointSpec = h3ImageEndpointSpec;
+    var h3ImageModelSpec = (modelId) => (0, exports.isH3ImageModelId)(modelId) ? MODEL_SPECS[modelId] : null;
+    exports.h3ImageModelSpec = h3ImageModelSpec;
+    exports.H3_IMAGE_MAX_INPUT_IMAGES = 16;
+    exports.H3_IMAGE_MAX_NUM_IMAGES = 10;
+    exports.H3_IMAGE_MIN_PIXELS = 655360;
+    exports.H3_IMAGE_MAX_PIXELS = 2e7;
+    exports.H3_IMAGE_MIN_SIDE = 468;
+    exports.H3_IMAGE_MAX_SIDE = 7745;
+    exports.H3_IMAGE_MAX_RATIO = 3;
+    exports.H3_IMAGE_DEFAULT_T2I_SIZE = { width: 2048, height: 2048 };
+    exports.H3_IMAGE_MAX_INPUT_IMAGE_PIXELS = 168e5;
+    exports.H3_IMAGE_USD_PER_MILLION_TOKENS = {
+      standard: { inputText: 2.3, inputImage: 1.5, outputImage: 3.8 },
+      highspeed: { inputText: 2.3, inputImage: 3, outputImage: 7.6 }
+    };
+    exports.H3_IMAGE_OUTPUT_TOKEN_FLOOR = 4160;
+    exports.H3_IMAGE_TOKEN_SIDE = 32;
+    exports.H3_IMAGE_INPUT_IMAGE_TOKEN_CAP = 8192;
+    exports.H3_IMAGE_INPUT_IMAGE_EXTRA_TOKENS = 2;
+    exports.H3_IMAGE_INPUT_PIXELS_PER_TOKEN = 512;
+    exports.H3_IMAGE_EXPANSION_TOKENS = 8e3;
+    exports.H3_IMAGE_EXPANSION_TOKENS_PER_INPUT_IMAGE = 1500;
+    exports.H3_IMAGE_MAX_PROMPT_BYTES = 4e3;
+    exports.H3_IMAGE_MEASURED_USAGE = {
+      output: [
+        { width: 1024, height: 1024, tokens: 4096 },
+        { width: 2048, height: 2048, tokens: 4096 },
+        { width: 2048, height: 1152, tokens: 4080 },
+        { width: 4096, height: 4096, tokens: 16384 },
+        { width: 4472, height: 4472, tokens: 19600 }
+      ],
+      text: [
+        { mode: "t2i", expansion: false, inputImages: 0, tokens: 11 },
+        { mode: "t2i", expansion: true, inputImages: 0, tokens: 2846 },
+        { mode: "edit", expansion: true, inputImages: 1, tokens: 3372 },
+        { mode: "edit", expansion: true, inputImages: 1, tokens: 4505 },
+        { mode: "edit", expansion: true, inputImages: 3, tokens: 6480 },
+        { mode: "edit", expansion: true, inputImages: 3, tokens: 6332 }
+      ],
+      input: [
+        { pixels: [1024 * 1024], tokens: 2050 },
+        { pixels: [2048 * 2048, 1024 * 1024, 2048 * 1152], tokens: 11302 },
+        { pixels: [4096 * 4096], tokens: 5122 }
+      ]
+    };
+    var h3ImageOutputTokens = (width, height) => Math.max(exports.H3_IMAGE_OUTPUT_TOKEN_FLOOR, Math.ceil(width / exports.H3_IMAGE_TOKEN_SIDE) * Math.ceil(height / exports.H3_IMAGE_TOKEN_SIDE));
+    exports.h3ImageOutputTokens = h3ImageOutputTokens;
+    var h3ImageInputImageTokens = (pixels) => {
+      const px = Number.isFinite(pixels) && pixels > 0 ? pixels : Number.POSITIVE_INFINITY;
+      return Math.min(Math.ceil(px / exports.H3_IMAGE_INPUT_PIXELS_PER_TOKEN), exports.H3_IMAGE_INPUT_IMAGE_TOKEN_CAP) + exports.H3_IMAGE_INPUT_IMAGE_EXTRA_TOKENS;
+    };
+    exports.h3ImageInputImageTokens = h3ImageInputImageTokens;
+    var h3ImageTextTokens = (expansion, inputImages) => exports.H3_IMAGE_MAX_PROMPT_BYTES + (expansion ? exports.H3_IMAGE_EXPANSION_TOKENS + exports.H3_IMAGE_EXPANSION_TOKENS_PER_INPUT_IMAGE * Math.max(0, Math.trunc(inputImages)) : 0);
+    exports.h3ImageTextTokens = h3ImageTextTokens;
+    var utf8Bytes = (codePoint) => codePoint < 128 ? 1 : codePoint < 2048 ? 2 : codePoint < 65536 ? 3 : 4;
+    var h3ImagePromptBytes = (prompt) => {
+      let bytes = 0;
+      for (const ch of prompt)
+        bytes += utf8Bytes(ch.codePointAt(0) ?? 0);
+      return bytes;
+    };
+    exports.h3ImagePromptBytes = h3ImagePromptBytes;
+    var clampH3ImagePrompt = (prompt) => {
+      const text = typeof prompt === "string" ? prompt : "";
+      if ((0, exports.h3ImagePromptBytes)(text) <= exports.H3_IMAGE_MAX_PROMPT_BYTES)
+        return text;
+      let bytes = 0;
+      let out = "";
+      for (const ch of text) {
+        const next = bytes + utf8Bytes(ch.codePointAt(0) ?? 0);
+        if (next > exports.H3_IMAGE_MAX_PROMPT_BYTES)
+          break;
+        bytes = next;
+        out += ch;
+      }
+      return out;
+    };
+    exports.clampH3ImagePrompt = clampH3ImagePrompt;
+    exports.H3_IMAGE_RESOLUTIONS = ["1K", "2K", "4K"];
+    exports.H3_IMAGE_DEFAULT_RESOLUTION = "1K";
+    var normalizeH3ImageResolution = (value) => exports.H3_IMAGE_RESOLUTIONS.includes(value) ? value : exports.H3_IMAGE_DEFAULT_RESOLUTION;
+    exports.normalizeH3ImageResolution = normalizeH3ImageResolution;
+    exports.H3_IMAGE_ASPECT_RATIOS = ["auto", "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "21:9"];
+    var RATIOS = {
+      "1:1": [1, 1],
+      "16:9": [16, 9],
+      "9:16": [9, 16],
+      "4:3": [4, 3],
+      "3:4": [3, 4],
+      "3:2": [3, 2],
+      "2:3": [2, 3],
+      "21:9": [21, 9]
+    };
+    var normalizeH3ImageAspectRatio = (value) => {
+      const ar = String(value ?? "").trim();
+      return exports.H3_IMAGE_ASPECT_RATIOS.includes(ar) ? ar : "auto";
+    };
+    exports.normalizeH3ImageAspectRatio = normalizeH3ImageAspectRatio;
+    var TIER_TARGET_PIXELS = {
+      "1K": 1024 * 1024,
+      "2K": 2048 * 2048,
+      "4K": 4096 * 4096
+    };
+    var round32 = (n) => Math.max(exports.H3_IMAGE_TOKEN_SIDE, Math.round(n / exports.H3_IMAGE_TOKEN_SIDE) * exports.H3_IMAGE_TOKEN_SIDE);
+    var isValidH3ImageSize = (width, height) => {
+      if (!Number.isInteger(width) || !Number.isInteger(height))
+        return false;
+      if (width < exports.H3_IMAGE_MIN_SIDE || height < exports.H3_IMAGE_MIN_SIDE)
+        return false;
+      if (width > exports.H3_IMAGE_MAX_SIDE || height > exports.H3_IMAGE_MAX_SIDE)
+        return false;
+      const area = width * height;
+      if (area < exports.H3_IMAGE_MIN_PIXELS || area > exports.H3_IMAGE_MAX_PIXELS)
+        return false;
+      return Math.max(width, height) / Math.min(width, height) <= exports.H3_IMAGE_MAX_RATIO;
+    };
+    exports.isValidH3ImageSize = isValidH3ImageSize;
+    var tierSize = (resolution, ratio) => {
+      const [rw, rh] = ratio;
+      const target = TIER_TARGET_PIXELS[(0, exports.normalizeH3ImageResolution)(resolution)];
+      const unit = Math.sqrt(target / (rw * rh));
+      return { width: round32(unit * rw), height: round32(unit * rh) };
+    };
+    var h3ImageBuilderImageSize = (resolution, aspectRatio, mode) => {
+      const ar = (0, exports.normalizeH3ImageAspectRatio)(aspectRatio);
+      if (ar === "auto" && mode === "edit")
+        return "auto";
+      return tierSize(resolution, RATIOS[ar] ?? RATIOS["1:1"]);
+    };
+    exports.h3ImageBuilderImageSize = h3ImageBuilderImageSize;
+    var PRESET_RATIOS = {
+      square_hd: [1, 1],
+      square: [1, 1],
+      portrait_4_3: [3, 4],
+      portrait_16_9: [9, 16],
+      landscape_4_3: [4, 3],
+      landscape_16_9: [16, 9]
+    };
+    var normalizeH3ImageSize = (value, mode) => {
+      if (typeof value === "string") {
+        const key = value.trim();
+        if (key.toLowerCase() === "auto")
+          return mode === "edit" ? "auto" : void 0;
+        return Object.prototype.hasOwnProperty.call(PRESET_RATIOS, key) ? tierSize("1K", PRESET_RATIOS[key]) : void 0;
+      }
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        const { width, height } = value;
+        const w = Math.round(Number(width));
+        const h = Math.round(Number(height));
+        return (0, exports.isValidH3ImageSize)(w, h) ? { width: w, height: h } : void 0;
+      }
+      return void 0;
+    };
+    exports.normalizeH3ImageSize = normalizeH3ImageSize;
+    var sentImageSize = (value, mode) => (0, exports.normalizeH3ImageSize)(value, mode) ?? (mode === "edit" ? "auto" : { ...exports.H3_IMAGE_DEFAULT_T2I_SIZE });
+    var h3ImageSizeOutputTokens = (size) => size === "auto" ? exports.H3_IMAGE_OUTPUT_TOKEN_FLOOR : (0, exports.h3ImageOutputTokens)(size.width, size.height);
+    exports.h3ImageSizeOutputTokens = h3ImageSizeOutputTokens;
+    var h3ImageExpansionEnabled = (mode, value) => {
+      if (mode === "edit")
+        return true;
+      if (value === false || value === "false" || value === 0 || value === "0")
+        return false;
+      return true;
+    };
+    exports.h3ImageExpansionEnabled = h3ImageExpansionEnabled;
+    var OUTPUT_FORMATS = ["png", "jpeg", "webp"];
+    var normalizeH3ImageOutputFormat = (value) => {
+      const f = String(value ?? "").trim().toLowerCase();
+      if (f === "jpg")
+        return "jpeg";
+      return OUTPUT_FORMATS.includes(f) ? f : "png";
+    };
+    exports.normalizeH3ImageOutputFormat = normalizeH3ImageOutputFormat;
+    var h3ImageReferenceUrls = (value) => {
+      const list = Array.isArray(value) ? value : [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const entry of list) {
+        if (typeof entry !== "string")
+          continue;
+        const url = entry.trim();
+        if (url)
+          seen.add(url);
+      }
+      return [...seen].slice(0, exports.H3_IMAGE_MAX_INPUT_IMAGES);
+    };
+    exports.h3ImageReferenceUrls = h3ImageReferenceUrls;
+    var h3ImageBilledInputImages = (mode, count) => {
+      if (mode === "t2i")
+        return 0;
+      const n = Math.trunc(Number(count));
+      if (!Number.isFinite(n) || n < 1)
+        return 1;
+      return Math.min(exports.H3_IMAGE_MAX_INPUT_IMAGES, n);
+    };
+    exports.h3ImageBilledInputImages = h3ImageBilledInputImages;
+    var ceilCredits = (usd) => Math.ceil(Math.round(usd * 100 * 1e6) / 1e6);
+    var h3ImageUsd = (variant, bill) => {
+      const price = exports.H3_IMAGE_USD_PER_MILLION_TOKENS[variant];
+      const inputImageTokens = bill.inputImagePixels.reduce((sum, px) => sum + (0, exports.h3ImageInputImageTokens)(px), 0);
+      return (bill.textTokens * price.inputText + inputImageTokens * price.inputImage + bill.outputTokens * price.outputImage) / 1e6;
+    };
+    exports.h3ImageUsd = h3ImageUsd;
+    var h3ImageCreditCost = (inputs, spec) => {
+      const rec = inputs ?? {};
+      const size = spec.payloadView ? sentImageSize(rec.image_size, spec.mode) : (0, exports.h3ImageBuilderImageSize)(rec.resolution, rec.aspectRatio, spec.mode);
+      const references = spec.mode === "edit" ? spec.inputImagePixels.slice(0, exports.H3_IMAGE_MAX_INPUT_IMAGES) : [];
+      const expansion = (0, exports.h3ImageExpansionEnabled)(spec.mode, rec.enable_prompt_expansion);
+      const usd = (0, exports.h3ImageUsd)(spec.variant, {
+        outputTokens: (0, exports.h3ImageSizeOutputTokens)(size),
+        textTokens: (0, exports.h3ImageTextTokens)(expansion, references.length),
+        inputImagePixels: references
+      });
+      const n = Math.trunc(Number(rec.num_images));
+      const outputs = spec.payloadView && Number.isFinite(n) && n >= 1 ? Math.min(exports.H3_IMAGE_MAX_NUM_IMAGES, n) : 1;
+      return Math.max(1, ceilCredits(usd)) * outputs;
+    };
+    exports.h3ImageCreditCost = h3ImageCreditCost;
+    exports.H3_IMAGE_BASE_COST = {
+      standard: (0, exports.h3ImageCreditCost)({}, { variant: "standard", mode: "t2i", payloadView: false, inputImagePixels: [] }),
+      highspeed: (0, exports.h3ImageCreditCost)({}, { variant: "highspeed", mode: "t2i", payloadView: false, inputImagePixels: [] })
+    };
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    var buildH3ImageFalRequest = (params) => {
+      const spec = (0, exports.h3ImageModelSpec)(params.modelId);
+      if (!spec)
+        throw refusal(`Mod\xE8le H3 Image inconnu : ${params.modelId}.`);
+      const dynamicInputs = params.dynamicInputs ?? {};
+      const input = {
+        prompt: (0, exports.clampH3ImagePrompt)(params.prompt),
+        image_size: (0, exports.h3ImageBuilderImageSize)(params.resolution, params.aspectRatio, spec.mode),
+        num_images: 1,
+        output_format: (0, exports.normalizeH3ImageOutputFormat)(dynamicInputs.output_format ?? params.outputFormat)
+      };
+      if (spec.mode === "t2i") {
+        input.enable_prompt_expansion = (0, exports.h3ImageExpansionEnabled)("t2i", dynamicInputs.enable_prompt_expansion);
+      } else {
+        const images = (0, exports.h3ImageReferenceUrls)(params.imageUrls ?? []);
+        if (images.length === 0)
+          throw refusal("MiniMax H3 Image (\xE9dition) n\xE9cessite au moins une image en entr\xE9e.");
+        input.image_urls = images;
+      }
+      return { falModelId: exports.H3_IMAGE_ENDPOINTS[params.modelId], input };
+    };
+    exports.buildH3ImageFalRequest = buildH3ImageFalRequest;
+    var hardenH3ImageProxyInput = (falModelId, input) => {
+      const spec = (0, exports.h3ImageEndpointSpec)(falModelId);
+      if (!spec || !input || typeof input !== "object" || Array.isArray(input))
+        return input;
+      input.image_size = sentImageSize(input.image_size, spec.mode);
+      if (typeof input.prompt === "string")
+        input.prompt = (0, exports.clampH3ImagePrompt)(input.prompt);
+      input.num_images = 1;
+      if (spec.mode === "t2i") {
+        input.enable_prompt_expansion = (0, exports.h3ImageExpansionEnabled)("t2i", input.enable_prompt_expansion);
+        delete input.image_urls;
+      } else {
+        delete input.enable_prompt_expansion;
+        if (input.image_urls !== void 0)
+          input.image_urls = (0, exports.h3ImageReferenceUrls)(input.image_urls);
+      }
+      if (input.output_format !== void 0)
+        input.output_format = (0, exports.normalizeH3ImageOutputFormat)(input.output_format);
+      delete input.sync_mode;
+      return input;
+    };
+    exports.hardenH3ImageProxyInput = hardenH3ImageProxyInput;
+    var h3ImageProxyRefusal = (falModelId, input) => {
+      const spec = (0, exports.h3ImageEndpointSpec)(falModelId);
+      if (!spec)
+        return null;
+      const record = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+      if (typeof record.prompt !== "string" || !record.prompt.trim())
+        return "MiniMax H3 Image n\xE9cessite un prompt.";
+      if (spec.mode === "edit" && (0, exports.h3ImageReferenceUrls)(record.image_urls).length === 0) {
+        return "MiniMax H3 Image (\xE9dition) n\xE9cessite au moins une image d'entr\xE9e.";
+      }
+      return null;
+    };
+    exports.h3ImageProxyRefusal = h3ImageProxyRefusal;
+    exports.H3_IMAGE_INPUT_TOO_LARGE_MESSAGE = "Une image d\u2019entr\xE9e d\xE9passe 16,8 m\xE9gapixels : MiniMax H3 Image ne la traite pas \xE0 temps. R\xE9duis-la, puis relance.";
+    var h3ImageMeasuredRefusal = (modelOrEndpoint, megapixels) => {
+      if (!(0, exports.isH3ImageModelId)(modelOrEndpoint) && !(0, exports.isH3ImageEndpoint)(modelOrEndpoint))
+        return null;
+      if (!Array.isArray(megapixels))
+        return null;
+      return megapixels.some((mp) => Number.isFinite(mp) && mp * 1e6 > exports.H3_IMAGE_MAX_INPUT_IMAGE_PIXELS) ? exports.H3_IMAGE_INPUT_TOO_LARGE_MESSAGE : null;
+    };
+    exports.h3ImageMeasuredRefusal = h3ImageMeasuredRefusal;
+    var finiteTokens = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    };
+    var readH3ImageUsage = (response) => {
+      const usage = response?.usage;
+      if (!usage || typeof usage !== "object")
+        return null;
+      const u = usage;
+      const input = u.input_tokens_details ?? {};
+      const output = u.output_tokens_details ?? {};
+      return {
+        textTokens: finiteTokens(input.text_tokens),
+        inputImageTokens: finiteTokens(input.image_tokens),
+        outputImageTokens: finiteTokens(output.image_tokens)
+      };
+    };
+    exports.readH3ImageUsage = readH3ImageUsage;
+    var h3ImageUsageUsd = (variant, usage) => {
+      const price = exports.H3_IMAGE_USD_PER_MILLION_TOKENS[variant];
+      return (usage.textTokens * price.inputText + usage.inputImageTokens * price.inputImage + usage.outputImageTokens * price.outputImage) / 1e6;
+    };
+    exports.h3ImageUsageUsd = h3ImageUsageUsd;
+    var h3ImageUsageOverrun = (params) => {
+      const spec = (0, exports.h3ImageEndpointSpec)(params.falModelId);
+      if (!spec)
+        return null;
+      const usage = (0, exports.readH3ImageUsage)(params.response);
+      if (!usage)
+        return null;
+      const input = params.input ?? {};
+      const images = spec.mode === "edit" ? (0, exports.h3ImageReferenceUrls)(input.image_urls).length : 0;
+      const outputs = Math.max(1, Math.min(exports.H3_IMAGE_MAX_NUM_IMAGES, Math.trunc(Number(input.num_images)) || 1));
+      const overruns = [];
+      const outputBound = (0, exports.h3ImageSizeOutputTokens)(sentImageSize(input.image_size, spec.mode)) * outputs;
+      if (usage.outputImageTokens > outputBound)
+        overruns.push(`output ${usage.outputImageTokens} > ${outputBound}`);
+      const textBound = (0, exports.h3ImageTextTokens)((0, exports.h3ImageExpansionEnabled)(spec.mode, input.enable_prompt_expansion), images) * outputs;
+      if (usage.textTokens > textBound)
+        overruns.push(`text ${usage.textTokens} > ${textBound}`);
+      const inputBound = images * (0, exports.h3ImageInputImageTokens)(Number.POSITIVE_INFINITY) * outputs;
+      if (usage.inputImageTokens > inputBound)
+        overruns.push(`input ${usage.inputImageTokens} > ${inputBound}`);
+      const usageUsd = (0, exports.h3ImageUsageUsd)(spec.variant, usage);
+      const usageCredits = ceilCredits(usageUsd);
+      if (typeof params.chargedCredits === "number" && Number.isFinite(params.chargedCredits) && usageCredits > params.chargedCredits) {
+        overruns.push(`credits ${usageCredits} > ${params.chargedCredits}`);
+      }
+      if (overruns.length === 0)
+        return null;
+      return {
+        usageUsd,
+        usageCredits,
+        ...typeof params.chargedCredits === "number" ? { chargedCredits: params.chargedCredits } : {},
+        overruns
+      };
+    };
+    exports.h3ImageUsageOverrun = h3ImageUsageOverrun;
+  }
+});
+
 // ../packages/workflow-contracts/dist/museImage.js
 var require_museImage = __commonJS({
   "../packages/workflow-contracts/dist/museImage.js"(exports) {
@@ -7136,6 +12324,388 @@ var require_ideogramV4Fast = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/ideogramV4Tiling.js
+var require_ideogramV4Tiling = __commonJS({
+  "../packages/workflow-contracts/dist/ideogramV4Tiling.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ideogramV4TilingProxyRefusal = exports.hardenIdeogramV4TilingInput = exports.buildIdeogramV4TilingFalRequest = exports.IDEOGRAM_V4_TILING_BASE_COST = exports.ideogramV4TilingCreditCost = exports.ideogramV4TilingMegapixels = exports.normalizeIdeogramV4TilingImageSize = exports.ideogramV4TilingImageSize = exports.normalizeIdeogramV4TilingAspectRatio = exports.normalizeIdeogramV4TilingMode = exports.IDEOGRAM_V4_TILING_MAX_AREA = exports.IDEOGRAM_V4_TILING_MAX_SIDE = exports.IDEOGRAM_V4_TILING_MIN_SIDE = exports.IDEOGRAM_V4_TILING_MIN_CREDITS = exports.IDEOGRAM_V4_TILING_ASPECT_RATIOS = exports.IDEOGRAM_V4_TILING_DEFAULT_MODE = exports.IDEOGRAM_V4_TILING_MODES = exports.IDEOGRAM_V4_TILING_EXPANSION_MODEL = exports.IDEOGRAM_V4_TILING_ENDPOINT = void 0;
+    var ideogramV4Fast_1 = require_ideogramV4Fast();
+    exports.IDEOGRAM_V4_TILING_ENDPOINT = "ideogram/v4/tiling";
+    exports.IDEOGRAM_V4_TILING_EXPANSION_MODEL = "None";
+    var MICRO_USD_PER_MP = {
+      TURBO: 3e4,
+      BALANCED: 6e4,
+      QUALITY: 1e5
+    };
+    exports.IDEOGRAM_V4_TILING_MODES = ["both", "horizontal", "vertical"];
+    exports.IDEOGRAM_V4_TILING_DEFAULT_MODE = "both";
+    exports.IDEOGRAM_V4_TILING_ASPECT_RATIOS = ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"];
+    var MEGAPIXEL = 1e6;
+    var TARGET_PIXELS = MEGAPIXEL;
+    var MULTIPLE = 16;
+    exports.IDEOGRAM_V4_TILING_MIN_CREDITS = 4;
+    exports.IDEOGRAM_V4_TILING_MIN_SIDE = 64;
+    exports.IDEOGRAM_V4_TILING_MAX_SIDE = 4096;
+    exports.IDEOGRAM_V4_TILING_MAX_AREA = 4 * MEGAPIXEL;
+    var PRESETS = {
+      square_hd: { width: 1024, height: 1024 },
+      square: { width: 512, height: 512 },
+      portrait_4_3: { width: 768, height: 1024 },
+      portrait_16_9: { width: 576, height: 1024 },
+      landscape_4_3: { width: 1024, height: 768 },
+      landscape_16_9: { width: 1024, height: 576 }
+    };
+    var DEFAULT_PRESET = "square_hd";
+    var normalizeIdeogramV4TilingMode = (value) => {
+      const mode = String(value ?? "").trim().toLowerCase();
+      return exports.IDEOGRAM_V4_TILING_MODES.includes(mode) ? mode : exports.IDEOGRAM_V4_TILING_DEFAULT_MODE;
+    };
+    exports.normalizeIdeogramV4TilingMode = normalizeIdeogramV4TilingMode;
+    var normalizeIdeogramV4TilingAspectRatio = (value) => {
+      const ar = typeof value === "string" ? value.trim() : "";
+      return exports.IDEOGRAM_V4_TILING_ASPECT_RATIOS.includes(ar) ? ar : "1:1";
+    };
+    exports.normalizeIdeogramV4TilingAspectRatio = normalizeIdeogramV4TilingAspectRatio;
+    var RATIO_TOLERANCE = 0.01;
+    var ideogramV4TilingImageSize = (aspectRatio) => {
+      const [w, h] = (0, exports.normalizeIdeogramV4TilingAspectRatio)(aspectRatio).split(":").map(Number);
+      const ratio = w / h;
+      let best = { width: MULTIPLE, height: MULTIPLE };
+      const maxHeight = Math.ceil(Math.sqrt(TARGET_PIXELS / ratio) / MULTIPLE) * MULTIPLE;
+      for (let height = MULTIPLE; height <= maxHeight; height += MULTIPLE) {
+        const low = Math.floor(ratio * height / MULTIPLE) * MULTIPLE;
+        for (const width of [low, low + MULTIPLE]) {
+          if (width < MULTIPLE || width * height > TARGET_PIXELS)
+            continue;
+          if (Math.abs(width / height / ratio - 1) > RATIO_TOLERANCE)
+            continue;
+          if (width * height > best.width * best.height)
+            best = { width, height };
+        }
+      }
+      return best;
+    };
+    exports.ideogramV4TilingImageSize = ideogramV4TilingImageSize;
+    var normalizeIdeogramV4TilingImageSize = (value) => {
+      if (typeof value === "string" || value === void 0 || value === null) {
+        const preset = PRESETS[typeof value === "string" ? value.trim() : DEFAULT_PRESET] ?? PRESETS[DEFAULT_PRESET];
+        return { ...preset };
+      }
+      if (typeof value !== "object")
+        return { ...PRESETS[DEFAULT_PRESET] };
+      const w0 = Number(value.width);
+      const h0 = Number(value.height);
+      if (!Number.isFinite(w0) || !Number.isFinite(h0) || w0 <= 0 || h0 <= 0)
+        return { ...PRESETS[DEFAULT_PRESET] };
+      const clampSide = (n) => Math.min(exports.IDEOGRAM_V4_TILING_MAX_SIDE, Math.max(exports.IDEOGRAM_V4_TILING_MIN_SIDE, n));
+      let width = clampSide(w0);
+      let height = clampSide(h0);
+      if (width * height > exports.IDEOGRAM_V4_TILING_MAX_AREA) {
+        const k = Math.sqrt(exports.IDEOGRAM_V4_TILING_MAX_AREA / (width * height));
+        width *= k;
+        height *= k;
+      }
+      const floor16 = (n) => Math.max(exports.IDEOGRAM_V4_TILING_MIN_SIDE, Math.floor(n / MULTIPLE + 1e-9) * MULTIPLE);
+      return { width: floor16(width), height: floor16(height) };
+    };
+    exports.normalizeIdeogramV4TilingImageSize = normalizeIdeogramV4TilingImageSize;
+    var ideogramV4TilingMegapixels = (size) => Math.max(1, Math.ceil(Math.round(size.width * size.height / MEGAPIXEL * 1e6) / 1e6));
+    exports.ideogramV4TilingMegapixels = ideogramV4TilingMegapixels;
+    var ideogramV4TilingCreditCost = (inputs, payloadView = false) => {
+      const rec = inputs ?? {};
+      const size = payloadView ? (0, exports.normalizeIdeogramV4TilingImageSize)(rec.image_size) : (0, exports.ideogramV4TilingImageSize)(rec.aspectRatio);
+      const rate = MICRO_USD_PER_MP[(0, ideogramV4Fast_1.normalizeIdeogramV4RenderingSpeed)(rec.rendering_speed)];
+      return Math.max(exports.IDEOGRAM_V4_TILING_MIN_CREDITS, Math.ceil(rate * (0, exports.ideogramV4TilingMegapixels)(size) / 1e4));
+    };
+    exports.ideogramV4TilingCreditCost = ideogramV4TilingCreditCost;
+    exports.IDEOGRAM_V4_TILING_BASE_COST = (0, exports.ideogramV4TilingCreditCost)({});
+    var nonEmpty = (value) => typeof value === "string" && value.trim().length > 0;
+    var normalizeOutputFormat = (value) => {
+      const s = String(value ?? "").trim().toLowerCase();
+      return s === "jpeg" || s === "jpg" ? "jpeg" : "png";
+    };
+    var normalizeStrength = (value) => {
+      if (value === void 0 || value === null || value === "")
+        return void 0;
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : void 0;
+    };
+    var finiteSeed = (value) => {
+      if (value === void 0 || value === null || value === "")
+        return void 0;
+      const n = Math.trunc(Number(value));
+      return Number.isFinite(n) && n >= 0 && n <= 2147483647 ? n : void 0;
+    };
+    var buildIdeogramV4TilingFalRequest = (params) => {
+      const dyn = params.dynamicInputs ?? {};
+      const mask = nonEmpty(dyn.mask_url) ? dyn.mask_url.trim() : void 0;
+      const source = (params.imageUrls ?? []).filter(nonEmpty).map((u) => u.trim()).find((u) => u !== mask);
+      if (mask && !source)
+        throw new Error("Ideogram V4 Tiling : un masque exige une image source.");
+      const strength = normalizeStrength(dyn.strength);
+      const seed = finiteSeed(dyn.seed);
+      return {
+        falModelId: exports.IDEOGRAM_V4_TILING_ENDPOINT,
+        input: {
+          prompt: params.prompt,
+          image_size: (0, exports.ideogramV4TilingImageSize)(params.aspectRatio),
+          rendering_speed: (0, ideogramV4Fast_1.normalizeIdeogramV4RenderingSpeed)(dyn.rendering_speed),
+          expansion_model: exports.IDEOGRAM_V4_TILING_EXPANSION_MODEL,
+          num_images: 1,
+          output_format: normalizeOutputFormat(dyn.output_format || params.outputFormat),
+          tiling_mode: (0, exports.normalizeIdeogramV4TilingMode)(dyn.tiling_mode),
+          ...source ? { image_url: source } : {},
+          ...source && mask ? { mask_url: mask } : {},
+          ...source && strength !== void 0 ? { strength } : {},
+          ...seed !== void 0 ? { seed } : {}
+        }
+      };
+    };
+    exports.buildIdeogramV4TilingFalRequest = buildIdeogramV4TilingFalRequest;
+    var hardenIdeogramV4TilingInput = (falModelId, input) => {
+      if (falModelId !== exports.IDEOGRAM_V4_TILING_ENDPOINT)
+        return false;
+      input.image_size = (0, exports.normalizeIdeogramV4TilingImageSize)(input.image_size);
+      input.rendering_speed = (0, ideogramV4Fast_1.normalizeIdeogramV4RenderingSpeed)(input.rendering_speed);
+      input.expansion_model = exports.IDEOGRAM_V4_TILING_EXPANSION_MODEL;
+      input.num_images = 1;
+      if (input.output_format !== void 0)
+        input.output_format = normalizeOutputFormat(input.output_format);
+      input.tiling_mode = (0, exports.normalizeIdeogramV4TilingMode)(input.tiling_mode);
+      if (nonEmpty(input.image_url))
+        input.image_url = input.image_url.trim();
+      else
+        delete input.image_url;
+      if (nonEmpty(input.mask_url))
+        input.mask_url = input.mask_url.trim();
+      else
+        delete input.mask_url;
+      const strength = normalizeStrength(input.strength);
+      if (input.image_url !== void 0 && strength !== void 0)
+        input.strength = strength;
+      else
+        delete input.strength;
+      const seed = finiteSeed(input.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      else
+        delete input.seed;
+      delete input.sync_mode;
+      return true;
+    };
+    exports.hardenIdeogramV4TilingInput = hardenIdeogramV4TilingInput;
+    var ideogramV4TilingProxyRefusal = (falModelId, input) => {
+      if (falModelId !== exports.IDEOGRAM_V4_TILING_ENDPOINT)
+        return null;
+      if (!nonEmpty(input?.prompt))
+        return "Ideogram V4 Tiling n\xE9cessite un prompt.";
+      if (nonEmpty(input.mask_url) && !nonEmpty(input.image_url))
+        return "Ideogram V4 Tiling : un masque exige une image source.";
+      return null;
+    };
+    exports.ideogramV4TilingProxyRefusal = ideogramV4TilingProxyRefusal;
+  }
+});
+
+// ../packages/workflow-contracts/dist/ideogramVector.js
+var require_ideogramVector = __commonJS({
+  "../packages/workflow-contracts/dist/ideogramVector.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ideogramVectorProxyRefusal = exports.hardenIdeogramVectorInput = exports.buildIdeogramVectorFalRequest = exports.clampIdeogramVectorPrompt = exports.IDEOGRAM_VECTOR_BASE_COST = exports.ideogramVectorCreditCost = exports.ideogramVectorReferenceCount = exports.dedupeIdeogramVectorReferences = exports.normalizeIdeogramVectorAspectRatio = exports.normalizeIdeogramVectorQuality = exports.IDEOGRAM_VECTOR_HIGH_WITH_REFERENCES_CREDITS = exports.IDEOGRAM_VECTOR_ASPECT_RATIOS = exports.IDEOGRAM_VECTOR_MAX_PROMPT_LENGTH = exports.IDEOGRAM_VECTOR_MAX_REFERENCES = exports.IDEOGRAM_VECTOR_DEFAULT_QUALITY = exports.IDEOGRAM_VECTOR_QUALITIES = exports.IDEOGRAM_VECTOR_ENDPOINT = void 0;
+    exports.IDEOGRAM_VECTOR_ENDPOINT = "ideogram/vector/text-to-vector";
+    exports.IDEOGRAM_VECTOR_QUALITIES = ["low", "medium", "high"];
+    exports.IDEOGRAM_VECTOR_DEFAULT_QUALITY = "medium";
+    exports.IDEOGRAM_VECTOR_MAX_REFERENCES = 5;
+    exports.IDEOGRAM_VECTOR_MAX_PROMPT_LENGTH = 9500;
+    exports.IDEOGRAM_VECTOR_ASPECT_RATIOS = [
+      "auto",
+      "1:1",
+      "1:4",
+      "1:3",
+      "1:2",
+      "9:16",
+      "10:16",
+      "2:3",
+      "3:4",
+      "4:5",
+      "5:4",
+      "4:3",
+      "3:2",
+      "16:10",
+      "16:9",
+      "2:1",
+      "3:1",
+      "4:1"
+    ];
+    var CREDITS_BY_QUALITY = { low: 13, medium: 16, high: 20 };
+    exports.IDEOGRAM_VECTOR_HIGH_WITH_REFERENCES_CREDITS = 32;
+    var normalizeIdeogramVectorQuality = (value) => {
+      const q = String(value ?? "").trim().toLowerCase();
+      return exports.IDEOGRAM_VECTOR_QUALITIES.includes(q) ? q : exports.IDEOGRAM_VECTOR_DEFAULT_QUALITY;
+    };
+    exports.normalizeIdeogramVectorQuality = normalizeIdeogramVectorQuality;
+    var normalizeIdeogramVectorAspectRatio = (value) => {
+      const ar = typeof value === "string" ? value.trim() : "";
+      return exports.IDEOGRAM_VECTOR_ASPECT_RATIOS.includes(ar) ? ar : "auto";
+    };
+    exports.normalizeIdeogramVectorAspectRatio = normalizeIdeogramVectorAspectRatio;
+    var nonEmptyUrl = (value) => typeof value === "string" && value.trim().length > 0;
+    var collectUrls = (value, into) => {
+      if (nonEmptyUrl(value))
+        into.add(value.trim());
+      else if (Array.isArray(value))
+        value.forEach((entry) => collectUrls(entry, into));
+    };
+    var dedupeIdeogramVectorReferences = (urls) => {
+      const seen = /* @__PURE__ */ new Set();
+      for (const url of urls ?? [])
+        collectUrls(url, seen);
+      return [...seen].slice(0, exports.IDEOGRAM_VECTOR_MAX_REFERENCES);
+    };
+    exports.dedupeIdeogramVectorReferences = dedupeIdeogramVectorReferences;
+    var ideogramVectorReferenceCount = (inputs) => {
+      const rec = inputs ?? {};
+      const urls = /* @__PURE__ */ new Set();
+      for (const key of ["image_urls", "image_url", "image", "images"])
+        collectUrls(rec[key], urls);
+      const declared = Math.trunc(Number(rec.imageInputCount));
+      const n = Math.max(urls.size, Number.isFinite(declared) ? declared : 0);
+      return Math.min(exports.IDEOGRAM_VECTOR_MAX_REFERENCES, Math.max(0, n));
+    };
+    exports.ideogramVectorReferenceCount = ideogramVectorReferenceCount;
+    var ideogramVectorCreditCost = (inputs) => {
+      const quality = (0, exports.normalizeIdeogramVectorQuality)(inputs?.quality);
+      if (quality === "high" && (0, exports.ideogramVectorReferenceCount)(inputs) > 0)
+        return exports.IDEOGRAM_VECTOR_HIGH_WITH_REFERENCES_CREDITS;
+      return CREDITS_BY_QUALITY[quality];
+    };
+    exports.ideogramVectorCreditCost = ideogramVectorCreditCost;
+    exports.IDEOGRAM_VECTOR_BASE_COST = CREDITS_BY_QUALITY[exports.IDEOGRAM_VECTOR_DEFAULT_QUALITY];
+    var clampIdeogramVectorPrompt = (prompt) => {
+      const chars = Array.from(prompt);
+      return chars.length <= exports.IDEOGRAM_VECTOR_MAX_PROMPT_LENGTH ? prompt : chars.slice(0, exports.IDEOGRAM_VECTOR_MAX_PROMPT_LENGTH).join("");
+    };
+    exports.clampIdeogramVectorPrompt = clampIdeogramVectorPrompt;
+    var schemaSeed = (value) => {
+      if (value === void 0 || value === null || value === "")
+        return void 0;
+      const n = Math.trunc(Number(value));
+      return Number.isFinite(n) && n >= 0 && n <= 2147483647 ? n : void 0;
+    };
+    var buildIdeogramVectorFalRequest = (params) => {
+      const dyn = params.dynamicInputs ?? {};
+      const references = (0, exports.dedupeIdeogramVectorReferences)(params.imageUrls);
+      const seed = schemaSeed(dyn.seed);
+      return {
+        falModelId: exports.IDEOGRAM_VECTOR_ENDPOINT,
+        input: {
+          prompt: (0, exports.clampIdeogramVectorPrompt)(params.prompt),
+          quality: (0, exports.normalizeIdeogramVectorQuality)(dyn.quality),
+          num_images: 1,
+          aspect_ratio: (0, exports.normalizeIdeogramVectorAspectRatio)(params.aspectRatio),
+          ...references.length > 0 ? { image_urls: references } : {},
+          ...seed !== void 0 ? { seed } : {}
+        }
+      };
+    };
+    exports.buildIdeogramVectorFalRequest = buildIdeogramVectorFalRequest;
+    var hardenIdeogramVectorInput = (falModelId, input) => {
+      if (falModelId !== exports.IDEOGRAM_VECTOR_ENDPOINT)
+        return false;
+      if (typeof input.prompt === "string")
+        input.prompt = (0, exports.clampIdeogramVectorPrompt)(input.prompt);
+      input.quality = (0, exports.normalizeIdeogramVectorQuality)(input.quality);
+      input.num_images = 1;
+      if (input.aspect_ratio !== void 0)
+        input.aspect_ratio = (0, exports.normalizeIdeogramVectorAspectRatio)(input.aspect_ratio);
+      if (input.image_urls !== void 0) {
+        const references = Array.isArray(input.image_urls) ? (0, exports.dedupeIdeogramVectorReferences)(input.image_urls) : [];
+        if (references.length > 0)
+          input.image_urls = references;
+        else
+          delete input.image_urls;
+      }
+      const seed = schemaSeed(input.seed);
+      if (seed !== void 0)
+        input.seed = seed;
+      else
+        delete input.seed;
+      delete input.sync_mode;
+      return true;
+    };
+    exports.hardenIdeogramVectorInput = hardenIdeogramVectorInput;
+    var ideogramVectorProxyRefusal = (falModelId, input) => {
+      if (falModelId !== exports.IDEOGRAM_VECTOR_ENDPOINT)
+        return null;
+      return typeof input?.prompt === "string" && input.prompt.trim() ? null : "Ideogram Vector n\xE9cessite un prompt.";
+    };
+    exports.ideogramVectorProxyRefusal = ideogramVectorProxyRefusal;
+  }
+});
+
+// ../packages/workflow-contracts/dist/ideogramVectorConvert.js
+var require_ideogramVectorConvert = __commonJS({
+  "../packages/workflow-contracts/dist/ideogramVectorConvert.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ideogramVectorConvertProxyRefusal = exports.hardenIdeogramVectorConvertInput = exports.buildIdeogramVectorConvertFalRequest = exports.normalizeIdeogramVectorConvertMode = exports.IDEOGRAM_VECTOR_CONVERT_CREDITS = exports.IDEOGRAM_VECTOR_CONVERT_DEFAULT_MODE = exports.IDEOGRAM_VECTOR_CONVERT_MODES = exports.IDEOGRAM_VECTOR_CONVERT_ENDPOINT = void 0;
+    exports.IDEOGRAM_VECTOR_CONVERT_ENDPOINT = "ideogram/vector/image-to-vector";
+    exports.IDEOGRAM_VECTOR_CONVERT_MODES = ["default", "simple"];
+    exports.IDEOGRAM_VECTOR_CONVERT_DEFAULT_MODE = "default";
+    exports.IDEOGRAM_VECTOR_CONVERT_CREDITS = 10;
+    var normalizeIdeogramVectorConvertMode = (value) => {
+      const mode = String(value ?? "").trim().toLowerCase();
+      return mode === "simple" ? "simple" : exports.IDEOGRAM_VECTOR_CONVERT_DEFAULT_MODE;
+    };
+    exports.normalizeIdeogramVectorConvertMode = normalizeIdeogramVectorConvertMode;
+    var firstUrl = (value) => {
+      if (typeof value === "string")
+        return value.trim() || void 0;
+      if (Array.isArray(value)) {
+        for (const entry of value) {
+          const url = firstUrl(entry);
+          if (url)
+            return url;
+        }
+      }
+      return void 0;
+    };
+    var buildIdeogramVectorConvertFalRequest = (params) => {
+      const imageUrl = firstUrl(params.imageUrls ?? []);
+      if (!imageUrl)
+        throw new Error("Ideogram Vector (conversion) n\xE9cessite une image en entr\xE9e.");
+      return {
+        falModelId: exports.IDEOGRAM_VECTOR_CONVERT_ENDPOINT,
+        input: {
+          image_url: imageUrl,
+          mode: (0, exports.normalizeIdeogramVectorConvertMode)(params.dynamicInputs?.mode)
+        }
+      };
+    };
+    exports.buildIdeogramVectorConvertFalRequest = buildIdeogramVectorConvertFalRequest;
+    var hardenIdeogramVectorConvertInput = (falModelId, input) => {
+      if (falModelId !== exports.IDEOGRAM_VECTOR_CONVERT_ENDPOINT)
+        return false;
+      const imageUrl = firstUrl(input.image_url);
+      if (imageUrl)
+        input.image_url = imageUrl;
+      else
+        delete input.image_url;
+      input.mode = (0, exports.normalizeIdeogramVectorConvertMode)(input.mode);
+      return true;
+    };
+    exports.hardenIdeogramVectorConvertInput = hardenIdeogramVectorConvertInput;
+    var ideogramVectorConvertProxyRefusal = (falModelId, input) => {
+      if (falModelId !== exports.IDEOGRAM_VECTOR_CONVERT_ENDPOINT)
+        return null;
+      return firstUrl(input?.image_url) ? null : "Ideogram Vector (conversion) n\xE9cessite une image en entr\xE9e.";
+    };
+    exports.ideogramVectorConvertProxyRefusal = ideogramVectorConvertProxyRefusal;
+  }
+});
+
 // ../packages/workflow-contracts/dist/recraftV41.js
 var require_recraftV41 = __commonJS({
   "../packages/workflow-contracts/dist/recraftV41.js"(exports) {
@@ -7528,48 +13098,81 @@ var require_mediaPricing = __commonJS({
   "../packages/workflow-contracts/dist/mediaPricing.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.MEDIA_PRICING = exports.normalizeSeedanceResolution = exports.seedance2SentDuration = exports.wan27BillableDuration = exports.imageSizePixels = exports.FAL_IMAGE_SIZE_PRESETS = exports.falMegapixelsCeil = exports.billedInputImagePixels = exports.UNMEASURED_INPUT_IMAGE_PIXELS = exports.UNMEASURABLE_INPUT_IMAGE_MESSAGE = exports.STRICT_INPUT_IMAGE_MEASURED_MODELS = exports.INPUT_IMAGE_MEGAPIXEL_PRICED_MODELS = exports.billedInputVideoSeconds = exports.measuredInputVideoSeconds = exports.countInputVideos = exports.countInputImages = exports.collectInputUrls = exports.INPUT_VIDEO_KEYS = exports.INPUT_IMAGE_KEYS = exports.readNumImages = exports.isPayloadView = exports.creditsFromUsd = exports.MEDIA_PRICING_VERIFIED_AT = exports.marketingStudioSentParams = exports.genjutsuLightSourceRefusal = exports.GENJUTSU_LIGHT_MODEL_IDS = exports.genjutsuSentResolution = exports.GROK_VIDEO_EDIT_UNMEASURED_SOURCE_SECONDS = exports.SEEDANCE_SENT_RESOLUTIONS = exports.seedanceSentResolution = exports.ltxReframeSentResolution = exports.wan27SentResolution = exports.wanFlashSentResolution = exports.GPT_IMAGE_25_2K_MAX_PIXELS = exports.capGptImage2Size = exports.seedream5ProBuilderImageSize = exports.seedream5BuilderImageSize = exports.preparePricingInputs = exports.CONTEXT_ONLY_PRICING_KEYS = exports.roundCostUpToHundredth = void 0;
+    exports.MEDIA_PRICING = exports.normalizeSeedanceResolution = exports.seedance2SentDuration = exports.wan27BillableDuration = exports.imageSizePixels = exports.FAL_IMAGE_SIZE_PRESETS = exports.falMegapixelsCeil = exports.billedInputImagePixels = exports.UNMEASURED_INPUT_IMAGE_PIXELS = exports.UNMEASURABLE_INPUT_IMAGE_MESSAGE = exports.STRICT_INPUT_IMAGE_MEASURED_MODELS = exports.INPUT_IMAGE_MEGAPIXEL_PRICED_MODELS = exports.billedInputVideoSeconds = exports.measuredInputVideoSeconds = exports.countInputVideos = exports.countInputImages = exports.collectInputUrls = exports.INPUT_AUDIO_KEYS = exports.INPUT_VIDEO_KEYS = exports.INPUT_IMAGE_KEYS = exports.readNumImages = exports.isPayloadView = exports.creditsFromUsd = exports.MEDIA_PRICING_VERIFIED_AT = exports.marketingStudioSentParams = exports.genjutsuLightSourceRefusal = exports.GENJUTSU_LIGHT_MODEL_IDS = exports.genjutsuSentResolution = exports.GROK_VIDEO_EDIT_UNMEASURED_SOURCE_SECONDS = exports.SEEDANCE_SENT_RESOLUTIONS = exports.seedanceSentResolution = exports.ltxReframeSentResolution = exports.wan27SentResolution = exports.wanFlashSentResolution = exports.GPT_IMAGE_25_2K_MAX_PIXELS = exports.capGptImage2Size = exports.seedream5ProBuilderImageSize = exports.seedream5BuilderImageSize = exports.preparePricingInputs = exports.CONTEXT_ONLY_PRICING_KEYS = exports.roundCostUpToHundredth = void 0;
     var gptImage25_1 = require_gptImage25();
+    var gptImage26_1 = require_gptImage26();
     var ltx25_1 = require_ltx25();
     var minimaxH3_1 = require_minimaxH3();
     var minimaxH3Max_1 = require_minimaxH3Max();
     var geminiOmniFlash_1 = require_geminiOmniFlash();
+    var geminiOmniFlash12_1 = require_geminiOmniFlash12();
+    var geminiOmniFlash12Extend_1 = require_geminiOmniFlash12Extend();
+    var geminiOmniFlash12Upscale_1 = require_geminiOmniFlash12Upscale();
+    var ltx25VideoEdit_1 = require_ltx25VideoEdit();
+    var measuredVideoDimensions_1 = require_measuredVideoDimensions();
+    var ltx25AlphaGen_1 = require_ltx25AlphaGen();
+    var flashVsrPlus_1 = require_flashVsrPlus();
     var geminiOmniFlashV1_1 = require_geminiOmniFlashV1();
     var flux3_1 = require_flux3();
     var flux3Max_1 = require_flux3Max();
     var klingO34k_1 = require_klingO34k();
     var klingO3VideoToVideo_1 = require_klingO3VideoToVideo();
+    var klingO3Video_1 = require_klingO3Video();
+    var klingO3V2vReference_1 = require_klingO3V2vReference();
     var higgsfieldDiscounts_1 = require_higgsfieldDiscounts();
     var minimaxH3MaxTurbo_1 = require_minimaxH3MaxTurbo();
     var minimaxH3MultiAngle_1 = require_minimaxH3MultiAngle();
     var wan30_1 = require_wan30();
     var happyHorse_1 = require_happyHorse();
     var seedance25_1 = require_seedance25();
+    var seedance1ProFast_1 = require_seedance1ProFast();
+    var seedance2Standard_1 = require_seedance2Standard();
+    var seedance15Text_1 = require_seedance15Text();
+    var seedance25Draft_1 = require_seedance25Draft();
     var klingV3Turbo_1 = require_klingV3Turbo();
+    var klingV3MotionControl_1 = require_klingV3MotionControl();
     var viduQ4_1 = require_viduQ4();
     var kandinsky6_1 = require_kandinsky6();
     var lumaRay32_1 = require_lumaRay32();
     var berniniR_1 = require_berniniR();
     var pixverseC1_1 = require_pixverseC1();
+    var pixverseV6Max_1 = require_pixverseV6Max();
+    var heygenVideo_1 = require_heygenVideo();
+    var mischief1_1 = require_mischief1();
+    var creatifyBoreal_1 = require_creatifyBoreal();
+    var pixelcutLoopingVideo_1 = require_pixelcutLoopingVideo();
     var klingV4_1 = require_klingV4();
+    var klingV4Flash_1 = require_klingV4Flash();
     var klingV3_1 = require_klingV3();
     var minimaxH3MaxExtend_1 = require_minimaxH3MaxExtend();
     var minimaxH3MaxInsert_1 = require_minimaxH3MaxInsert();
     var minimaxH3MaxStyles_1 = require_minimaxH3MaxStyles();
+    var minimaxH3MaxRelight_1 = require_minimaxH3MaxRelight();
+    var minimaxH3MaxLipSync_1 = require_minimaxH3MaxLipSync();
+    var heygenLipsync_1 = require_heygenLipsync();
+    var klingLipsync_1 = require_klingLipsync();
+    var sync3Lipsync_1 = require_sync3Lipsync();
+    var sync3Avatar_1 = require_sync3Avatar();
+    var klingAiAvatarV2_1 = require_klingAiAvatarV2();
+    var omnihumanV2_1 = require_omnihumanV2();
     var seedreamFlash_1 = require_seedreamFlash();
     var flux3Image_1 = require_flux3Image();
     var nanoBanana21_1 = require_nanoBanana21();
     var krea3_1 = require_krea3();
     var flux3Klein_1 = require_flux3Klein();
+    var minimaxH3Image_1 = require_minimaxH3Image();
     var museImage_1 = require_museImage();
     var grokImagineQuality_1 = require_grokImagineQuality();
     var ideogram45_1 = require_ideogram45();
     var ideogramV4Fast_1 = require_ideogramV4Fast();
+    var ideogramV4Tiling_1 = require_ideogramV4Tiling();
+    var ideogramVector_1 = require_ideogramVector();
+    var ideogramVectorConvert_1 = require_ideogramVectorConvert();
     var recraftV41_1 = require_recraftV41();
     var grokVideo_1 = require_grokVideo();
     var roundCostUpToHundredth2 = (cost) => Math.ceil(cost * 100) / 100;
     exports.roundCostUpToHundredth = roundCostUpToHundredth2;
-    exports.CONTEXT_ONLY_PRICING_KEYS = ["falModelId", "inputVideoSeconds", "inputImageMegapixels"];
+    exports.CONTEXT_ONLY_PRICING_KEYS = ["falModelId", "inputVideoSeconds", "inputImageMegapixels", "inputAudioSeconds", "seedanceDraft", "inputVideoDimensions"];
     var finitePositive = (value) => {
       const n = typeof value === "number" ? value : Number.NaN;
       return Number.isFinite(n) && n >= 0 ? n : void 0;
@@ -7583,12 +13186,21 @@ var require_mediaPricing = __commonJS({
       const seconds = finitePositive(ctx.measured?.inputVideoSeconds);
       if (seconds !== void 0)
         prepared.inputVideoSeconds = seconds;
+      const audioSeconds = finitePositive(ctx.measured?.inputAudioSeconds);
+      if (audioSeconds !== void 0)
+        prepared.inputAudioSeconds = audioSeconds;
       const megapixels = ctx.measured?.inputImageMegapixels;
       if (Array.isArray(megapixels)) {
         const valid = megapixels.map(finitePositive);
         if (valid.every((mp) => mp !== void 0))
           prepared.inputImageMegapixels = valid;
       }
+      const draft = (0, seedance25Draft_1.readSeedance25DraftMeasure)(ctx.measured?.seedanceDraft);
+      if (draft)
+        prepared.seedanceDraft = draft;
+      const dimensions = (0, measuredVideoDimensions_1.readMeasuredVideoDimensions)(ctx.measured?.inputVideoDimensions);
+      if (dimensions)
+        prepared.inputVideoDimensions = dimensions;
       return prepared;
     };
     exports.preparePricingInputs = preparePricingInputs2;
@@ -7712,7 +13324,7 @@ var require_mediaPricing = __commonJS({
       return isLow ? 4 : 6;
     };
     var grok2Credits = (inputs) => grok2BaseCredits(inputs) * (0, exports.readNumImages)(inputs, GROK_MAX_OUTPUTS);
-    var grok2EditCredits = (inputs) => grok2Credits(inputs) + Math.min(5, Math.max(1, (0, exports.countInputImages)(inputs)));
+    var grok2EditCredits = (inputs) => (grok2BaseCredits(inputs) + Math.min(5, Math.max(1, (0, exports.countInputImages)(inputs)))) * (0, exports.readNumImages)(inputs, GROK_MAX_OUTPUTS);
     var hasStyleReferences = (inputs) => (0, exports.collectInputUrls)(inputs, ["image_style_references"]).length > 0;
     var LARGEST_FAL_PRESET_PIXELS = 1024 * 1024;
     var sentOrDerivedPixels = (inputs, providerDefaultPreset) => {
@@ -7931,6 +13543,18 @@ var require_mediaPricing = __commonJS({
       const usd = gptImage25_1.GPT_IMAGE_25_USD[tier][(0, gptImage25_1.billedGptImage25Quality)(inputs.quality)] + 0.012 * extraRefs;
       return (0, exports.creditsFromUsd)(usd) * (0, exports.readNumImages)(inputs, 10);
     };
+    var gpt26Credits = (isEdit) => (inputs) => {
+      const sentTier = (0, gptImage26_1.gptImage26TierFromPixels)((0, exports.imageSizePixels)(inputs.image_size));
+      const nodeTier = (0, exports.isPayloadView)(inputs) ? void 0 : (0, gptImage25_1.normalizeGptImage25Resolution)(inputs.resolution);
+      const defaultTier = sentTier === void 0 && nodeTier === void 0 ? isEdit ? "4K" : "1K" : void 0;
+      const tier = maxGptTier(sentTier, nodeTier, defaultTier);
+      const mask = typeof inputs.mask_url === "string" && inputs.mask_url.trim() ? 1 : 0;
+      const markup = typeof inputs.markup_image_url === "string" && inputs.markup_image_url.trim() ? 1 : 0;
+      const references = Math.min(gptImage26_1.GPT_IMAGE_26_MAX_REFERENCE_IMAGES, Math.max(1, (0, exports.countInputImages)(inputs)));
+      const inputImages = isEdit ? references + mask + markup : 0;
+      const usd = gptImage26_1.GPT_IMAGE_26_USD[tier][(0, gptImage26_1.normalizeGptImage26Quality)(inputs.quality)] + gptImage26_1.GPT_IMAGE_26_INPUT_IMAGE_USD * inputImages;
+      return (0, exports.creditsFromUsd)(usd) * (0, exports.readNumImages)(inputs, 10);
+    };
     var FLUX_2_MAX_OUTPUT_PIXELS = 4 * 1048576;
     var flux2Usd = (outputPixels, inputPixels) => {
       const outputMegapixels = (0, exports.falMegapixelsCeil)(Math.min(FLUX_2_MAX_OUTPUT_PIXELS, outputPixels));
@@ -7952,6 +13576,15 @@ var require_mediaPricing = __commonJS({
     var flux3KleinCredits = (variant, mode) => (inputs) => {
       const references = mode === "edit" ? (0, flux3Klein_1.flux3KleinBilledInputImages)(mode, (0, exports.countInputImages)(inputs)) : 0;
       return (0, flux3Klein_1.flux3KleinCreditCost)(inputs, {
+        variant,
+        mode,
+        payloadView: (0, exports.isPayloadView)(inputs),
+        inputImagePixels: references > 0 ? (0, exports.billedInputImagePixels)(inputs, references) : []
+      });
+    };
+    var h3ImageCredits = (variant, mode) => (inputs) => {
+      const references = mode === "edit" ? (0, minimaxH3Image_1.h3ImageBilledInputImages)(mode, (0, exports.countInputImages)(inputs)) : 0;
+      return (0, minimaxH3Image_1.h3ImageCreditCost)(inputs, {
         variant,
         mode,
         payloadView: (0, exports.isPayloadView)(inputs),
@@ -8102,7 +13735,12 @@ var require_mediaPricing = __commonJS({
       const usd = width * height * 24 * duration / 1024 / 1e6 * (inputs.generate_audio !== false ? 2.4 : 1.2);
       return (0, exports.roundCostUpToHundredth)(usd * 100);
     };
+    var seedance15IsTextToVideo = (inputs) => (0, exports.isPayloadView)(inputs) ? inputs.falModelId === seedance15Text_1.SEEDANCE15_TEXT_ENDPOINT : (0, exports.collectInputUrls)(inputs, exports.INPUT_IMAGE_KEYS).length === 0;
     var seedance15Credits = (inputs) => {
+      const before = seedance15ImageCredits(inputs);
+      return seedance15IsTextToVideo(inputs) ? Math.max(before, (0, seedance15Text_1.seedance15TextCreditCostFromInputs)(inputs)) : before;
+    };
+    var seedance15ImageCredits = (inputs) => {
       const resolution = (0, exports.seedanceSentResolution)(inputs.resolution, ["480p", "720p", "1080p"]);
       const duration = Number(inputs.duration) > 0 ? Number(inputs.duration) : 5;
       const { width, height } = SEEDANCE_DIMS[resolution];
@@ -8214,6 +13852,15 @@ var require_mediaPricing = __commonJS({
       return Math.max((0, exports.creditsFromUsd)(usdPerSecond * duration), (0, klingV3_1.klingV3CreditCostFromInputs)(inputs));
     };
     var klingO3EditSourceSeconds = (inputs) => (0, exports.measuredInputVideoSeconds)(inputs);
+    var klingO3EditBilledVariant = (inputs) => {
+      const fromSlug = (0, exports.isPayloadView)(inputs) ? (0, klingO3VideoToVideo_1.klingO3EditTierFromEndpoint)(String(inputs.falModelId)) : void 0;
+      const fromNode = inputs.resolution === "Standard" ? "standard" : inputs.resolution === "Pro" ? "pro" : void 0;
+      if (fromSlug === "pro" || fromNode === "pro")
+        return "pro-edit";
+      if (fromSlug === "standard" || fromNode === "standard")
+        return "standard-edit";
+      return "pro-edit";
+    };
     var klingO34kKindFromEndpoint = (endpoint) => {
       if (endpoint.includes("/video-to-video/edit"))
         return "edit";
@@ -8449,6 +14096,7 @@ var require_mediaPricing = __commonJS({
       "reference_video",
       "reference_videos"
     ];
+    exports.INPUT_AUDIO_KEYS = ["audio_url", "audio_urls"];
     var collectInputUrls = (inputs, keys) => {
       const urls = /* @__PURE__ */ new Set();
       for (const key of keys)
@@ -8484,9 +14132,12 @@ var require_mediaPricing = __commonJS({
       // BV-388 : FLUX.3 Klein / Klein Base en édition (têtes de famille = ids
       // d'édition ; les ids `*-t2i` n'envoient aucune référence).
       "flux-3-klein",
-      "flux-3-klein-base"
+      "flux-3-klein-base",
+      // BV-565 : MiniMax H3 Image en édition (têtes de famille), aux jetons par image.
+      "h3-image",
+      "h3-image-highspeed"
     ];
-    exports.STRICT_INPUT_IMAGE_MEASURED_MODELS = ["flux-3-klein", "flux-3-klein-base"];
+    exports.STRICT_INPUT_IMAGE_MEASURED_MODELS = ["flux-3-klein", "flux-3-klein-base", "h3-image", "h3-image-highspeed"];
     exports.UNMEASURABLE_INPUT_IMAGE_MESSAGE = "Une image de r\xE9f\xE9rence n'a pas pu \xEAtre lue. Ce mod\xE8le facture chaque r\xE9f\xE9rence \xE0 sa taille r\xE9elle : importe l\u2019image dans Beemm Vision, puis relance.";
     exports.UNMEASURED_INPUT_IMAGE_PIXELS = 25e6;
     var billedInputImagePixels = (inputs, count) => {
@@ -8663,7 +14314,6 @@ var require_mediaPricing = __commonJS({
       "kling-t2i": { baseCost: 3, calculateCost: klingV3ImageCredits },
       "kling-o3-t2i": { baseCost: 3, calculateCost: klingO3ImageCredits },
       "hunyuan-t2i": { baseCost: 10, calculateCost: hunyuanT2iCredits },
-      "qwen-max-t2i": { baseCost: 8, calculateCost: qwenFlat(0.075, 4) },
       "flux-2-pro-edit": { baseCost: 6, calculateCost: flux2ProEditCredits },
       "qwen-image-2-edit": { baseCost: 4, calculateCost: qwenFlat(0.035, 6) },
       "seedream-lite": { baseCost: 4, calculateCost: (inputs) => (0, exports.creditsFromUsd)(0.035) * seedreamOutputs(inputs) },
@@ -8676,10 +14326,12 @@ var require_mediaPricing = __commonJS({
       // chemins qui interrogent AI_PRICING.
       "seedream-pro-layerize": { baseCost: 8 },
       // BV-341 : 2 calques × 4 cr
+      // BV-513 : moteur Flash, même rôle de plancher (2 calques × 3 cr) ; le coût
+      // réel est calculé au calque par layerizePricing.ts.
+      "seedream-flash-layerize": { baseCost: 6 },
       "bria-ad-delayer": { baseCost: 30 },
       "kling": { baseCost: 3, calculateCost: klingV3ImageCredits },
       "kling-o3": { baseCost: 3, calculateCost: klingO3ImageCredits },
-      "qwen-max": { baseCost: 8, calculateCost: qwenFlat(0.075, 6) },
       "qwen-image-2": { baseCost: 4, calculateCost: qwenFlat(0.035, 4) },
       "qwen-image-2-pro": { baseCost: 8, calculateCost: qwenFlat(0.075, 4) },
       "qwen-image-2-pro-edit": { baseCost: 8, calculateCost: qwenFlat(0.075, 6) },
@@ -8729,6 +14381,13 @@ var require_mediaPricing = __commonJS({
       "gpt-image-2-5-flare-edit": { baseCost: gptImage25_1.GPT_IMAGE_25_BASE_COST, calculateCost: gpt25Credits(true) },
       "gpt-image-2-5-sunburst": { baseCost: gptImage25_1.GPT_IMAGE_25_BASE_COST, calculateCost: gpt25Credits(false) },
       "gpt-image-2-5-sunburst-edit": { baseCost: gptImage25_1.GPT_IMAGE_25_BASE_COST, calculateCost: gpt25Credits(true) },
+      /* GPT Image 2.6 (BV-495) — grille MESURÉE sur Flare et Sunburst, identiques
+       * (gptImage26.ts). Règle présente pour les quatre ids quel que soit
+       * l'interrupteur de leur variante : un interrupteur ferme l'exposition, pas le prix. */
+      "gpt-image-2-6-flare": { baseCost: gptImage26_1.GPT_IMAGE_26_BASE_COST, calculateCost: gpt26Credits(false) },
+      "gpt-image-2-6-flare-edit": { baseCost: gptImage26_1.GPT_IMAGE_26_EDIT_BASE_COST, calculateCost: gpt26Credits(true) },
+      "gpt-image-2-6-sunburst": { baseCost: gptImage26_1.GPT_IMAGE_26_BASE_COST, calculateCost: gpt26Credits(false) },
+      "gpt-image-2-6-sunburst-edit": { baseCost: gptImage26_1.GPT_IMAGE_26_EDIT_BASE_COST, calculateCost: gpt26Credits(true) },
       "flux-2-pro": { baseCost: 3, calculateCost: flux2ProCredits },
       // FLUX 3 Image (BV-342) : contrat flux3Image.ts.
       "flux-3-image": { baseCost: flux3Image_1.FLUX3_IMAGE_BASE_COST, calculateCost: (inputs) => (0, flux3Image_1.flux3ImageCreditCost)(inputs, "edit") },
@@ -8738,6 +14397,11 @@ var require_mediaPricing = __commonJS({
       "flux-3-klein-t2i": { baseCost: flux3Klein_1.FLUX3_KLEIN_BASE_COST.klein, calculateCost: flux3KleinCredits("klein", "t2i") },
       "flux-3-klein-base": { baseCost: flux3Klein_1.FLUX3_KLEIN_BASE_COST.base, calculateCost: flux3KleinCredits("base", "edit") },
       "flux-3-klein-base-t2i": { baseCost: flux3Klein_1.FLUX3_KLEIN_BASE_COST.base, calculateCost: flux3KleinCredits("base", "t2i") },
+      // MiniMax H3 Image classique / Highspeed (BV-565) : contrat minimaxH3Image.ts.
+      "h3-image": { baseCost: minimaxH3Image_1.H3_IMAGE_BASE_COST.standard, calculateCost: h3ImageCredits("standard", "edit") },
+      "h3-image-t2i": { baseCost: minimaxH3Image_1.H3_IMAGE_BASE_COST.standard, calculateCost: h3ImageCredits("standard", "t2i") },
+      "h3-image-highspeed": { baseCost: minimaxH3Image_1.H3_IMAGE_BASE_COST.highspeed, calculateCost: h3ImageCredits("highspeed", "edit") },
+      "h3-image-highspeed-t2i": { baseCost: minimaxH3Image_1.H3_IMAGE_BASE_COST.highspeed, calculateCost: h3ImageCredits("highspeed", "t2i") },
       "recraft-v4-vector": { baseCost: 8 },
       "recraft-v4.1-pro": { baseCost: 25 },
       "recraft-v4.1-pro-vector": { baseCost: 30 },
@@ -8756,11 +14420,16 @@ var require_mediaPricing = __commonJS({
       "ideogram-v4-5-t2i": { baseCost: ideogram45_1.IDEOGRAM_45_BASE_COST, calculateCost: (inputs) => (0, ideogram45_1.ideogram45CreditCost)(inputs, "t2i") },
       "ideogram-v4-fast": { baseCost: ideogramV4Fast_1.IDEOGRAM_V4_FAST_BASE_COST, calculateCost: (inputs) => (0, ideogramV4Fast_1.ideogramV4FastCreditCost)(inputs) },
       "ideogram-v4-instant": { baseCost: ideogramV4Fast_1.IDEOGRAM_V4_INSTANT_BASE_COST, calculateCost: (inputs) => (0, ideogramV4Fast_1.ideogramV4InstantCreditCost)(inputs) },
-      // Reve 2.1 : $0.25/image, tarif PLAT sur les 3 endpoints FAL.
-      "reve-2-1": { baseCost: 25 },
+      // Ideogram V4 Tiling (BV-513) : 0,03 / 0,06 / 0,10 $ par MP de la taille
+      // ÉCRITE (≤ 1 MP par le builder) ; vue payload : la taille qui part.
+      "ideogram-v4-tiling": { baseCost: ideogramV4Tiling_1.IDEOGRAM_V4_TILING_BASE_COST, calculateCost: (inputs) => (0, ideogramV4Tiling_1.ideogramV4TilingCreditCost)(inputs, (0, exports.isPayloadView)(inputs)) },
+      // Ideogram Vector (BV-513) : par SVG, 13 / 16 / 20 cr ; « high » avec des
+      // références envoyées 32 cr (contrat ideogramVector.ts).
+      "ideogram-vector": { baseCost: ideogramVector_1.IDEOGRAM_VECTOR_BASE_COST, calculateCost: (inputs) => (0, ideogramVector_1.ideogramVectorCreditCost)(inputs) },
+      // Ideogram Vector, conversion image → SVG (BV-513) : 0,10 $ par SVG, mode sans effet.
+      "ideogram-vector-convert": { baseCost: ideogramVectorConvert_1.IDEOGRAM_VECTOR_CONVERT_CREDITS },
       // fal-ai/marigold-v2 : 0,03 $ par image, taille sans effet.
       "marigold-v2": { baseCost: 3 },
-      "reve-2-1-t2i": { baseCost: 25 },
       // Meta Muse Image (BV-342) : 0,01 $/image, t2i comme édition.
       "muse-image": { baseCost: museImage_1.MUSE_IMAGE_CREDITS, calculateCost: () => (0, museImage_1.museImageCreditCost)() },
       "muse-image-t2i": { baseCost: museImage_1.MUSE_IMAGE_CREDITS, calculateCost: () => (0, museImage_1.museImageCreditCost)() },
@@ -8772,6 +14441,11 @@ var require_mediaPricing = __commonJS({
       "ltx-video-fast": { baseCost: 36, calculateCost: ltx23Credits(LTX_FAST_USD, LTX_FAST_LEGACY_CPS) },
       // LTX 2.3 Reframe : durée de la SOURCE mesurée, sinon 60 s (cf. ltxReframeCredits).
       "ltx-video-reframe": { baseCost: 1200, calculateCost: ltxReframeCredits },
+      // BV-565 — LTX 2.5 Upscale / Reframe : tarif plein du palier de SORTIE
+      // (upscale 0,08 / 0,30 / 1,20 $/s ; reframe 0,10 / 0,20 $/s) × secondes
+      // ENTAMÉES de la source MESURÉE. Sans mesure : devis 30 s, refus avant débit.
+      "ltx-25-upscale-video": { baseCost: 240, calculateCost: (inputs) => (0, ltx25VideoEdit_1.ltx25UpscaleCreditCostFromInputs)(inputs) },
+      "ltx-25-reframe-video": { baseCost: 600, calculateCost: (inputs) => (0, ltx25VideoEdit_1.ltx25ReframeCreditCostFromInputs)(inputs) },
       // LTX 2.5 — même source que le client ET que le builder de payload : le
       // palier facturé est toujours celui réellement envoyé à FAL.
       "ltx-25-fast": {
@@ -8809,10 +14483,17 @@ var require_mediaPricing = __commonJS({
       "grok-video-extend": { baseCost: (0, grokVideo_1.grokVideoBaseCost)("grok-video-extend"), calculateCost: grokVideoSourceMeasuredCredits("grok-video-extend") },
       "grok-video-edit": { baseCost: (0, grokVideo_1.grokVideoBaseCost)("grok-video-edit"), calculateCost: grokVideoSourceMeasuredCredits("grok-video-edit") },
       "bytedance-seedance-1.5-pro": { baseCost: 26, calculateCost: seedance15Credits },
+      // BV-513 — Seedance 1.0 Pro Fast : 1 $/M jetons, format et durée TOUJOURS
+      // explicites (prix exact, `auto` refusé) : contrat seedance1ProFast.ts.
+      "bytedance-seedance-1-pro-fast": { baseCost: 25, calculateCost: (inputs) => (0, seedance1ProFast_1.seedance1ProFastCreditCostFromInputs)(inputs) },
       "bytedance-seedance-2-ref-to-video": {
         baseCost: 152,
         calculateCost: seedance2Credits(SEEDANCE_2_USD_PER_SECOND.reference, seedance2RefLegacy)
       },
+      // BV-513 — Seedance 2.0 standard, texte / image → vidéo : 0,014 $ / 1 000
+      // jetons (0,008 en 4k), au format ENVOYÉ, jamais sous les $/s publiés.
+      // Format et durée toujours explicites (prix exact) : contrat seedance2Standard.ts.
+      "bytedance-seedance-2-standard": { baseCost: 152, calculateCost: (inputs) => (0, seedance2Standard_1.seedance2StandardCreditCostFromInputs)(inputs) },
       "bytedance-seedance-2-fast": {
         baseCost: 121,
         calculateCost: seedance2Credits(SEEDANCE_2_USD_PER_SECOND.fast, (inputs) => seedance2VideoCost(inputs, 0.0112))
@@ -8825,6 +14506,14 @@ var require_mediaPricing = __commonJS({
       // Kling V3 Turbo (BV-342) — palier = endpoint (slug sur aiProxy, `resolution`
       // sur le nœud, le plus cher gagne) : contrat klingV3Turbo.ts.
       "kling-v3-turbo-video": { baseCost: 56, calculateCost: (inputs) => (0, klingV3Turbo_1.klingV3TurboCreditCostFromInputs)(inputs) },
+      // Kling V3 Motion Control (BV-513) — 0,126 / 0,168 $ par seconde de vidéo
+      // de mouvement MESURÉE (la sortie dure comme elle), seconde entamée entière,
+      // palier = slug. Sans mesure, le plafond de l'orientation n'est qu'un devis
+      // affiché : le débit est refusé avant (klingV3MotionControlSourceRefusal).
+      [klingV3MotionControl_1.KLING_V3_MOTION_CONTROL_MODEL_ID]: {
+        baseCost: klingV3MotionControl_1.KLING_V3_MOTION_CONTROL_BASE_COST,
+        calculateCost: (inputs) => (0, klingV3MotionControl_1.klingV3MotionControlCreditCostFromInputs)(inputs)
+      },
       // Vidu Q4 (BV-388) — image → vidéo seulement, palier × seconde au tarif PLEIN
       // (après la promo −30 %) : contrat viduQ4.ts.
       "vidu-q4-video": { baseCost: 48, calculateCost: (inputs) => (0, viduQ4_1.viduQ4CreditCostFromInputs)(inputs) },
@@ -8847,6 +14536,30 @@ var require_mediaPricing = __commonJS({
       // références. Audio lu par `pixverseC1AudioEnabled` (la fonction du builder).
       // Défaut (rien d'envoyé) = 720p 5 s sans audio, le défaut FAL. Contrat pixverseC1.ts.
       "pixverse-c1-video": { baseCost: 25, calculateCost: (inputs) => (0, pixverseC1_1.pixverseC1CreditCostFromInputs)(inputs) },
+      // PixVerse V6 Max (BV-565) — 5,4 / 8,1 / 9,9 / 19,8 cr/s (360p → 1080p) sans
+      // audio, 8,1 / 9,9 / 13,5 / 25,2 avec, sur la durée RENDUE (N s + 1 image à
+      // 24 fps), arrondi au crédit supérieur sur le TOTAL ; même tarif t2v / i2v,
+      // multi-clip et style sans effet. Défaut = 720p 5 s sans audio. Contrat pixverseV6Max.ts.
+      "pixverse-v6-max-video": { baseCost: 50, calculateCost: (inputs) => (0, pixverseV6Max_1.pixverseV6MaxCreditCostFromInputs)(inputs) },
+      // HeyGen Video (BV-513) — 2 cr/s en 480p / 768p, 6 cr/s en 1080p / 2k, tarif
+      // PLEIN (promo −50 % finie le 31/10) × durée entière 5–15 ; même tarif en
+      // t2v / i2v / r2v, sans effet des références ni de `prompt_enhancement`.
+      // Défaut (rien d'envoyé) = 768p 5 s, le défaut FAL. Contrat heygenVideo.ts.
+      "heygen-video": { baseCost: 10, calculateCost: (inputs) => (0, heygenVideo_1.heygenVideoCreditCostFromInputs)(inputs) },
+      // Mischief 1 (BV-513, TBC) — 0,005 / 0,01 $/s (480p / 720p) à la durée
+      // DEMANDÉE (3 ou 5 s), arrondi au crédit supérieur sur le TOTAL : 2 / 3 / 3 / 5.
+      // Défaut (rien d'envoyé) = 720p 5 s. Contrat mischief1.ts.
+      "mischief-1-video": { baseCost: 5, calculateCost: (inputs) => (0, mischief1_1.mischief1CreditCostFromInputs)(inputs) },
+      // Boreal (BV-513, Creatify) — 1 / 3 / 12 cr/s (720p / 1080p / 2k) × durée
+      // entière 1–20 ; ni l'image ni l'audio n'entrent dans le prix, et un audio
+      // n'impose pas la durée (coupé ou complété par du silence). Défaut (rien
+      // d'envoyé) = 720p 10 s, écrit par le builder. Contrat creatifyBoreal.ts.
+      "creatify-boreal-video": { baseCost: 10, calculateCost: (inputs) => (0, creatifyBoreal_1.creatifyBorealCreditCostFromInputs)(inputs) },
+      // Pixelcut Looping Video (BV-513) — 8 / 16 / 32 cr/s (480p / 768p / 1080p) ×
+      // durée entière 5–15 ; ni `motion` ni `include_audio` n'entrent dans le prix.
+      // Défaut (rien d'envoyé) = 1080p 5 s, le défaut FAL — le palier le PLUS CHER,
+      // que les builders écrivent toujours. Contrat pixelcutLoopingVideo.ts.
+      "pixelcut-looping-video": { baseCost: 160, calculateCost: (inputs) => (0, pixelcutLoopingVideo_1.pixelcutLoopingVideoCreditCostFromInputs)(inputs) },
       // Kling 4.0 (BV-408) — 0,157 / 0,235 $/s (720p / 1080p) sur la SORTIE en
       // t2v / i2v / r2v sans vidéo ; 0,094 / 0,141 $/s sur max(entrée + sortie,
       // 2 × sortie) en r2v avec vidéo (référence ou élément) et en édition.
@@ -8860,10 +14573,31 @@ var require_mediaPricing = __commonJS({
         baseCost: klingV4_1.KLING_V4_EDIT_BASE_COST,
         calculateCost: (inputs) => (0, klingV4_1.klingV4CreditCostFromInputs)(inputs, klingV4_1.KLING_V4_EDIT_MODEL_ID)
       },
+      // Kling 4.0 Flash (BV-495) — 0,094 $/s (720p seul palier) sur la SORTIE en
+      // t2v / i2v / r2v sans vidéo ; 0,063 $/s sur max(entrée + sortie, 2 × sortie)
+      // en r2v avec vidéo (référence ou élément) et en édition. Entrée = mesure
+      // serveur (`inputVideoSeconds`), sinon 20,05 s ; un élément vidéo (jamais
+      // mesuré) est toujours au plafond. Arrondi au crédit supérieur sur le TOTAL.
+      // Contrat klingV4Flash.ts.
+      [klingV4Flash_1.KLING_V4_FLASH_MODEL_ID]: {
+        baseCost: klingV4Flash_1.KLING_V4_FLASH_BASE_COST,
+        calculateCost: (inputs) => (0, klingV4Flash_1.klingV4FlashCreditCostFromInputs)(inputs, klingV4Flash_1.KLING_V4_FLASH_MODEL_ID)
+      },
+      [klingV4Flash_1.KLING_V4_FLASH_EDIT_MODEL_ID]: {
+        baseCost: klingV4Flash_1.KLING_V4_FLASH_EDIT_BASE_COST,
+        calculateCost: (inputs) => (0, klingV4Flash_1.klingV4FlashCreditCostFromInputs)(inputs, klingV4Flash_1.KLING_V4_FLASH_EDIT_MODEL_ID)
+      },
       "wan-v2-7": { baseCost: 75, calculateCost: wan27Credits },
       // MiniMax H3 — 5/6/13/16 cr/s (480P/768P/2K/4K). R2V : +8 cr / image au-delà de 5.
       // MiniMax H3 Max — 5/8/16 cr/s (480P/768P/1080P, tarif plein). R2V : 8 cr/s (16 en 1080P) + 2 cr / 1k jetons au-delà de 4096.
       "bytedance-seedance-2-5": { baseCost: 237, calculateCost: seedance25Credits },
+      // BV-513 — Seedance 2.5 Draft : aperçu 480p (0,2205 $/s, ×0,6 sur entrée +
+      // sortie avec vidéos MESURÉES), route FAL seule. Contrat seedance25Draft.ts.
+      "bytedance-seedance-2-5-draft": { baseCost: 111, calculateCost: (inputs) => (0, seedance25Draft_1.seedance25DraftCreditCostFromInputs)(inputs) },
+      // BV-513 — Seedance 2.5 Complete : 1,164 $/s × durée MESURÉE du brouillon
+      // (×0,6 sur entrée + sortie avec vidéos), lue dans le seul contexte serveur.
+      // `baseCost` = le « dès » affiché (brouillon le plus court, 4 s).
+      "bytedance-seedance-2-5-complete": { baseCost: 466, calculateCost: (inputs) => (0, seedance25Draft_1.seedance25CompleteCreditCostFromInputs)(inputs) },
       "wan-3-0": { baseCost: 100, calculateCost: wan30Credits("standard") },
       "wan-3-0-prime": { baseCost: 140, calculateCost: wan30Credits("prime") },
       // Happy Horse 1.0 / 1.1 (Alibaba, BV-388) — 14 / 28 cr/s (1.0) et 14 / 18 cr/s
@@ -8922,6 +14656,42 @@ var require_mediaPricing = __commonJS({
           dynamicInputs: inputs
         })
       },
+      // BV-513 — Gemini Omni Flash 1.2 (t2v / i2v / r2v / edit) : prix EXACT au
+      // palier × durée envoyée (0,0273 / 0,0819 / 0,1229 / 0,2457 $/s), arrondi
+      // au crédit supérieur sur le total ; édition sur la durée MESURÉE de la
+      // source (non mesurée : plafond de devis 15 s, refusée avant débit).
+      "gemini-omni-flash-1-2": {
+        baseCost: 66,
+        calculateCost: (inputs) => (0, geminiOmniFlash12_1.geminiOmniFlash12CreditCostFromInputs)(inputs)
+      },
+      // BV-513 — Gemini Omni Flash 1.2 · Prolonger : prix EXACT, palier × secondes
+      // AJOUTÉES (3–10, défaut 8) ; la vidéo source n'est pas facturée.
+      "gemini-omni-flash-1-2-extend": {
+        baseCost: 66,
+        calculateCost: (inputs) => (0, geminiOmniFlash12Extend_1.geminiOmniFlash12ExtendCreditCostFromInputs)(inputs)
+      },
+      // BV-513 — Gemini Omni Flash 1.2 · Upscale : exact pour la CIBLE, pire cas
+      // sur la source — pire tarif publié de la cible (0,041 / 0,0819 / 0,1638 $/s
+      // en 720p / 1080p / 4K) × durée MESURÉE de la source. Aucune métadonnée du
+      // fichier ne fixe le prix. Sans mesure : devis 15 s, refus avant débit.
+      "gemini-omni-flash-1-2-upscale": {
+        baseCost: 123,
+        calculateCost: (inputs) => (0, geminiOmniFlash12Upscale_1.geminiOmniFlash12UpscaleCreditCostFromInputs)(inputs)
+      },
+      // BV-565 — LTX 2.5 Alpha Gen : palier du PETIT CÔTÉ mesuré (0,10 / 0,25 /
+      // 1,00 $/s) × secondes MESURÉES. Sans mesure : pire palier × 31 s (devis :
+      // 30 s + tolérance, seconde entamée), refus avant débit côté serveur.
+      "ltx-25-alpha-gen-video": {
+        baseCost: 3100,
+        calculateCost: (inputs) => (0, ltx25AlphaGen_1.ltx25AlphaGenCreditCostFromInputs)(inputs)
+      },
+      // BV-565 — FlashVSR+ : 0,0005 $ par MP de SORTIE (dimensions MESURÉES ×
+      // facteur, alignées sur 16) × images MESURÉES × temporal_compression.
+      // Sans mesure : 3840×2160 × 900 images (devis), refus avant débit.
+      "flashvsr-plus-video": {
+        baseCost: 374,
+        calculateCost: (inputs) => (0, flashVsrPlus_1.flashVsrPlusCreditCostFromInputs)(inputs)
+      },
       // Gemini Omni Flash V1 (classique) : forfait 14 cr/s (BV-341). Ces
       // endpoints n'exposent aucune résolution et FAL les facture aux tokens
       // (~$0,13/s en 720p + jetons d'entrée).
@@ -8966,10 +14736,21 @@ var require_mediaPricing = __commonJS({
         calculateCost: () => (0, flux3_1.flux3EnhanceCreditCost)()
       },
       "kling-o3-4k": { baseCost: 210, calculateCost: klingO34kCredits },
+      // Kling O3 Standard / Pro (BV-513) — 0,084 / 0,112 $/s (Standard sans / avec
+      // audio), 0,112 / 0,14 $/s (Pro) × durée ENVOYÉE ; palier = slug sur aiProxy,
+      // le plus cher du slug et de la résolution sinon. Contrat klingO3Video.ts.
+      [klingO3Video_1.KLING_O3_VIDEO_MODEL_ID]: {
+        baseCost: klingO3Video_1.KLING_O3_VIDEO_BASE_COST,
+        calculateCost: (inputs) => (0, klingO3Video_1.klingO3VideoCreditCostFromInputs)(inputs)
+      },
+      // BV-513 : deux paliers sur le même id — Pro (défaut, 0,168 $/s) et Standard
+      // (0,126 $/s). Vue payload : le SLUG fait foi (aucune `resolution` dans
+      // l'input FAL) ; vue nœud : la résolution (libellé exact, défaut Pro). Le
+      // plus cher des deux gagne si les deux sont connus.
       "kling-o3-pro-v2v-edit": {
         baseCost: 253,
         calculateCost: (inputs) => (0, klingO3VideoToVideo_1.klingO3VideoToVideoCreditCost)({
-          variant: "pro-edit",
+          variant: klingO3EditBilledVariant(inputs),
           dynamicInputs: inputs,
           sourceSeconds: klingO3EditSourceSeconds(inputs)
         })
@@ -8983,6 +14764,13 @@ var require_mediaPricing = __commonJS({
           sourceSeconds: klingO3EditSourceSeconds(inputs),
           durationLeftToModel: (0, exports.isPayloadView)(inputs) && (isBlank(inputs.duration) || inputs.duration === "auto")
         })
+      },
+      // Kling O3 vidéo de référence Standard / Pro (BV-513) — 0,126 / 0,168 $ par
+      // seconde de SORTIE × durée ENVOYÉE (toujours écrite, par le builder et par
+      // le durcissement aiProxy) ; palier = slug. Contrat klingO3V2vReference.ts.
+      [klingO3V2vReference_1.KLING_O3_V2V_REFERENCE_MODEL_ID]: {
+        baseCost: klingO3V2vReference_1.KLING_O3_V2V_REFERENCE_BASE_COST,
+        calculateCost: (inputs) => (0, klingO3V2vReference_1.klingO3V2vReferenceCreditCostFromInputs)(inputs)
       },
       // Multi Angle facture au palier PLEIN, 1080P compris — un palier que le
       // H3 Max classique n'a pas : 5 s en 768P = 40 cr, 5 s en 1080P = 80 cr.
@@ -9031,6 +14819,56 @@ var require_mediaPricing = __commonJS({
           });
         }
       },
+      // H3 Max Relight (BV-513) : 5 / 8 / 16 / 32 cr/s (480P / 768P / 1080P / 2K)
+      // × secondes de la source MESURÉE (ceil(durée + 0,05 s)) ; sans mesure, 15 s
+      // (devis seulement : tout débit sans mesure est refusé). Base : 768P × 15 s.
+      "minimax-h3-max-relight-video": {
+        baseCost: (0, minimaxH3MaxRelight_1.h3MaxRelightCreditCost)({}),
+        calculateCost: (inputs) => (0, minimaxH3MaxRelight_1.h3MaxRelightCreditCost)(inputs)
+      },
+      // H3 Max Lip Sync (BV-513) : 5 / 8 / 16 / 32 cr/s × secondes de l'audio
+      // MESURÉ (ceil(durée + 0,05 s)), ×1,2 au-delà de 15 s ; sans mesure, 30 s
+      // (devis seulement). Base : 768P × 30 s × 1,2.
+      "minimax-h3-max-lip-sync-video": {
+        baseCost: (0, minimaxH3MaxLipSync_1.h3MaxLipSyncCreditCost)({}),
+        calculateCost: (inputs) => (0, minimaxH3MaxLipSync_1.h3MaxLipSyncCreditCost)(inputs)
+      },
+      // HeyGen Lipsync (BV-513) : 5 cr/s (Speed) ou 10 cr/s (Precision) × secondes
+      // de la VIDÉO MESURÉE (ajustement dynamique coupé : la sortie garde sa durée).
+      "heygen-lipsync-video": {
+        baseCost: (0, heygenLipsync_1.heygenLipsyncCreditCost)({}),
+        calculateCost: (inputs) => (0, heygenLipsync_1.heygenLipsyncCreditCost)(inputs)
+      },
+      // Kling LipSync (BV-513) : 0,014 $ par seconde de VIDÉO d'entrée MESURÉE,
+      // arrondie à la tranche de 5 s supérieure → 7 cr (≤ 5 s) ou 14 cr (≤ 10 s).
+      "kling-lipsync-video": {
+        baseCost: (0, klingLipsync_1.klingLipsyncCreditCost)({}),
+        calculateCost: (inputs) => (0, klingLipsync_1.klingLipsyncCreditCost)(inputs)
+      },
+      // sync-3 Lipsync (BV-513) : 13,33 cr/s × durée de SORTIE, fonction de
+      // `sync_mode` et des deux durées MESURÉES (matrice Sync.so) ; sans mesure, 30 s.
+      "sync-3-lipsync-video": {
+        baseCost: (0, sync3Lipsync_1.sync3LipsyncCreditCost)({}),
+        calculateCost: (inputs) => (0, sync3Lipsync_1.sync3LipsyncCreditCost)(inputs)
+      },
+      // sync-3 Avatar (BV-513) : 13,33 cr/s × secondes de l'audio MESURÉ, arrondi au
+      // crédit supérieur ; sans mesure, 30 s.
+      "sync-3-avatar-video": {
+        baseCost: (0, sync3Avatar_1.sync3AvatarCreditCost)({}),
+        calculateCost: (inputs) => (0, sync3Avatar_1.sync3AvatarCreditCost)(inputs)
+      },
+      // Kling AI Avatar v2 (BV-513) : 5,62 cr/s (Standard) ou 11,5 cr/s (Pro) ×
+      // secondes de l'audio MESURÉ, arrondi au crédit supérieur ; sans mesure, 30 s.
+      "kling-ai-avatar-v2-video": {
+        baseCost: (0, klingAiAvatarV2_1.klingAiAvatarV2CreditCost)({}),
+        calculateCost: (inputs) => (0, klingAiAvatarV2_1.klingAiAvatarV2CreditCost)(inputs)
+      },
+      // OmniHuman v2 (BV-513) : 10,5 cr/s × secondes de l'audio MESURÉ
+      // (ceil(durée + 0,05 s)) ; sans mesure, 30 s (devis seulement).
+      "omnihuman-v2-video": {
+        baseCost: (0, omnihumanV2_1.omnihumanV2CreditCost)({}),
+        calculateCost: (inputs) => (0, omnihumanV2_1.omnihumanV2CreditCost)(inputs)
+      },
       // H3 Max Styles : 8 cr/s, même prix pour les cinq styles (768p fixe).
       "minimax-h3-max-styles-video": {
         baseCost: 40,
@@ -9046,6 +14884,7 @@ var require_modelFamilies = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolveModelVariant = exports.getModelFamily = exports.normalizeModelId = exports.LEGACY_MODEL_ALIASES = exports.hasImageInput = exports.MODEL_FAMILIES = void 0;
+    var gptImage26Switch_1 = require_gptImage26Switch();
     exports.MODEL_FAMILIES = {
       "nano-banana-pro": {
         id: "nano-banana-pro",
@@ -9111,6 +14950,27 @@ var require_modelFamilies = __commonJS({
         variants: { t2i: "gpt-image-2-5-sunburst", i2i: "gpt-image-2-5-sunburst-edit" },
         defaultVariant: "t2i"
       },
+      // BV-495 — GPT Image 2.6, à côté de 2.5. Une famille par variante OUVERTE
+      // (`gptImage26Switch.ts` : Flare et Sunburst ouverts) : aucune entrée de
+      // famille ne pointe vers des adapters non enregistrés.
+      ...gptImage26Switch_1.GPT_IMAGE_26_FLARE_OPEN ? {
+        "gpt-image-2-6-flare": {
+          id: "gpt-image-2-6-flare",
+          displayName: "GPT Image 2.6 Flare",
+          iconUrl: "/models/oa100x100.png",
+          variants: { t2i: "gpt-image-2-6-flare", i2i: "gpt-image-2-6-flare-edit" },
+          defaultVariant: "t2i"
+        }
+      } : {},
+      ...gptImage26Switch_1.GPT_IMAGE_26_SUNBURST_OPEN ? {
+        "gpt-image-2-6-sunburst": {
+          id: "gpt-image-2-6-sunburst",
+          displayName: "GPT Image 2.6 Sunburst",
+          iconUrl: "/models/oa100x100.png",
+          variants: { t2i: "gpt-image-2-6-sunburst", i2i: "gpt-image-2-6-sunburst-edit" },
+          defaultVariant: "t2i"
+        }
+      } : {},
       "qwen-image-2-pro": {
         id: "qwen-image-2-pro",
         displayName: "Qwen Image 2 Pro",
@@ -9196,13 +15056,6 @@ var require_modelFamilies = __commonJS({
         variants: { t2i: "ideogram-v4-5-t2i", i2i: "ideogram-v4-5" },
         defaultVariant: "t2i"
       },
-      "reve-2-1": {
-        id: "reve-2-1",
-        displayName: "Reve 2.1",
-        iconUrl: "/models/reve100x100.png",
-        variants: { t2i: "reve-2-1-t2i", i2i: "reve-2-1" },
-        defaultVariant: "t2i"
-      },
       // Les sélecteurs Generate et Board affichent l'icône de la FAMILLE, pas celle
       // des adapters : la poser sur muse-image / muse-image-t2i (BV-359) ne suffisait pas.
       "muse-image": {
@@ -9254,6 +15107,22 @@ var require_modelFamilies = __commonJS({
         displayName: "FLUX.3 Klein Base",
         iconUrl: "/models/flux100x100.png",
         variants: { t2i: "flux-3-klein-base-t2i", i2i: "flux-3-klein-base" },
+        defaultVariant: "t2i"
+      },
+      // BV-565 — MiniMax H3 Image (contrat minimaxH3Image.ts). IMAGE : ids
+      // `h3-image*`, jamais `minimax-h3*` (préfixe de la famille vidéo).
+      "h3-image": {
+        id: "h3-image",
+        displayName: "MiniMax H3 Image",
+        iconUrl: "/models/minimax100x100.png",
+        variants: { t2i: "h3-image-t2i", i2i: "h3-image" },
+        defaultVariant: "t2i"
+      },
+      "h3-image-highspeed": {
+        id: "h3-image-highspeed",
+        displayName: "MiniMax H3 Image Highspeed",
+        iconUrl: "/models/minimax100x100.png",
+        variants: { t2i: "h3-image-highspeed-t2i", i2i: "h3-image-highspeed" },
         defaultVariant: "t2i"
       },
       "qwen-image-2": {
@@ -9311,13 +15180,6 @@ var require_modelFamilies = __commonJS({
         iconUrl: "/models/tencent100x100.png",
         variants: { t2i: "hunyuan-t2i", i2i: "hunyuan" },
         defaultVariant: "t2i"
-      },
-      "qwen-max": {
-        id: "qwen-max",
-        displayName: "Qwen Image Max",
-        iconUrl: "/models/wan100x100.png",
-        variants: { t2i: "qwen-max-t2i", i2i: "qwen-max" },
-        defaultVariant: "t2i"
       }
     };
     var IMAGE_INPUT_KEY_PATTERN = /(image|mask|reference|file|audio)/i;
@@ -9365,7 +15227,18 @@ var require_modelFamilies = __commonJS({
       // inconnu » au pricing. Redirigé vers LTX 2.5 Fast, le plus proche en usage
       // (image-to-video avec audio natif) — et moins cher : 13 cr/s en 1080p
       // contre 15 pour Veo, donc jamais une mauvaise surprise de facturation.
-      "veo-3.1-fast": "ltx-25-fast"
+      "veo-3.1-fast": "ltx-25-fast",
+      // BV-518 (2026-11-07) : FAL a retiré `reve/2.1/*` et `fal-ai/qwen-image-max/*`
+      // (pages, prix et schémas en 404, endpoints introuvables). Les nœuds déjà
+      // enregistrés tournent sur le successeur le plus proche, MOINS cher : Reve
+      // 2.1 (25 cr) → Nano Banana Pro (15 cr en 1K, images d'entrée gratuites,
+      // 14 références — Ideogram V4 facture les références : 36 cr pour 2 images) ;
+      // Qwen Image Max (8 cr) → Qwen Image 3 (4 cr en 1K, 8 en 2K). Jamais une
+      // mauvaise surprise de facturation (mediaPricingNeverLower.test.ts).
+      "reve-2-1": "nano-banana-pro",
+      "reve-2-1-t2i": "nano-banana-pro-t2i",
+      "qwen-max": "qwen-image-3",
+      "qwen-max-t2i": "qwen-image-3"
     };
     var normalizeModelId = (modelId) => exports.LEGACY_MODEL_ALIASES[modelId] ?? modelId;
     exports.normalizeModelId = normalizeModelId;
@@ -13636,7 +19509,7 @@ var createProgram = (context, captureCommanderOutput) => {
       return command.options.some((option) => !option.hidden) ? term : term.replace(" [options]", "");
     }
   });
-  program.name("beemmvision").version("0.4.1").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
+  program.name("beemmvision").version("0.4.2").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
     // Both streams are tapped, because Commander picks the stream itself:
     // `--help` writes to stdout, while a bare command group and `help
     // <unknown>` write the very same help to stderr. The capture is only

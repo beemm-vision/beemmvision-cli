@@ -29,7 +29,7 @@ code de sortie qui dit ce qui s'est passé.
 ## Installation
 
 Le CLI n'est **pas publié sur npm** : il s'installe depuis ce dépôt, puis se
-lie en commande globale avec `npm link`. Il faut Node.js 20 ou plus récent.
+lie en commande globale avec `npm link`. Il faut Node.js 22.12 ou plus récent.
 
 ```bash
 git clone https://github.com/beemm-vision/beemmvision-cli.git
