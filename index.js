@@ -1345,6 +1345,9 @@ var require_minimaxH3 = __commonJS({
       if (audios.length > 0 && images.length === 0 && videos.length === 0) {
         throw new Error("MiniMax H3 : un audio de r\xE9f\xE9rence n\xE9cessite au moins une image ou vid\xE9o de r\xE9f\xE9rence.");
       }
+      if (images.length === 0 && videos.length === 0) {
+        throw new Error("MiniMax H3 : ajoute au moins une image ou une vid\xE9o de r\xE9f\xE9rence.");
+      }
       const ar = normalizeH3AspectRatio(aspectRatio ?? dynamicInputs.aspect_ratio, "r2v");
       return {
         falModelId: exports.H3_ENDPOINTS.r2v,
@@ -1621,6 +1624,9 @@ var require_minimaxH3Max = __commonJS({
       const { images, videos, audios } = collectR2vMedia({ imageUrls, dynamicInputs });
       if (audios.length > 0 && images.length === 0 && videos.length === 0) {
         throw new Error("MiniMax H3 Max : un audio de r\xE9f\xE9rence n\xE9cessite au moins une image ou vid\xE9o de r\xE9f\xE9rence.");
+      }
+      if (images.length === 0 && videos.length === 0) {
+        throw new Error("MiniMax H3 Max : ajoute au moins une image ou une vid\xE9o de r\xE9f\xE9rence.");
       }
       const ar = normalizeH3MaxAspectRatio(aspectRatio ?? dynamicInputs.aspect_ratio, "r2v");
       return {
@@ -5627,158 +5633,6 @@ var require_seedanceDims = __commonJS({
   }
 });
 
-// ../packages/workflow-contracts/dist/seedance1ProFast.js
-var require_seedance1ProFast = __commonJS({
-  "../packages/workflow-contracts/dist/seedance1ProFast.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.isSeedance1ProFastEndpoint = exports.SEEDANCE_1_PRO_FAST_USD_PER_TOKEN = exports.SEEDANCE_1_PRO_FAST_ASPECTS = exports.SEEDANCE_1_PRO_FAST_DEFAULT_DURATION = exports.SEEDANCE_1_PRO_FAST_DURATIONS = exports.SEEDANCE_1_PRO_FAST_RESOLUTIONS = exports.SEEDANCE_1_PRO_FAST_ALL_ENDPOINTS = exports.SEEDANCE_1_PRO_FAST_ENDPOINTS = exports.SEEDANCE_1_PRO_FAST_MODEL_ID = void 0;
-    exports.seedance1ProFastKindFromEndpoint = seedance1ProFastKindFromEndpoint;
-    exports.normalizeSeedance1ProFastResolution = normalizeSeedance1ProFastResolution;
-    exports.normalizeSeedance1ProFastDuration = normalizeSeedance1ProFastDuration;
-    exports.normalizeSeedance1ProFastAspect = normalizeSeedance1ProFastAspect;
-    exports.resolveSeedance1ProFastStartImage = resolveSeedance1ProFastStartImage;
-    exports.seedance1ProFastCreditCost = seedance1ProFastCreditCost;
-    exports.seedance1ProFastCreditCostFromInputs = seedance1ProFastCreditCostFromInputs;
-    exports.buildSeedance1ProFastFalRequest = buildSeedance1ProFastFalRequest;
-    exports.hardenSeedance1ProFastProxyInput = hardenSeedance1ProFastProxyInput;
-    exports.seedance1ProFastProxyRefusal = seedance1ProFastProxyRefusal;
-    var seedanceDims_1 = require_seedanceDims();
-    exports.SEEDANCE_1_PRO_FAST_MODEL_ID = "bytedance-seedance-1-pro-fast";
-    exports.SEEDANCE_1_PRO_FAST_ENDPOINTS = {
-      t2v: "fal-ai/bytedance/seedance/v1/pro/fast/text-to-video",
-      i2v: "fal-ai/bytedance/seedance/v1/pro/fast/image-to-video"
-    };
-    exports.SEEDANCE_1_PRO_FAST_ALL_ENDPOINTS = Object.values(exports.SEEDANCE_1_PRO_FAST_ENDPOINTS);
-    exports.SEEDANCE_1_PRO_FAST_RESOLUTIONS = ["1080p", "720p", "480p"];
-    exports.SEEDANCE_1_PRO_FAST_DURATIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-    exports.SEEDANCE_1_PRO_FAST_DEFAULT_DURATION = 5;
-    exports.SEEDANCE_1_PRO_FAST_ASPECTS = seedanceDims_1.SEEDANCE_EXPLICIT_ASPECTS;
-    exports.SEEDANCE_1_PRO_FAST_USD_PER_TOKEN = 1 / 1e6;
-    var RESOLUTION_SET = new Set(exports.SEEDANCE_1_PRO_FAST_RESOLUTIONS);
-    var isSeedance1ProFastEndpoint = (falModelId) => typeof falModelId === "string" && exports.SEEDANCE_1_PRO_FAST_ALL_ENDPOINTS.includes(falModelId);
-    exports.isSeedance1ProFastEndpoint = isSeedance1ProFastEndpoint;
-    function seedance1ProFastKindFromEndpoint(falModelId) {
-      if (!(0, exports.isSeedance1ProFastEndpoint)(falModelId))
-        return void 0;
-      return falModelId.endsWith("/image-to-video") ? "i2v" : "t2v";
-    }
-    function normalizeSeedance1ProFastResolution(raw) {
-      const value = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-      return RESOLUTION_SET.has(value) ? value : "1080p";
-    }
-    function normalizeSeedance1ProFastDuration(raw) {
-      if (raw === void 0 || raw === null || raw === "")
-        return exports.SEEDANCE_1_PRO_FAST_DEFAULT_DURATION;
-      const n = Number(raw);
-      if (!Number.isFinite(n) || n <= 0)
-        return exports.SEEDANCE_1_PRO_FAST_DEFAULT_DURATION;
-      return Math.min(12, Math.max(2, Math.trunc(n)));
-    }
-    function normalizeSeedance1ProFastAspect(raw) {
-      return (0, seedanceDims_1.seedanceExplicitAspect)(raw) ?? seedanceDims_1.SEEDANCE_DEFAULT_EXPLICIT_ASPECT;
-    }
-    var NAMED_START_KEYS = ["start_image", "start_image_url", "image_url"];
-    var OTHER_IMAGE_KEYS = ["image_urls", "image", "images", "reference_image", "reference_image_url", "reference_images", "reference_image_urls"];
-    var urlsOf = (value) => {
-      const out = [];
-      const push = (v, depth) => {
-        if (depth > 4)
-          return;
-        if (typeof v === "string" && v.trim())
-          out.push(v.trim());
-        else if (Array.isArray(v))
-          v.forEach((x) => push(x, depth + 1));
-      };
-      push(value, 0);
-      return out;
-    };
-    function resolveSeedance1ProFastStartImage(params) {
-      const inputs = params.inputs ?? {};
-      for (const key of NAMED_START_KEYS) {
-        const url = urlsOf(inputs[key])[0];
-        if (url)
-          return url;
-      }
-      const positional = urlsOf(params.imageUrls)[0];
-      if (positional)
-        return positional;
-      for (const key of OTHER_IMAGE_KEYS) {
-        const url = urlsOf(inputs[key])[0];
-        if (url)
-          return url;
-      }
-      return void 0;
-    }
-    function seedance1ProFastCreditCost(params) {
-      const resolution = normalizeSeedance1ProFastResolution(params.resolution);
-      const duration = normalizeSeedance1ProFastDuration(params.duration);
-      const pixels = (0, seedanceDims_1.seedanceOutputPixels)("1.0", resolution, normalizeSeedance1ProFastAspect(params.aspectRatio)) ?? 0;
-      return (0, seedanceDims_1.seedanceCreditsFromUsd)((0, seedanceDims_1.seedanceTokensPerSecond)(pixels) * duration * exports.SEEDANCE_1_PRO_FAST_USD_PER_TOKEN);
-    }
-    var pricedAspect = (inputs) => typeof inputs.falModelId === "string" && inputs.falModelId ? inputs.aspect_ratio : inputs.aspectRatio;
-    function seedance1ProFastCreditCostFromInputs(inputs) {
-      return seedance1ProFastCreditCost({
-        resolution: inputs.resolution,
-        duration: inputs.duration,
-        aspectRatio: pricedAspect(inputs)
-      });
-    }
-    var optionalSeed = (raw) => {
-      if (raw === void 0 || raw === null || raw === "")
-        return void 0;
-      const seed = Number(raw);
-      return Number.isFinite(seed) ? Math.trunc(seed) : void 0;
-    };
-    function buildSeedance1ProFastFalRequest(params) {
-      const { prompt, imageUrls, resolution, aspectRatio, dynamicInputs = {} } = params;
-      const requestedAspect = aspectRatio ?? dynamicInputs.aspect_ratio;
-      const start = resolveSeedance1ProFastStartImage({ imageUrls, inputs: dynamicInputs });
-      const kind = start ? "i2v" : "t2v";
-      const input = {
-        prompt,
-        resolution: normalizeSeedance1ProFastResolution(resolution ?? dynamicInputs.resolution),
-        duration: String(normalizeSeedance1ProFastDuration(dynamicInputs.duration)),
-        aspect_ratio: normalizeSeedance1ProFastAspect(requestedAspect),
-        enable_safety_checker: false
-      };
-      const cameraFixed = dynamicInputs.camera_fixed;
-      if (cameraFixed !== void 0 && cameraFixed !== null && cameraFixed !== "") {
-        input.camera_fixed = cameraFixed === true || cameraFixed === "true";
-      }
-      const seed = optionalSeed(dynamicInputs.seed);
-      if (seed !== void 0)
-        input.seed = seed;
-      if (kind === "i2v")
-        input.image_url = start;
-      return { falModelId: exports.SEEDANCE_1_PRO_FAST_ENDPOINTS[kind], input };
-    }
-    function hardenSeedance1ProFastProxyInput(falModelId, input) {
-      const kind = seedance1ProFastKindFromEndpoint(falModelId);
-      if (!kind || !input || typeof input !== "object" || Array.isArray(input))
-        return input;
-      input.resolution = normalizeSeedance1ProFastResolution(input.resolution);
-      input.duration = String(normalizeSeedance1ProFastDuration(input.duration));
-      input.aspect_ratio = normalizeSeedance1ProFastAspect(input.aspect_ratio);
-      delete input.num_frames;
-      if (kind === "t2v")
-        delete input.image_url;
-      return input;
-    }
-    function seedance1ProFastProxyRefusal(falModelId, input) {
-      const kind = seedance1ProFastKindFromEndpoint(falModelId);
-      if (!kind)
-        return null;
-      if (typeof input?.prompt !== "string" || !input.prompt.trim())
-        return "Seedance 1.0 Pro Fast : le prompt est obligatoire.";
-      if (kind === "i2v" && !(typeof input.image_url === "string" && input.image_url.trim())) {
-        return "Seedance 1.0 Pro Fast : l'image de d\xE9part est obligatoire en image \u2192 vid\xE9o.";
-      }
-      return null;
-    }
-  }
-});
-
 // ../packages/workflow-contracts/dist/seedance2Standard.js
 var require_seedance2Standard = __commonJS({
   "../packages/workflow-contracts/dist/seedance2Standard.js"(exports) {
@@ -5790,6 +5644,7 @@ var require_seedance2Standard = __commonJS({
     exports.normalizeSeedance2StandardDuration = normalizeSeedance2StandardDuration;
     exports.normalizeSeedance2StandardAspect = normalizeSeedance2StandardAspect;
     exports.seedance2StandardUsdPerSecond = seedance2StandardUsdPerSecond;
+    exports.seedance2StandardBilledUsdPerSecond = seedance2StandardBilledUsdPerSecond;
     exports.seedance2StandardCreditCost = seedance2StandardCreditCost;
     exports.seedance2StandardCreditCostFromInputs = seedance2StandardCreditCostFromInputs;
     exports.resolveSeedance2StandardFrames = resolveSeedance2StandardFrames;
@@ -5850,18 +5705,18 @@ var require_seedance2Standard = __commonJS({
       const byTokens = (0, seedanceDims_1.seedanceTokensPerSecond)(pixels) * exports.SEEDANCE_2_STANDARD_USD_PER_1K_TOKENS[resolution] / 1e3;
       return Math.max(byTokens, exports.SEEDANCE_2_STANDARD_PUBLISHED_USD_PER_SECOND[resolution] ?? 0);
     }
+    function seedance2StandardBilledUsdPerSecond(resolution) {
+      return Math.max(...exports.SEEDANCE_2_STANDARD_ASPECTS.map((aspect) => seedance2StandardUsdPerSecond(resolution, aspect)));
+    }
     function seedance2StandardCreditCost(params) {
       const resolution = normalizeSeedance2StandardResolution(params.resolution);
       const duration = normalizeSeedance2StandardDuration(params.duration);
-      const usdPerSecond = seedance2StandardUsdPerSecond(resolution, normalizeSeedance2StandardAspect(params.aspectRatio));
-      return (0, seedanceDims_1.seedanceCreditsFromUsd)(usdPerSecond * duration);
+      return (0, seedanceDims_1.seedanceCreditsFromUsd)(seedance2StandardBilledUsdPerSecond(resolution) * duration);
     }
-    var pricedAspect = (inputs) => typeof inputs.falModelId === "string" && inputs.falModelId ? inputs.aspect_ratio : inputs.aspectRatio;
     function seedance2StandardCreditCostFromInputs(inputs) {
       return seedance2StandardCreditCost({
         resolution: inputs.resolution,
-        duration: inputs.duration,
-        aspectRatio: pricedAspect(inputs)
+        duration: inputs.duration
       });
     }
     var urlsOf = (value) => {
@@ -5975,16 +5830,15 @@ var require_seedance15Text = __commonJS({
     function seedance15TextCreditCost(params) {
       const resolution = normalizeSeedance15TextResolution(params.resolution);
       const duration = normalizeSeedance15TextDuration(params.duration);
-      const pixels = (0, seedanceDims_1.seedanceOutputPixels)("1.5", resolution, normalizeSeedance15TextAspect(params.aspectRatio)) ?? 0;
+      void params.aspectRatio;
+      const pixels = Math.max(...seedanceDims_1.SEEDANCE_EXPLICIT_ASPECTS.map((aspect) => (0, seedanceDims_1.seedanceOutputPixels)("1.5", resolution, aspect) ?? 0));
       const usdPerToken = (audioOn(params.generateAudio) ? 2.4 : 1.2) / 1e6;
       return (0, seedanceDims_1.seedanceCreditsFromUsd)((0, seedanceDims_1.seedanceTokensPerSecond)(pixels) * duration * usdPerToken);
     }
-    var pricedAspect = (inputs) => typeof inputs.falModelId === "string" && inputs.falModelId ? inputs.aspect_ratio : inputs.aspectRatio;
     function seedance15TextCreditCostFromInputs(inputs) {
       return seedance15TextCreditCost({
         resolution: inputs.resolution,
         duration: inputs.duration,
-        aspectRatio: pricedAspect(inputs),
         generateAudio: inputs.generate_audio
       });
     }
@@ -10818,6 +10672,149 @@ var require_seedreamFlash = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/seedream55.js
+var require_seedream55 = __commonJS({
+  "../packages/workflow-contracts/dist/seedream55.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.SEEDREAM_55_LAYERIZE_MAX_IMAGES = exports.hardenSeedream55Input = exports.buildSeedream55FalRequest = exports.seedream55CreditCost = exports.seedream55CreditsPerOutput = exports.seedream55InputImages = exports.seedream55SizeIsHighTier = exports.getSeedream55ImageSize = exports.normalizeSeedream55Resolution = exports.SEEDREAM_55_CREDITS_HIGH = exports.SEEDREAM_55_CREDITS_LOW = exports.SEEDREAM_55_USD_PER_INPUT_IMAGE = exports.SEEDREAM_55_HIGH_TIER_USD = exports.SEEDREAM_55_LOW_TIER_USD = exports.SEEDREAM_55_LOW_TIER_MAX_PIXELS = exports.SEEDREAM_55_RESOLUTIONS = exports.SEEDREAM_55_MAX_INPUT_IMAGES = exports.SEEDREAM_55_ENDPOINTS = exports.SEEDREAM_55_LAYERIZE_ENDPOINT = exports.SEEDREAM_55_EDIT_ENDPOINT = exports.SEEDREAM_55_T2I_ENDPOINT = void 0;
+    var falPayloadGuards_1 = require_falPayloadGuards();
+    exports.SEEDREAM_55_T2I_ENDPOINT = "bytedance/seedream/v5.5/text-to-image";
+    exports.SEEDREAM_55_EDIT_ENDPOINT = "bytedance/seedream/v5.5/edit";
+    exports.SEEDREAM_55_LAYERIZE_ENDPOINT = "bytedance/seedream/v5.5/layerize";
+    exports.SEEDREAM_55_ENDPOINTS = /* @__PURE__ */ new Set([
+      exports.SEEDREAM_55_T2I_ENDPOINT,
+      exports.SEEDREAM_55_EDIT_ENDPOINT
+    ]);
+    exports.SEEDREAM_55_MAX_INPUT_IMAGES = 10;
+    exports.SEEDREAM_55_RESOLUTIONS = ["2K", "1K"];
+    exports.SEEDREAM_55_LOW_TIER_MAX_PIXELS = 261e4;
+    exports.SEEDREAM_55_LOW_TIER_USD = 0.03;
+    exports.SEEDREAM_55_HIGH_TIER_USD = 0.0405;
+    exports.SEEDREAM_55_USD_PER_INPUT_IMAGE = 0.012;
+    exports.SEEDREAM_55_CREDITS_LOW = 3;
+    exports.SEEDREAM_55_CREDITS_HIGH = 5;
+    var creditsFromUsd = (usd) => Math.ceil(Math.round(usd * 100 * 1e6) / 1e6);
+    var normalizeSeedream55Resolution = (raw) => {
+      const value = raw === void 0 || raw === null ? void 0 : String(raw).trim();
+      const out = (0, falPayloadGuards_1.normalizeModelResolution)(value || void 0, exports.SEEDREAM_55_RESOLUTIONS);
+      return out === "1K" ? "1K" : "2K";
+    };
+    exports.normalizeSeedream55Resolution = normalizeSeedream55Resolution;
+    var RATIOS = {
+      "1:1": [1, 1],
+      "16:9": [16, 9],
+      "9:16": [9, 16],
+      "4:3": [4, 3],
+      "3:4": [3, 4],
+      "3:2": [3, 2],
+      "2:3": [2, 3],
+      "21:9": [21, 9]
+    };
+    var TARGET_PIXELS = {
+      "2K": 2048 * 2048,
+      "1K": 1024 * 1024
+    };
+    var MIN_PIXELS = 921600;
+    var getSeedream55ImageSize = (resolution, aspectRatio) => {
+      const res = (0, exports.normalizeSeedream55Resolution)(resolution);
+      const auto = res === "1K" ? "auto_1K" : "auto_2K";
+      const ratio = RATIOS[String(aspectRatio ?? "")];
+      if (!ratio)
+        return auto;
+      const [w, h] = ratio;
+      const unit = Math.sqrt(TARGET_PIXELS[res] / (w * h));
+      const width = Math.floor(unit * w / 16) * 16;
+      const height = Math.floor(unit * h / 16) * 16;
+      if (width * height < MIN_PIXELS)
+        return auto;
+      return { width, height };
+    };
+    exports.getSeedream55ImageSize = getSeedream55ImageSize;
+    var sizePixels = (size) => {
+      if (size === "auto_1K")
+        return 1024 * 1024;
+      if (size === "auto_1.5K")
+        return 1536 * 1536;
+      if (size === "auto_2K")
+        return 2048 * 2048;
+      if (size && typeof size === "object") {
+        const { width, height } = size;
+        const wv = Number(width);
+        const hv = Number(height);
+        if (Number.isFinite(wv) && Number.isFinite(hv) && wv > 0 && hv > 0)
+          return Math.round(wv) * Math.round(hv);
+      }
+      if (typeof size === "string") {
+        const match = /^(\d{2,5})\s*[x×]\s*(\d{2,5})$/i.exec(size.trim());
+        if (match)
+          return Number(match[1]) * Number(match[2]);
+      }
+      return void 0;
+    };
+    var seedream55SizeIsHighTier = (size) => {
+      const pixels = sizePixels(size);
+      return pixels === void 0 || pixels > exports.SEEDREAM_55_LOW_TIER_MAX_PIXELS;
+    };
+    exports.seedream55SizeIsHighTier = seedream55SizeIsHighTier;
+    var seedream55InputImages = (imageUrls) => {
+      const seen = /* @__PURE__ */ new Set();
+      for (const entry of imageUrls ?? []) {
+        if (typeof entry !== "string")
+          continue;
+        const url = entry.trim();
+        if (url)
+          seen.add(url);
+      }
+      return [...seen].slice(0, exports.SEEDREAM_55_MAX_INPUT_IMAGES);
+    };
+    exports.seedream55InputImages = seedream55InputImages;
+    var seedream55CreditsPerOutput = (highTier, inputImages) => {
+      const refs = Math.min(exports.SEEDREAM_55_MAX_INPUT_IMAGES, Math.max(0, Math.trunc(inputImages || 0)));
+      const base = highTier ? exports.SEEDREAM_55_HIGH_TIER_USD : exports.SEEDREAM_55_LOW_TIER_USD;
+      return creditsFromUsd(base + exports.SEEDREAM_55_USD_PER_INPUT_IMAGE * refs);
+    };
+    exports.seedream55CreditsPerOutput = seedream55CreditsPerOutput;
+    var seedream55CreditCost = (params) => {
+      const highTier = (0, exports.seedream55SizeIsHighTier)((0, exports.getSeedream55ImageSize)(params.resolution, params.aspectRatio));
+      const refs = params.edit ? Math.max(1, params.inputImages ?? 1) : 0;
+      return (0, exports.seedream55CreditsPerOutput)(highTier, refs);
+    };
+    exports.seedream55CreditCost = seedream55CreditCost;
+    var normalizeOutputFormat = (value) => String(value ?? "").toLowerCase() === "jpeg" ? "jpeg" : "png";
+    var buildSeedream55FalRequest = (params) => {
+      const images = (0, exports.seedream55InputImages)(params.imageUrls);
+      if (params.edit && images.length === 0) {
+        throw new Error("Seedream 5.5 (\xE9dition) n\xE9cessite au moins une image en entr\xE9e.");
+      }
+      const input = {
+        prompt: params.prompt,
+        image_size: (0, exports.getSeedream55ImageSize)(params.resolution, params.aspectRatio),
+        num_images: 1,
+        output_format: normalizeOutputFormat(params.outputFormat),
+        enable_safety_checker: true
+      };
+      if (params.edit)
+        input.image_urls = images;
+      return {
+        falModelId: params.edit ? exports.SEEDREAM_55_EDIT_ENDPOINT : exports.SEEDREAM_55_T2I_ENDPOINT,
+        input
+      };
+    };
+    exports.buildSeedream55FalRequest = buildSeedream55FalRequest;
+    var hardenSeedream55Input = (input) => {
+      input.num_images = 1;
+      delete input.sync_mode;
+      if (Array.isArray(input.image_urls)) {
+        input.image_urls = (0, exports.seedream55InputImages)(input.image_urls);
+      }
+      return input;
+    };
+    exports.hardenSeedream55Input = hardenSeedream55Input;
+    exports.SEEDREAM_55_LAYERIZE_MAX_IMAGES = 17;
+  }
+});
+
 // ../packages/workflow-contracts/dist/flux3Image.js
 var require_flux3Image = __commonJS({
   "../packages/workflow-contracts/dist/flux3Image.js"(exports) {
@@ -13125,7 +13122,7 @@ var require_mediaPricing = __commonJS({
     var wan30_1 = require_wan30();
     var happyHorse_1 = require_happyHorse();
     var seedance25_1 = require_seedance25();
-    var seedance1ProFast_1 = require_seedance1ProFast();
+    var seedanceDims_1 = require_seedanceDims();
     var seedance2Standard_1 = require_seedance2Standard();
     var seedance15Text_1 = require_seedance15Text();
     var seedance25Draft_1 = require_seedance25Draft();
@@ -13156,6 +13153,7 @@ var require_mediaPricing = __commonJS({
     var klingAiAvatarV2_1 = require_klingAiAvatarV2();
     var omnihumanV2_1 = require_omnihumanV2();
     var seedreamFlash_1 = require_seedreamFlash();
+    var seedream55_1 = require_seedream55();
     var flux3Image_1 = require_flux3Image();
     var nanoBanana21_1 = require_nanoBanana21();
     var krea3_1 = require_krea3();
@@ -13272,6 +13270,11 @@ var require_mediaPricing = __commonJS({
       const kieHigh = ["2K", "4K"].includes(trimmed(inputs.resolution).toUpperCase());
       const kieUsd = (kieHigh ? 0.07 : 0.035) + 25e-4 * extraInputs;
       return Math.max(5, (0, exports.creditsFromUsd)(Math.max(falUsd, kieUsd))) * seedreamOutputs(inputs);
+    };
+    var seedream55Credits = (isEdit) => (inputs) => {
+      const refs = isEdit ? Math.max(1, (0, exports.countInputImages)(inputs)) : 0;
+      const highTier = (0, exports.isPayloadView)(inputs) ? (0, seedream55_1.seedream55SizeIsHighTier)(isBlank(inputs.image_size) ? void 0 : inputs.image_size) : (0, seedream55_1.seedream55SizeIsHighTier)((0, seedream55_1.getSeedream55ImageSize)(inputs.resolution, inputs.aspectRatio));
+      return (0, seedream55_1.seedream55CreditsPerOutput)(highTier, refs) * (0, exports.readNumImages)(inputs, 6);
     };
     var KLING_IMAGE_MAX_OUTPUTS = 9;
     var klingImageOutputs = (inputs) => {
@@ -13744,7 +13747,8 @@ var require_mediaPricing = __commonJS({
       const resolution = (0, exports.seedanceSentResolution)(inputs.resolution, ["480p", "720p", "1080p"]);
       const duration = Number(inputs.duration) > 0 ? Number(inputs.duration) : 5;
       const { width, height } = SEEDANCE_DIMS[resolution];
-      const usd = width * height * 24 * duration / 1024 / 1e6 * (inputs.generate_audio !== false ? 2.4 : 1.2);
+      const heaviest = Math.max(width * height, ...seedanceDims_1.SEEDANCE_EXPLICIT_ASPECTS.map((aspect) => (0, seedanceDims_1.seedanceOutputPixels)("1.5", resolution, aspect) ?? 0));
+      const usd = heaviest * 24 * duration / 1024 / 1e6 * (inputs.generate_audio !== false ? 2.4 : 1.2);
       return Math.max(seedance15Legacy(inputs), (0, exports.creditsFromUsd)(usd));
     };
     exports.SEEDANCE_SENT_RESOLUTIONS = {
@@ -14321,6 +14325,9 @@ var require_mediaPricing = __commonJS({
       // Seedream 5.0 Flash (BV-342) : 0,027 $/image quelle que soit la taille.
       "seedream-flash": { baseCost: seedreamFlash_1.SEEDREAM_FLASH_CREDITS, calculateCost: () => (0, seedreamFlash_1.seedreamFlashCreditCost)() },
       "seedream-flash-t2i": { baseCost: seedreamFlash_1.SEEDREAM_FLASH_CREDITS, calculateCost: () => (0, seedreamFlash_1.seedreamFlashCreditCost)() },
+      // Seedream 5.5 (BV-568) : palier de taille + images d'entrée (seedream55.ts).
+      "seedream-5-5": { baseCost: seedream55_1.SEEDREAM_55_CREDITS_LOW, calculateCost: seedream55Credits(true) },
+      "seedream-5-5-t2i": { baseCost: seedream55_1.SEEDREAM_55_CREDITS_LOW, calculateCost: seedream55Credits(false) },
       // Plancher (2 calques en auto_1K). Le coût réel est calculé par calque dans
       // layerizePricing.ts — cette entrée évite un « Modèle inconnu » sur les
       // chemins qui interrogent AI_PRICING.
@@ -14329,6 +14336,9 @@ var require_mediaPricing = __commonJS({
       // BV-513 : moteur Flash, même rôle de plancher (2 calques × 3 cr) ; le coût
       // réel est calculé au calque par layerizePricing.ts.
       "seedream-flash-layerize": { baseCost: 6 },
+      // BV-568 : moteur Seedream 5.5, même rôle de plancher (2 calques × 3 cr +
+      // 2 cr d'image d'entrée) ; coût réel au calque dans layerizePricing.ts.
+      "seedream-5-5-layerize": { baseCost: 8 },
       "bria-ad-delayer": { baseCost: 30 },
       "kling": { baseCost: 3, calculateCost: klingV3ImageCredits },
       "kling-o3": { baseCost: 3, calculateCost: klingO3ImageCredits },
@@ -14483,15 +14493,13 @@ var require_mediaPricing = __commonJS({
       "grok-video-extend": { baseCost: (0, grokVideo_1.grokVideoBaseCost)("grok-video-extend"), calculateCost: grokVideoSourceMeasuredCredits("grok-video-extend") },
       "grok-video-edit": { baseCost: (0, grokVideo_1.grokVideoBaseCost)("grok-video-edit"), calculateCost: grokVideoSourceMeasuredCredits("grok-video-edit") },
       "bytedance-seedance-1.5-pro": { baseCost: 26, calculateCost: seedance15Credits },
-      // BV-513 — Seedance 1.0 Pro Fast : 1 $/M jetons, format et durée TOUJOURS
-      // explicites (prix exact, `auto` refusé) : contrat seedance1ProFast.ts.
-      "bytedance-seedance-1-pro-fast": { baseCost: 25, calculateCost: (inputs) => (0, seedance1ProFast_1.seedance1ProFastCreditCostFromInputs)(inputs) },
       "bytedance-seedance-2-ref-to-video": {
         baseCost: 152,
         calculateCost: seedance2Credits(SEEDANCE_2_USD_PER_SECOND.reference, seedance2RefLegacy)
       },
       // BV-513 — Seedance 2.0 standard, texte / image → vidéo : 0,014 $ / 1 000
-      // jetons (0,008 en 4k), au format ENVOYÉ, jamais sous les $/s publiés.
+      // jetons (0,008 en 4k), au format le plus lourd du palier (BV-595), jamais
+      // sous les $/s publiés.
       // Format et durée toujours explicites (prix exact) : contrat seedance2Standard.ts.
       "bytedance-seedance-2-standard": { baseCost: 152, calculateCost: (inputs) => (0, seedance2Standard_1.seedance2StandardCreditCostFromInputs)(inputs) },
       "bytedance-seedance-2-fast": {
@@ -15160,6 +15168,14 @@ var require_modelFamilies = __commonJS({
         variants: { t2i: "seedream-flash-t2i", i2i: "seedream-flash" },
         defaultVariant: "t2i"
       },
+      // BV-568 : Seedream 5.5 (bytedance/seedream/v5.5/{text-to-image,edit}).
+      "seedream-5-5": {
+        id: "seedream-5-5",
+        displayName: "Seedream 5.5",
+        iconUrl: "/models/bytedance100x100.png",
+        variants: { t2i: "seedream-5-5-t2i", i2i: "seedream-5-5" },
+        defaultVariant: "t2i"
+      },
       kling: {
         id: "kling",
         displayName: "Kling Image",
@@ -15781,6 +15797,39 @@ import { createServer } from "node:http";
 import { randomBytes as randomBytes2 } from "node:crypto";
 import { URL as URL2 } from "node:url";
 
+// src/core/loopbackCrypto.ts
+import { createDecipheriv, createECDH, hkdfSync } from "node:crypto";
+var SALT = Buffer.from("beemmvision/cli-loopback/v1", "utf8");
+var IV_BYTES = 12;
+var TAG_BYTES = 16;
+var POINT_BYTES = 65;
+var BASE64URL = /^[A-Za-z0-9_-]+$/;
+var generateLoopbackKeyPair = () => {
+  const privateKey = createECDH("prime256v1");
+  const publicKeyRaw = privateKey.generateKeys();
+  return { publicKeyRaw, publicKey: publicKeyRaw.toString("base64url"), privateKey };
+};
+var isLoopbackEnvelope = (body) => body.v === 1 && typeof body.epk === "string" && typeof body.iv === "string" && typeof body.ct === "string";
+var decodeBase64url = (value) => {
+  if (!BASE64URL.test(value)) throw new Error("not base64url");
+  return Buffer.from(value, "base64url");
+};
+var openLoopbackEnvelope = (envelope, recipient) => {
+  const epk = decodeBase64url(envelope.epk);
+  const iv = decodeBase64url(envelope.iv);
+  const sealed = decodeBase64url(envelope.ct);
+  if (epk.length !== POINT_BYTES || epk[0] !== 4) throw new Error("bad epk");
+  if (iv.length !== IV_BYTES) throw new Error("bad iv");
+  if (sealed.length <= TAG_BYTES) throw new Error("bad ct");
+  const publicKeyRaw = recipient.privateKey.getPublicKey();
+  const z18 = recipient.privateKey.computeSecret(epk);
+  const key = Buffer.from(hkdfSync("sha256", z18, SALT, Buffer.concat([epk, publicKeyRaw]), 32));
+  const decipher = createDecipheriv("aes-256-gcm", key, iv, { authTagLength: TAG_BYTES });
+  decipher.setAAD(Buffer.from(recipient.state, "utf8"));
+  decipher.setAuthTag(sealed.subarray(sealed.length - TAG_BYTES));
+  return Buffer.concat([decipher.update(sealed.subarray(0, sealed.length - TAG_BYTES)), decipher.final()]).toString("utf8");
+};
+
 // src/core/sessionCode.ts
 import { randomInt } from "node:crypto";
 var SESSION_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -15796,13 +15845,17 @@ var generateSessionCode = (draw = randomInt) => {
 };
 
 // src/core/browserAuth.ts
-var buildBrowserAuthUrl = (baseAppUrl, state, callbackUrl, client, sessionCode, supportsGrant) => {
+var buildBrowserAuthUrl = (baseAppUrl, state, callbackUrl, client, sessionCode, supportsGrant, publicKey, expiresAtSeconds) => {
   const trimmedBaseUrl = baseAppUrl.replace(/\/$/, "");
   const params = new URLSearchParams({ state, callbackUrl });
   const label = client?.trim().slice(0, 64);
   if (label) params.set("client", label);
   if (sessionCode && SESSION_CODE_PATTERN.test(sessionCode)) params.set("code", sessionCode);
   if (supportsGrant) params.set("grant", "1");
+  if (publicKey) params.set("pk", publicKey);
+  if (expiresAtSeconds !== void 0 && Number.isSafeInteger(expiresAtSeconds) && expiresAtSeconds > 0) {
+    params.set("exp", String(expiresAtSeconds));
+  }
   return `${trimmedBaseUrl}/#/cli-auth?${params.toString()}`;
 };
 var createDeferred = () => {
@@ -15828,11 +15881,23 @@ var createDeferred = () => {
     }
   };
 };
+var MAX_CALLBACK_BODY_BYTES = 64 * 1024;
+var MAX_DRAINED_BYTES = 1024 * 1024;
+var BodyTooLargeError = class extends Error {
+};
 var readJsonBody = async (request) => {
   const chunks = [];
+  let total = 0;
   for await (const chunk of request) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buffer.length;
+    if (total > MAX_DRAINED_BYTES) {
+      request.destroy();
+      break;
+    }
+    if (total <= MAX_CALLBACK_BODY_BYTES) chunks.push(buffer);
   }
+  if (total > MAX_CALLBACK_BODY_BYTES) throw new BodyTooLargeError();
   const raw = Buffer.concat(chunks).toString("utf8").trim();
   if (!raw) return {};
   return JSON.parse(raw);
@@ -15861,6 +15926,8 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
   const callbackPath = options.callbackPath || "/cli-auth/callback";
   const timeoutMs = options.timeoutMs ?? 18e4;
   const state = randomBytes2(24).toString("hex");
+  const keyPair = generateLoopbackKeyPair();
+  const expiresAtSeconds = Math.floor((Date.now() + timeoutMs) / 1e3);
   const deferredToken = createDeferred();
   let pendingError = null;
   const server = createServer(async (request, response) => {
@@ -15879,9 +15946,39 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
         return;
       }
       if (request.method === "POST" && requestUrl.pathname === callbackPath) {
+        let envelope;
+        try {
+          envelope = await readJsonBody(request);
+        } catch (error) {
+          if (error instanceof BodyTooLargeError) {
+            writeJson(response, 413, { ok: false, error: "Body too large" }, baseAppUrl);
+            return;
+          }
+          writeJson(response, 400, { ok: false, error: "Invalid JSON body" }, baseAppUrl);
+          return;
+        }
+        if (!envelope || typeof envelope !== "object") {
+          writeJson(response, 400, { ok: false, error: "Invalid JSON body" }, baseAppUrl);
+          return;
+        }
+        if (!isLoopbackEnvelope(envelope)) {
+          writeJson(response, 400, { ok: false, error: "Plaintext body refused" }, baseAppUrl);
+          return;
+        }
+        if (envelope.state !== state) {
+          writeJson(response, 400, { ok: false, error: "Invalid state" }, baseAppUrl);
+          return;
+        }
+        let plaintext;
+        try {
+          plaintext = openLoopbackEnvelope(envelope, { state, privateKey: keyPair.privateKey });
+        } catch {
+          writeJson(response, 400, { ok: false, error: "Undecryptable body" }, baseAppUrl);
+          return;
+        }
         let body;
         try {
-          body = await readJsonBody(request);
+          body = JSON.parse(plaintext);
         } catch {
           writeJson(response, 400, { ok: false, error: "Invalid JSON body" }, baseAppUrl);
           return;
@@ -15958,7 +16055,16 @@ var createBrowserAuthSession = async (baseAppUrl, options = {}) => {
     throw new Error("Unable to start local auth callback server.");
   }
   const callbackUrl = `http://${host}:${address.port}${callbackPath}`;
-  const authUrl = buildBrowserAuthUrl(baseAppUrl, state, callbackUrl, options.client, options.sessionCode, options.supportsGrant);
+  const authUrl = buildBrowserAuthUrl(
+    baseAppUrl,
+    state,
+    callbackUrl,
+    options.client,
+    options.sessionCode,
+    options.supportsGrant,
+    keyPair.publicKey,
+    expiresAtSeconds
+  );
   const timeout = setTimeout(() => {
     if (!deferredToken.settled) {
       pendingError = new Error("Browser login timed out.");
@@ -19509,7 +19615,7 @@ var createProgram = (context, captureCommanderOutput) => {
       return command.options.some((option) => !option.hidden) ? term : term.replace(" [options]", "");
     }
   });
-  program.name("beemmvision").version("0.4.2").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
+  program.name("beemmvision").version("0.4.3").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
     // Both streams are tapped, because Commander picks the stream itself:
     // `--help` writes to stdout, while a bare command group and `help
     // <unknown>` write the very same help to stderr. The capture is only
