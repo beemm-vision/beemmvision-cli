@@ -74,6 +74,10 @@ beemmvision auth login
 **Si les codes ne correspondent pas, n'autorisez pas** : fermez la page et
 interrompez la commande (`Ctrl+C`).
 
+**Depuis la 0.4.3**, la page chiffre ce qu'elle transmet au terminal pour une
+clé propre à chaque connexion, que seul ce terminal détient. Si la page
+annonce que la demande a expiré, relancez `beemmvision auth login`.
+
 | Option | Effet |
 |---|---|
 | `--no-open` | N'ouvre pas le navigateur : le lien s'affiche, à ouvrir vous-même. |
