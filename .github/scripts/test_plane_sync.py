@@ -55,6 +55,13 @@ class FindReference(unittest.TestCase):
             pr(ref="dependabot/x", title="[BV-8] Bump", user_type="Bot"),
             "BV"), ("BV", 8))
 
+    def test_ligne_plane_ancree_lue_sur_une_pr_de_bot(self):
+        # L'autocreation reinjecte « Plane: BV-N » dans le corps : elle doit
+        # rester lue aux evenements suivants, meme sur une PR de bot.
+        self.assertEqual(plane_sync.find_reference(
+            pr(ref="dependabot/x", body="notes BV-5\n\nPlane: BV-77",
+               user_type="Bot"), "BV"), ("BV", 77))
+
     def test_cle_vide(self):
         self.assertIsNone(plane_sync.find_reference(pr(title="BV-1"), ""))
 

@@ -2,7 +2,7 @@
 """Synchronise une Pull Request GitHub avec Plane.
 
 Deux comportements, selon que la PR porte ou non un identifiant Plane
-(`BV-42`, `PB-7`…) dans son nom de branche, son titre ou son corps :
+(`BV-42`…, projet du repo seulement) dans son nom de branche, son titre ou son corps :
 
 1. **Identifiant present** — le work item correspondant change d'etat selon
    l'evenement GitHub, et recoit un commentaire pointant la PR.
@@ -111,10 +111,16 @@ def find_reference(pr, project_key):
     if not project_key:
         return None
     id_re = re.compile(rf"\b({re.escape(project_key)})-(\d+)\b")
+    body = pr.get("body") or ""
     parts = [(pr.get("head") or {}).get("ref") or "", pr.get("title") or ""]
     if not is_bot_pr(pr):
-        parts.append(pr.get("body") or "")
+        parts.append(body)
     match = id_re.search(" ".join(parts))
+    if not match and is_bot_pr(pr):
+        # Seule la ligne ancree « Plane: BV-N » (posee par l'autocreation ou
+        # par un humain) compte dans le corps d'une PR de bot.
+        match = re.search(
+            rf"(?m)^Plane: ({re.escape(project_key)})-(\d+)\s*$", body)
     return (match.group(1), int(match.group(2))) if match else None
 
 
