@@ -1,0 +1,48 @@
+# Vérifie le bundle du CLI sur chaque PR et sur main.
+#
+# C'est le check exigé par la protection de main (« Vérifier le bundle »).
+# Runner hébergé par GitHub, jamais un runner auto-hébergé : le dépôt est
+# public, une PR venue d'un fork y exécuterait son code.
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Vérifier le bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12
+
+      - name: Installer les dépendances (lockfile strict)
+        run: npm ci --ignore-scripts
+
+      - name: Le bundle se charge
+        run: node --check index.js
+
+      - name: La version affichée égale celle de package.json
+        run: |
+          expected="$(node -p "require('./package.json').version")"
+          actual="$(node index.js --version)"
+          echo "package.json=$expected  --version=$actual"
+          test "$expected" = "$actual"
+
+      - name: L'aide répond
+        run: node index.js --help > /dev/null
