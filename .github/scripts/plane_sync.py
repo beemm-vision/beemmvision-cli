@@ -2,7 +2,7 @@
 """Synchronise une Pull Request GitHub avec Plane.
 
 Deux comportements, selon que la PR porte ou non un identifiant Plane
-(`BV-42`, `PB-7`…) dans son nom de branche, son titre ou son corps :
+(`BV-42`…, projet du repo seulement) dans son nom de branche, son titre ou son corps :
 
 1. **Identifiant present** — le work item correspondant change d'etat selon
    l'evenement GitHub, et recoit un commentaire pointant la PR.
@@ -34,7 +34,8 @@ import urllib.request
 
 PLANE_API = "https://api.plane.so/api/v1"
 GITHUB_API = "https://api.github.com"
-ID_RE = re.compile(r"\b(BV|PB|LAB)-(\d+)\b")
+# Seul le projet du repo (PLANE_PROJECT) est reconnu : une PR d'un repo BV ne
+# doit jamais deplacer un item PB ou LAB (audit 21/11, BV-636).
 
 # (action, merged) -> etat Plane cible. merged vaut None hors fermeture.
 TRANSITIONS = {
@@ -94,6 +95,33 @@ def rows(resp):
             return []
         return resp.get("results", [])
     return resp or []
+
+
+def is_bot_pr(pr):
+    """PR ouverte par un bot (Dependabot...) : son corps recopie des notes
+    de version tierces, qui ne doivent choisir aucun item Plane."""
+    user = pr.get("user") or {}
+    ref = (pr.get("head") or {}).get("ref") or ""
+    return user.get("type") == "Bot" or ref.startswith("dependabot/")
+
+
+def find_reference(pr, project_key):
+    """(cle, numero) du premier identifiant `<project_key>-N` de la branche,
+    du titre puis du corps (corps ignore pour une PR de bot), sinon None."""
+    if not project_key:
+        return None
+    id_re = re.compile(rf"\b({re.escape(project_key)})-(\d+)\b")
+    body = pr.get("body") or ""
+    parts = [(pr.get("head") or {}).get("ref") or "", pr.get("title") or ""]
+    if not is_bot_pr(pr):
+        parts.append(body)
+    match = id_re.search(" ".join(parts))
+    if not match and is_bot_pr(pr):
+        # Seule la ligne ancree « Plane: BV-N » (posee par l'autocreation ou
+        # par un humain) compte dans le corps d'une PR de bot.
+        match = re.search(
+            rf"(?m)^Plane: ({re.escape(project_key)})-(\d+)\s*$", body)
+    return (match.group(1), int(match.group(2))) if match else None
 
 
 def resolve_project(identifier):
@@ -223,9 +251,7 @@ def main():
 
     repo = os.environ.get("GITHUB_REPOSITORY", "")
     merged = bool(pr.get("merged")) if action == "closed" else None
-    haystack = " ".join([pr["head"]["ref"], pr.get("title") or "",
-                         pr.get("body") or ""])
-    match = ID_RE.search(haystack)
+    match = find_reference(pr, PROJECT_KEY)
 
     # ---- Cas 2 : aucune reference Plane -----------------------------------
     if not match:
@@ -283,7 +309,7 @@ def main():
         return
 
     # ---- Cas 1 : reference Plane presente ---------------------------------
-    proj_key, seq = match.group(1), int(match.group(2))
+    proj_key, seq = match
     target_name = TRANSITIONS.get((action, merged))
     if not target_name:
         log(f"[plane-sync] action={action} merged={merged} — aucune transition.")
