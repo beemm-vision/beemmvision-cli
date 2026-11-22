@@ -32,8 +32,10 @@ remplacer `index.js` par un nouveau bundle, monter la version dans
    ```
    Branche déjà poussée et rebasée : `git push --force-with-lease origin HEAD`
    (jamais `--force`, jamais `git pull`, qui remettrait les anciens commits).
-5. **PR** titrée `[BV-123] Description`. Ce repo n'a pas de CI de build : la
-   PR est relue, puis mergée en merge classique (`gh pr merge <n> --merge`).
+5. **PR** titrée `[BV-123] Description`. Le check « Vérifier le bundle »
+   (`.github/workflows/verify.yml` : `npm ci`, `--version` égale à
+   `package.json`, `--help`) est exigé sur `main`. La PR est relue, puis
+   mergée en merge classique (`gh pr merge <n> --auto --merge`).
 6. **Après le merge** : `git worktree remove .worktrees/BV-123-mon-sujet`, puis
    `git branch -d feat/BV-123-mon-sujet`.
 
