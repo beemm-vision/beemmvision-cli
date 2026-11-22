@@ -35,3 +35,7 @@ coverage/
 *.tsbuildinfo
 *.pem
 **/*serviceAccount*.json
+
+# Python (scripts CI, BV-636)
+__pycache__/
+*.pyc
