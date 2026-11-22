@@ -83,7 +83,7 @@ annonce que la demande a expiré, relancez `beemmvision auth login`.
 | `--no-open` | N'ouvre pas le navigateur : le lien s'affiche, à ouvrir vous-même. |
 | `--timeout-seconds <n>` | Temps laissé pour autoriser dans le navigateur. Défaut 180, maximum 900. |
 | `--force` | Refait la connexion même si une session valide existe. |
-| `--token <jeton>` / `--firebase-id-token <jeton>` | Enregistre un jeton d'identité sans navigateur (voir plus bas). |
+| `--token <jeton>` / `--firebase-id-token <jeton>` | *Dépréciés.* Enregistre un jeton d'identité sans navigateur ; préférez la variable `BEEMMVISION_FIREBASE_ID_TOKEN` (voir plus bas). |
 
 **Durée de la session (depuis la 0.4.0).** Une connexion par navigateur
 autorise **ce terminal, sur cette machine**. Le CLI renouvelle ensuite seul ce
@@ -101,7 +101,12 @@ renouvellement : refaites `beemmvision auth login` une fois après la mise à jo
 d'attestation App Check, donc les commandes dont le serveur l'exige (projets,
 workflows, crédits) sont refusées, et le jeton n'est pas renouvelable. Un jeton
 passé en argument est en outre visible des autres utilisateurs de la machine
-(`ps`) le temps de la commande ; le CLI vous en avertit.
+(`ps`) le temps de la commande ; le CLI vous en avertit, y compris en mode
+`--json` (sur la sortie d'erreur). Préférez la variable d'environnement.
+
+**Compte connecté.** Après une connexion par navigateur, le CLI affiche le
+compte reçu (« Connecté en tant que … »). Si ce n'est pas le compte de la
+connexion précédente, il vous demande de confirmer avant de l'enregistrer.
 
 ---
 
@@ -290,8 +295,8 @@ Elles se placent avant ou après la sous-commande.
 |---|---|
 | `--json` | Sortie JSON sur stdout (voir ci-dessous). |
 | `--transport <auto\|mock\|callable>` | `auto` (défaut) : le backend dès qu'une session existe. `mock` : données fictives, sans réseau ni compte, pour tester un script. `callable` : backend imposé. |
-| `--functions-base-url <url>` | Adresse du backend (développement sur émulateurs). |
-| `--firebase-id-token <jeton>` | Jeton d'identité pour cette seule commande. |
+| `--functions-base-url <url>` | Adresse du backend (développement sur émulateurs). `https://`, ou `http://` sur la machine locale seulement. |
+| `--firebase-id-token <jeton>` | *Déprécié.* Jeton d'identité pour cette seule commande ; préférez `BEEMMVISION_FIREBASE_ID_TOKEN`. |
 | `-V`, `--version` | Version installée. |
 | `-h`, `--help` | Aide. |
 
