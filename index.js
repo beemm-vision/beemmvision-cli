@@ -12217,6 +12217,267 @@ var require_ideogram45 = __commonJS({
   }
 });
 
+// ../packages/workflow-contracts/dist/ideogram46.js
+var require_ideogram46 = __commonJS({
+  "../packages/workflow-contracts/dist/ideogram46.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.hardenIdeogram46FalInput = exports.ideogram46ProxyRefusal = exports.buildIdeogram46EditFalRequest = exports.buildIdeogram46T2IFalRequest = exports.ideogram46CreditCost = exports.IDEOGRAM_46_BASE_COST = exports.normalizeIdeogram46Quality = exports.getIdeogram46EditSize = exports.getIdeogram46T2ISize = exports.IDEOGRAM_46_PRESETS = exports.ideogram46ZoneToBox = exports.IDEOGRAM_46_INVALID_ZONE_MESSAGE = exports.readIdeogram46Box = exports.normalizeIdeogram46EditPrecision = exports.IDEOGRAM_46_ZONE_MAX_RATIO = exports.IDEOGRAM_46_ZONE_MAX_PIXELS = exports.IDEOGRAM_46_ZONE_MIN_SIDE = exports.IDEOGRAM_46_2K_MAX_PIXELS = exports.IDEOGRAM_46_MAX_REFERENCES_WITH_MASK = exports.IDEOGRAM_46_MAX_REFERENCES = exports.IDEOGRAM_46_DEFAULT_EDIT_PRECISION = exports.IDEOGRAM_46_EDIT_PRECISIONS = exports.IDEOGRAM_46_DEFAULT_QUALITY = exports.IDEOGRAM_46_QUALITIES = exports.IDEOGRAM_46_EDIT_ENDPOINT = exports.IDEOGRAM_46_T2I_ENDPOINT = void 0;
+    exports.IDEOGRAM_46_T2I_ENDPOINT = "ideogram/v4.6";
+    exports.IDEOGRAM_46_EDIT_ENDPOINT = "ideogram/v4.6/edit";
+    exports.IDEOGRAM_46_QUALITIES = ["very_low", "low", "medium", "high"];
+    exports.IDEOGRAM_46_DEFAULT_QUALITY = "medium";
+    exports.IDEOGRAM_46_EDIT_PRECISIONS = ["regular", "high"];
+    exports.IDEOGRAM_46_DEFAULT_EDIT_PRECISION = "regular";
+    exports.IDEOGRAM_46_MAX_REFERENCES = 4;
+    exports.IDEOGRAM_46_MAX_REFERENCES_WITH_MASK = 3;
+    exports.IDEOGRAM_46_2K_MAX_PIXELS = 4194304;
+    exports.IDEOGRAM_46_ZONE_MIN_SIDE = 256;
+    exports.IDEOGRAM_46_ZONE_MAX_PIXELS = 4194304;
+    exports.IDEOGRAM_46_ZONE_MAX_RATIO = 6;
+    var UNMEASURED_SOURCE_PIXELS = 25e6;
+    var isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
+    var normalizeIdeogram46EditPrecision = (value) => {
+      const p = String(value ?? "").trim().toLowerCase();
+      return p === "high" ? "high" : exports.IDEOGRAM_46_DEFAULT_EDIT_PRECISION;
+    };
+    exports.normalizeIdeogram46EditPrecision = normalizeIdeogram46EditPrecision;
+    var normalizeRequestedQuality = (value) => {
+      const q = String(value ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+      return exports.IDEOGRAM_46_QUALITIES.includes(q) ? q : exports.IDEOGRAM_46_DEFAULT_QUALITY;
+    };
+    var toNonNegativeInt = (value) => {
+      const n = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
+      return Number.isFinite(n) && Number.isInteger(n) && n >= 0 ? n : null;
+    };
+    var readIdeogram46Box = (value) => {
+      if (value === void 0 || value === null || value === "")
+        return null;
+      if (typeof value !== "object" || Array.isArray(value))
+        return "invalid";
+      const v = value;
+      const x_min = toNonNegativeInt(v.x_min);
+      const y_min = toNonNegativeInt(v.y_min);
+      const x_max = toNonNegativeInt(v.x_max);
+      const y_max = toNonNegativeInt(v.y_max);
+      if (x_min === null || y_min === null || x_max === null || y_max === null)
+        return "invalid";
+      const w = x_max - x_min;
+      const h = y_max - y_min;
+      if (w < exports.IDEOGRAM_46_ZONE_MIN_SIDE || h < exports.IDEOGRAM_46_ZONE_MIN_SIDE)
+        return "invalid";
+      if (w * h > exports.IDEOGRAM_46_ZONE_MAX_PIXELS)
+        return "invalid";
+      if (Math.max(w / h, h / w) > exports.IDEOGRAM_46_ZONE_MAX_RATIO)
+        return "invalid";
+      return { x_min, y_min, x_max, y_max };
+    };
+    exports.readIdeogram46Box = readIdeogram46Box;
+    exports.IDEOGRAM_46_INVALID_ZONE_MESSAGE = "La zone \xE0 modifier ne respecte pas les r\xE8gles d\u2019Ideogram 4.6 : au moins 256 px par c\xF4t\xE9, au plus 4,2 MP, format entre 1:6 et 6:1. Recadre la zone, puis relance.";
+    var clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+    var ideogram46ZoneToBox = (zone, width, height) => {
+      if (!zone)
+        return null;
+      const W = Math.floor(width);
+      const H = Math.floor(height);
+      if (!(W >= exports.IDEOGRAM_46_ZONE_MIN_SIDE && H >= exports.IDEOGRAM_46_ZONE_MIN_SIDE))
+        return null;
+      const nums = [zone.x, zone.y, zone.w, zone.h];
+      if (!nums.every((n) => typeof n === "number" && Number.isFinite(n)))
+        return null;
+      const cx = clamp(zone.x + zone.w / 2, 0, 1) * W;
+      const cy = clamp(zone.y + zone.h / 2, 0, 1) * H;
+      let w = clamp(zone.w, 0, 1) * W;
+      let h = clamp(zone.h, 0, 1) * H;
+      w = Math.max(w, exports.IDEOGRAM_46_ZONE_MIN_SIDE);
+      h = Math.max(h, exports.IDEOGRAM_46_ZONE_MIN_SIDE);
+      if (w / h > exports.IDEOGRAM_46_ZONE_MAX_RATIO)
+        h = w / exports.IDEOGRAM_46_ZONE_MAX_RATIO;
+      if (h / w > exports.IDEOGRAM_46_ZONE_MAX_RATIO)
+        w = h / exports.IDEOGRAM_46_ZONE_MAX_RATIO;
+      w = Math.min(w, W);
+      h = Math.min(h, H);
+      if (w * h > exports.IDEOGRAM_46_ZONE_MAX_PIXELS) {
+        const k = Math.sqrt(exports.IDEOGRAM_46_ZONE_MAX_PIXELS / (w * h));
+        w *= k;
+        h *= k;
+      }
+      let wi = Math.max(exports.IDEOGRAM_46_ZONE_MIN_SIDE, Math.floor(w));
+      let hi = Math.max(exports.IDEOGRAM_46_ZONE_MIN_SIDE, Math.floor(h));
+      wi = Math.min(wi, W);
+      hi = Math.min(hi, H);
+      const x_min = clamp(Math.round(cx - wi / 2), 0, W - wi);
+      const y_min = clamp(Math.round(cy - hi / 2), 0, H - hi);
+      const box = { x_min, y_min, x_max: x_min + wi, y_max: y_min + hi };
+      return (0, exports.readIdeogram46Box)(box) === "invalid" ? null : box;
+    };
+    exports.ideogram46ZoneToBox = ideogram46ZoneToBox;
+    var PRESET_BY_ASPECT = {
+      "1:1": "square_hd",
+      "16:9": "landscape_16_9",
+      "9:16": "portrait_16_9",
+      "4:3": "landscape_4_3",
+      "3:4": "portrait_4_3"
+    };
+    exports.IDEOGRAM_46_PRESETS = [
+      "square_hd",
+      "square",
+      "portrait_4_3",
+      "portrait_16_9",
+      "landscape_4_3",
+      "landscape_16_9"
+    ];
+    var isPreset = (value) => typeof value === "string" && exports.IDEOGRAM_46_PRESETS.includes(value);
+    var getIdeogram46T2ISize = (aspectRatio) => PRESET_BY_ASPECT[String(aspectRatio || "")] || "square_hd";
+    exports.getIdeogram46T2ISize = getIdeogram46T2ISize;
+    var getIdeogram46EditSize = (aspectRatio, editPrecision, hasMask, hasZone = false) => {
+      if (hasMask || hasZone || (0, exports.normalizeIdeogram46EditPrecision)(editPrecision) !== "regular")
+        return "auto";
+      return PRESET_BY_ASPECT[String(aspectRatio || "")] || "auto";
+    };
+    exports.getIdeogram46EditSize = getIdeogram46EditSize;
+    var editMayExceed2K = (imageSize, _precision, _hasZone) => imageSize === "auto";
+    var normalizeIdeogram46Quality = (value, kind, edit) => {
+      const quality = normalizeRequestedQuality(value);
+      if (kind === "edit" && quality === "very_low" && edit && editMayExceed2K(edit.imageSize, (0, exports.normalizeIdeogram46EditPrecision)(edit.precision), edit.hasZone)) {
+        return "low";
+      }
+      return quality;
+    };
+    exports.normalizeIdeogram46Quality = normalizeIdeogram46Quality;
+    var T2I_2K = { very_low: 1, low: 3, medium: 6, high: 10 };
+    var EDIT_2K = { very_low: 1, low: 3, medium: 6, high: 22 };
+    var EDIT_4K = { very_low: 6, low: 6, medium: 20, high: 60 };
+    exports.IDEOGRAM_46_BASE_COST = EDIT_2K[exports.IDEOGRAM_46_DEFAULT_QUALITY];
+    var sourcePixels = (inputs) => {
+      const measured = inputs.inputImageMegapixels;
+      if (Array.isArray(measured) && measured.length > 0) {
+        const mp = Number(measured[0]);
+        if (Number.isFinite(mp) && mp > 0)
+          return Math.round(mp * 1e6);
+      }
+      return UNMEASURED_SOURCE_PIXELS;
+    };
+    var ideogram46CreditCost = (inputs, kind) => {
+      const src = inputs ?? {};
+      if (kind === "t2i") {
+        const quality2 = (0, exports.normalizeIdeogram46Quality)(src.quality, "t2i");
+        return T2I_2K[quality2];
+      }
+      const box = (0, exports.readIdeogram46Box)(src.context_window_box);
+      const hasZone = box !== null;
+      const precision = hasZone ? "high" : (0, exports.normalizeIdeogram46EditPrecision)(src.edit_precision);
+      const hasMask = isNonEmptyString(src.mask_url);
+      const rawSize = src.image_size;
+      const imageSize = rawSize === void 0 || rawSize === null || rawSize === "" ? (0, exports.getIdeogram46EditSize)(src.aspectRatio ?? src.aspect_ratio, precision, hasMask, hasZone) : isPreset(rawSize) && precision === "regular" && !hasMask && !hasZone ? String(rawSize) : "auto";
+      const quality = (0, exports.normalizeIdeogram46Quality)(src.quality, "edit", { imageSize, precision, hasZone });
+      const above2K = editMayExceed2K(imageSize, precision, hasZone) && sourcePixels(src) > exports.IDEOGRAM_46_2K_MAX_PIXELS;
+      return (above2K ? EDIT_4K : EDIT_2K)[quality];
+    };
+    exports.ideogram46CreditCost = ideogram46CreditCost;
+    var refusal = (message) => {
+      const err = new Error(message);
+      err.code = "failed-precondition";
+      return err;
+    };
+    var seedOf = (dyn) => {
+      const seed = Number(dyn.seed);
+      return dyn.seed !== void 0 && dyn.seed !== null && dyn.seed !== "" && Number.isFinite(seed) ? { seed: Math.trunc(seed) } : {};
+    };
+    var buildIdeogram46T2IFalRequest = (args) => {
+      const dyn = args.dynamicInputs || {};
+      return {
+        falModelId: exports.IDEOGRAM_46_T2I_ENDPOINT,
+        input: {
+          prompt: args.prompt,
+          image_size: (0, exports.getIdeogram46T2ISize)(args.aspectRatio),
+          quality: (0, exports.normalizeIdeogram46Quality)(dyn.quality, "t2i"),
+          num_images: 1,
+          ...seedOf(dyn)
+        }
+      };
+    };
+    exports.buildIdeogram46T2IFalRequest = buildIdeogram46T2IFalRequest;
+    var buildIdeogram46EditFalRequest = (args) => {
+      const dyn = args.dynamicInputs || {};
+      const maskUrl = isNonEmptyString(dyn.mask_url) ? dyn.mask_url.trim() : void 0;
+      const notMask = (url) => !maskUrl || url.trim() !== maskUrl;
+      const urls = (args.imageUrls || []).filter(isNonEmptyString).filter(notMask);
+      if (urls.length === 0) {
+        throw refusal(maskUrl ? "Ideogram 4.6 (\xE9dition) : un masque seul ne suffit pas, branche aussi l\u2019image \xE0 \xE9diter." : "Ideogram 4.6 (\xE9dition) n\xE9cessite une image en entr\xE9e.");
+      }
+      const box = (0, exports.readIdeogram46Box)(dyn.context_window_box);
+      if (box === "invalid")
+        throw refusal(exports.IDEOGRAM_46_INVALID_ZONE_MESSAGE);
+      const hasZone = box !== null;
+      const editPrecision = hasZone ? "high" : (0, exports.normalizeIdeogram46EditPrecision)(dyn.edit_precision);
+      const maxRefs = maskUrl ? exports.IDEOGRAM_46_MAX_REFERENCES_WITH_MASK : exports.IDEOGRAM_46_MAX_REFERENCES;
+      const extraRefs = Array.isArray(dyn.reference_image_urls) ? dyn.reference_image_urls.filter(isNonEmptyString).filter(notMask) : [];
+      const references = [...urls.slice(1), ...extraRefs].slice(0, maxRefs);
+      const imageSize = (0, exports.getIdeogram46EditSize)(args.aspectRatio, editPrecision, Boolean(maskUrl), hasZone);
+      return {
+        falModelId: exports.IDEOGRAM_46_EDIT_ENDPOINT,
+        input: {
+          prompt: args.prompt,
+          image_url: urls[0],
+          ...references.length > 0 ? { reference_image_urls: references } : {},
+          ...maskUrl ? { mask_url: maskUrl } : {},
+          edit_precision: editPrecision,
+          ...box ? { context_window_box: box } : {},
+          quality: (0, exports.normalizeIdeogram46Quality)(dyn.quality, "edit", { imageSize, precision: editPrecision, hasZone }),
+          image_size: imageSize,
+          num_images: 1,
+          ...seedOf(dyn)
+        }
+      };
+    };
+    exports.buildIdeogram46EditFalRequest = buildIdeogram46EditFalRequest;
+    var ideogram46ProxyRefusal = (falModelId, input) => {
+      if (falModelId !== exports.IDEOGRAM_46_EDIT_ENDPOINT)
+        return null;
+      return (0, exports.readIdeogram46Box)(input.context_window_box) === "invalid" ? exports.IDEOGRAM_46_INVALID_ZONE_MESSAGE : null;
+    };
+    exports.ideogram46ProxyRefusal = ideogram46ProxyRefusal;
+    var hardenIdeogram46FalInput = (falModelId, input) => {
+      const kind = falModelId === exports.IDEOGRAM_46_T2I_ENDPOINT ? "t2i" : falModelId === exports.IDEOGRAM_46_EDIT_ENDPOINT ? "edit" : null;
+      if (!kind)
+        return false;
+      input.num_images = 1;
+      delete input.sync_mode;
+      if (kind === "t2i") {
+        if (!isPreset(input.image_size))
+          input.image_size = "square_hd";
+        input.quality = (0, exports.normalizeIdeogram46Quality)(input.quality, "t2i");
+        return true;
+      }
+      delete input.context_window;
+      const box = (0, exports.readIdeogram46Box)(input.context_window_box);
+      if (box === "invalid")
+        return true;
+      const hasZone = box !== null;
+      if (hasZone)
+        input.context_window_box = box;
+      else
+        delete input.context_window_box;
+      const precision = hasZone ? "high" : (0, exports.normalizeIdeogram46EditPrecision)(input.edit_precision);
+      input.edit_precision = precision;
+      const mask = isNonEmptyString(input.mask_url) ? input.mask_url.trim() : void 0;
+      input.image_size = isPreset(input.image_size) && precision === "regular" && !mask && !hasZone ? input.image_size : "auto";
+      input.quality = (0, exports.normalizeIdeogram46Quality)(input.quality, "edit", {
+        imageSize: String(input.image_size),
+        precision,
+        hasZone
+      });
+      if (Array.isArray(input.reference_image_urls)) {
+        const max = mask ? exports.IDEOGRAM_46_MAX_REFERENCES_WITH_MASK : exports.IDEOGRAM_46_MAX_REFERENCES;
+        input.reference_image_urls = input.reference_image_urls.filter((url) => !mask || !isNonEmptyString(url) || url.trim() !== mask).slice(0, max);
+      }
+      return true;
+    };
+    exports.hardenIdeogram46FalInput = hardenIdeogram46FalInput;
+  }
+});
+
 // ../packages/workflow-contracts/dist/ideogramV4Fast.js
 var require_ideogramV4Fast = __commonJS({
   "../packages/workflow-contracts/dist/ideogramV4Fast.js"(exports) {
@@ -13162,6 +13423,7 @@ var require_mediaPricing = __commonJS({
     var museImage_1 = require_museImage();
     var grokImagineQuality_1 = require_grokImagineQuality();
     var ideogram45_1 = require_ideogram45();
+    var ideogram46_1 = require_ideogram46();
     var ideogramV4Fast_1 = require_ideogramV4Fast();
     var ideogramV4Tiling_1 = require_ideogramV4Tiling();
     var ideogramVector_1 = require_ideogramVector();
@@ -14139,9 +14401,12 @@ var require_mediaPricing = __commonJS({
       "flux-3-klein-base",
       // BV-565 : MiniMax H3 Image en édition (têtes de famille), aux jetons par image.
       "h3-image",
-      "h3-image-highspeed"
+      "h3-image-highspeed",
+      // BV-638 : Ideogram 4.6 édition — le palier (2K / 4K) suit la taille de la
+      // SOURCE quand la sortie la garde (zone, ou `auto` en précision `regular`).
+      "ideogram-v4-6"
     ];
-    exports.STRICT_INPUT_IMAGE_MEASURED_MODELS = ["flux-3-klein", "flux-3-klein-base", "h3-image", "h3-image-highspeed"];
+    exports.STRICT_INPUT_IMAGE_MEASURED_MODELS = ["flux-3-klein", "flux-3-klein-base", "h3-image", "h3-image-highspeed", "ideogram-v4-6"];
     exports.UNMEASURABLE_INPUT_IMAGE_MESSAGE = "Une image de r\xE9f\xE9rence n'a pas pu \xEAtre lue. Ce mod\xE8le facture chaque r\xE9f\xE9rence \xE0 sa taille r\xE9elle : importe l\u2019image dans Beemm Vision, puis relance.";
     exports.UNMEASURED_INPUT_IMAGE_PIXELS = 25e6;
     var billedInputImagePixels = (inputs, count) => {
@@ -14428,6 +14693,10 @@ var require_mediaPricing = __commonJS({
       // contrats ideogram45.ts / ideogramV4Fast.ts (BV-342).
       "ideogram-v4-5": { baseCost: ideogram45_1.IDEOGRAM_45_BASE_COST, calculateCost: (inputs) => (0, ideogram45_1.ideogram45CreditCost)(inputs, "edit") },
       "ideogram-v4-5-t2i": { baseCost: ideogram45_1.IDEOGRAM_45_BASE_COST, calculateCost: (inputs) => (0, ideogram45_1.ideogram45CreditCost)(inputs, "t2i") },
+      // Ideogram 4.6 (BV-638) : par image selon `quality` ET la taille de sortie
+      // (palier 2K / 4K), source mesurée côté serveur — contrat ideogram46.ts.
+      "ideogram-v4-6": { baseCost: ideogram46_1.IDEOGRAM_46_BASE_COST, calculateCost: (inputs) => (0, ideogram46_1.ideogram46CreditCost)(inputs, "edit") },
+      "ideogram-v4-6-t2i": { baseCost: ideogram46_1.IDEOGRAM_46_BASE_COST, calculateCost: (inputs) => (0, ideogram46_1.ideogram46CreditCost)(inputs, "t2i") },
       "ideogram-v4-fast": { baseCost: ideogramV4Fast_1.IDEOGRAM_V4_FAST_BASE_COST, calculateCost: (inputs) => (0, ideogramV4Fast_1.ideogramV4FastCreditCost)(inputs) },
       "ideogram-v4-instant": { baseCost: ideogramV4Fast_1.IDEOGRAM_V4_INSTANT_BASE_COST, calculateCost: (inputs) => (0, ideogramV4Fast_1.ideogramV4InstantCreditCost)(inputs) },
       // Ideogram V4 Tiling (BV-513) : 0,03 / 0,06 / 0,10 $ par MP de la taille
@@ -15057,6 +15326,13 @@ var require_modelFamilies = __commonJS({
         variants: { t2i: "ideogram-v4-t2i", i2i: "ideogram-v4" },
         defaultVariant: "t2i"
       },
+      "ideogram-v4-6": {
+        id: "ideogram-v4-6",
+        displayName: "Ideogram 4.6",
+        iconUrl: "/models/ig100x100.png",
+        variants: { t2i: "ideogram-v4-6-t2i", i2i: "ideogram-v4-6" },
+        defaultVariant: "t2i"
+      },
       "ideogram-v4-5": {
         id: "ideogram-v4-5",
         displayName: "Ideogram V4.5",
@@ -15461,31 +15737,46 @@ var commanderErrorToCliError = (error) => {
 // src/core/appBaseUrl.ts
 var LOOPBACK_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "[::1]"]);
 var SAFE_HOSTNAME = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+var parseSafeHttpUrl = (value) => {
+  let url;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return void 0;
+  }
+  const loopback = LOOPBACK_HOSTS.has(url.hostname);
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
+    return void 0;
+  }
+  if (url.username || url.password) {
+    return void 0;
+  }
+  if (!loopback && !SAFE_HOSTNAME.test(url.hostname)) {
+    return void 0;
+  }
+  return url;
+};
 var normalizeAppBaseUrl = (value) => {
-  const refuse = () => {
+  const url = parseSafeHttpUrl(value);
+  if (!url) {
     throw new CliError({
       type: "validation_error",
       message: `Invalid app base URL ${JSON.stringify(value)}: expected an https:// origin (http:// only for localhost or 127.0.0.1). Fix it with \`beemmvision config set --app-base-url <url>\` or BEEMMVISION_APP_BASE_URL.`,
       exitCode: EXIT_CODES.VALIDATION
     });
-  };
-  let url;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    return refuse();
-  }
-  const loopback = LOOPBACK_HOSTS.has(url.hostname);
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
-    return refuse();
-  }
-  if (url.username || url.password) {
-    return refuse();
-  }
-  if (!loopback && !SAFE_HOSTNAME.test(url.hostname)) {
-    return refuse();
   }
   return url.origin;
+};
+var normalizeFunctionsBaseUrl = (value) => {
+  const url = parseSafeHttpUrl(value);
+  if (!url) {
+    throw new CliError({
+      type: "validation_error",
+      message: `Invalid Functions base URL ${JSON.stringify(value)}: expected an https:// URL (http:// only for localhost, 127.0.0.1 or [::1]). Fix it with \`beemmvision config set --functions-base-url <url>\`, BEEMMVISION_FUNCTIONS_BASE_URL or --functions-base-url.`,
+      exitCode: EXIT_CODES.VALIDATION
+    });
+  }
+  return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
 };
 
 // src/core/localConfig.ts
@@ -15617,6 +15908,26 @@ var decodeBase64Url = (value) => {
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
   return Buffer.from(padded, "base64").toString("utf8");
 };
+var readStoredAccountIdentity = (env = process.env) => {
+  const token = loadStoredFirebaseIdToken(env);
+  const parts = token?.split(".") ?? [];
+  if (parts.length !== 3) return void 0;
+  try {
+    const payload = JSON.parse(decodeBase64Url(parts[1]));
+    const uid = typeof payload.user_id === "string" && payload.user_id ? payload.user_id : typeof payload.sub === "string" && payload.sub ? payload.sub : void 0;
+    const email = typeof payload.email === "string" && payload.email ? payload.email : void 0;
+    return uid || email ? { uid, email } : void 0;
+  } catch {
+    return void 0;
+  }
+};
+var isDifferentAccount = (previous, next) => {
+  if (previous.uid && next.uid) return previous.uid !== next.uid;
+  if (previous.email && next.email) {
+    return previous.email.toLowerCase() !== next.email.toLowerCase();
+  }
+  return true;
+};
 var readStoredCliGrant = (env = process.env) => {
   const stored = loadStoredAuth(env);
   const grantId = typeof stored?.cliGrantId === "string" ? stored.cliGrantId.trim() : "";
@@ -15734,13 +16045,9 @@ var resolveTokenRefreshReferer = (env = process.env) => {
     return `${DEFAULT_APP_BASE_URL}/`;
   }
 };
-var refreshFirebaseIdToken = async (env = process.env) => {
-  const authData = loadStoredAuth(env);
-  if (!authData || !authData.refreshToken || !authData.apiKey) {
-    return void 0;
-  }
+var exchangeRefreshToken = async (refreshToken, apiKey, env) => {
   try {
-    const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${authData.apiKey}`, {
+    const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(apiKey)}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -15749,33 +16056,83 @@ var refreshFirebaseIdToken = async (env = process.env) => {
       },
       body: new URLSearchParams({
         grant_type: "refresh_token",
-        refresh_token: authData.refreshToken
+        refresh_token: refreshToken
       })
     });
     if (!response.ok) {
       return void 0;
     }
     const data = await response.json();
-    if (data.id_token) {
-      storeAuthSession(
-        {
-          firebaseIdToken: data.id_token,
-          refreshToken: data.refresh_token || authData.refreshToken,
-          apiKey: authData.apiKey,
-          appCheckToken: authData.appCheckToken,
-          appCheckTokenExpiresAt: authData.appCheckTokenExpiresAt,
-          // BV-491 : le grant survit au refresh, comme l'attestation.
-          cliGrantId: authData.cliGrantId,
-          cliGrantSecret: authData.cliGrantSecret
-        },
-        env
-      );
-      return data.id_token;
+    if (typeof data.id_token !== "string" || !data.id_token) {
+      return void 0;
     }
+    return {
+      idToken: data.id_token,
+      refreshToken: typeof data.refresh_token === "string" && data.refresh_token ? data.refresh_token : void 0,
+      userId: typeof data.user_id === "string" && data.user_id ? data.user_id : void 0
+    };
   } catch {
     return void 0;
   }
-  return void 0;
+};
+var uidOfClaims = (claims) => typeof claims.user_id === "string" && claims.user_id ? claims.user_id : claims.sub;
+var confirmReceivedSessionWithGoogle = async (received, env = process.env) => {
+  if (!received.refreshToken || !received.apiKey) {
+    return {
+      ok: true,
+      firebaseIdToken: received.firebaseIdToken,
+      refreshToken: received.refreshToken,
+      confirmedByGoogle: false
+    };
+  }
+  const postedUid = uidOfClaims(decodeFirebaseIdTokenClaims(received.firebaseIdToken));
+  const exchanged = await exchangeRefreshToken(received.refreshToken, received.apiKey, env);
+  if (!exchanged) {
+    return { ok: false, reason: "exchange_failed" };
+  }
+  let claims;
+  try {
+    claims = decodeFirebaseIdTokenClaims(exchanged.idToken);
+  } catch {
+    return { ok: false, reason: "exchange_failed" };
+  }
+  if (uidOfClaims(claims) !== postedUid || exchanged.userId && exchanged.userId !== postedUid) {
+    return { ok: false, reason: "account_mismatch" };
+  }
+  return {
+    ok: true,
+    firebaseIdToken: exchanged.idToken,
+    refreshToken: exchanged.refreshToken ?? received.refreshToken,
+    confirmedByGoogle: true
+  };
+};
+var refreshFirebaseIdToken = async (env = process.env) => {
+  const authData = loadStoredAuth(env);
+  if (!authData || !authData.refreshToken || !authData.apiKey) {
+    return void 0;
+  }
+  const exchanged = await exchangeRefreshToken(authData.refreshToken, authData.apiKey, env);
+  if (!exchanged) {
+    return void 0;
+  }
+  try {
+    storeAuthSession(
+      {
+        firebaseIdToken: exchanged.idToken,
+        refreshToken: exchanged.refreshToken || authData.refreshToken,
+        apiKey: authData.apiKey,
+        appCheckToken: authData.appCheckToken,
+        appCheckTokenExpiresAt: authData.appCheckTokenExpiresAt,
+        // BV-491 : le grant survit au refresh, comme l'attestation.
+        cliGrantId: authData.cliGrantId,
+        cliGrantSecret: authData.cliGrantSecret
+      },
+      env
+    );
+  } catch {
+    return void 0;
+  }
+  return exchanged.idToken;
 };
 var getValidFirebaseIdToken = async (env = process.env) => {
   const token = loadStoredFirebaseIdToken(env);
@@ -16225,15 +16582,30 @@ var TERMINAL_CONTROL_CHARACTERS = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
 var sanitizeForTerminal = (value) => value.replace(/\r\n/g, "\n").replace(TERMINAL_CONTROL_CHARACTERS, (character) => `\\x${character.charCodeAt(0).toString(16).padStart(2, "0")}`);
 
 // src/core/tokenArgvWarning.ts
+var DEPRECATED_TOKEN_OPTION_HELP = "DEPRECATED: visible to other local users (ps, /proc) while the command runs. Use the BEEMMVISION_FIREBASE_ID_TOKEN environment variable or `beemmvision auth login` instead";
 var warnTokenOnCommandLine = (context) => {
-  if (context.json) {
-    return;
-  }
-  context.output.writeHuman(
-    "Warning: a Firebase ID token passed on the command line is visible to other local users (ps, /proc) while the command runs. Prefer `beemmvision auth login` (browser) or the BEEMMVISION_FIREBASE_ID_TOKEN environment variable.\n",
-    "stderr"
+  context.output.writeWarning(
+    "Warning: a Firebase ID token passed on the command line is visible to other local users (ps, /proc) while the command runs, and this option is deprecated. Use the BEEMMVISION_FIREBASE_ID_TOKEN environment variable or `beemmvision auth login` (browser) instead.\n"
   );
 };
+
+// src/core/confirmPrompt.ts
+import { createInterface } from "node:readline";
+var isInteractiveTerminal = () => Boolean(process.stdin.isTTY && process.stdout.isTTY);
+var YES = /^(o|oui|y|yes)$/i;
+var askYesNo = (question) => new Promise((resolve6) => {
+  const prompt = createInterface({ input: process.stdin, output: process.stdout });
+  let settled = false;
+  const finish = (answer) => {
+    if (settled) return;
+    settled = true;
+    prompt.close();
+    resolve6(answer);
+  };
+  prompt.on("close", () => finish(false));
+  prompt.on("SIGINT", () => finish(false));
+  prompt.question(question, (answer) => finish(YES.test(answer.trim())));
+});
 
 // src/commands/auth.ts
 var AuthLoginOptionsSchema = z.object({
@@ -16274,15 +16646,41 @@ var describeAppCheck = (credential, autoRenewal = false) => ({
 });
 var describeAutoRenewal = (active) => "renouvellement automatique : " + (active ? "actif" : "inactif (relance `beemmvision auth login` pour l'activer)");
 var isSessionFullyAttested = (hasIdentityToken, appCheck) => hasIdentityToken && appCheck.present && !appCheck.expired;
+var confirmReceivedAccount = async (firebaseIdToken, context) => {
+  const claims = decodeFirebaseIdTokenClaims(firebaseIdToken);
+  const received = {
+    uid: typeof claims.user_id === "string" ? claims.user_id : claims.sub,
+    email: typeof claims.email === "string" && claims.email ? claims.email : void 0
+  };
+  const label = received.email ?? `uid ${received.uid}`;
+  console.log(`[auth.login] Connect\xE9 en tant que ${label}`);
+  if (context.json) return;
+  const previous = readStoredAccountIdentity(context.env);
+  if (!previous || !isDifferentAccount(previous, received) || !isInteractiveTerminal()) return;
+  const previousLabel = previous.email ?? `uid ${previous.uid}`;
+  const accepted = await askYesNo(
+    sanitizeForTerminal(
+      `Ce compte n'est pas celui de ta derni\xE8re connexion (${previousLabel}). Enregistrer la session de ${label} dans ce terminal ? [o/N] `
+    )
+  );
+  if (!accepted) {
+    throw new CliError({
+      type: "auth_error",
+      message: `Connexion annul\xE9e : la session de ${label} n'a pas \xE9t\xE9 enregistr\xE9e. Ta session pr\xE9c\xE9dente reste en place.`,
+      exitCode: EXIT_CODES.AUTH
+    });
+  }
+};
 var authLoginHandler = async (options, context) => {
   const claims = decodeFirebaseIdTokenClaims(options.firebaseIdToken);
   const previousGrant = readStoredCliGrant(context.env);
-  if (previousGrant && previousGrant.grantId !== options.cliGrantId && context.runtimeConfig.functionsBaseUrl) {
-    const revoked = await revokeStoredCliGrant({
+  if (previousGrant && previousGrant.grantId !== options.cliGrantId) {
+    const functionsBaseUrl = context.runtimeConfig.functionsBaseUrl;
+    const revoked = functionsBaseUrl ? await revokeStoredCliGrant({
       env: context.env,
-      functionsBaseUrl: context.runtimeConfig.functionsBaseUrl,
+      functionsBaseUrl,
       firebaseIdToken: await getValidFirebaseIdToken(context.env)
-    });
+    }) : false;
     console.log(
       revoked ? "[auth.login] Previous terminal access revoked on the server." : "[auth.login] Could not revoke the previous terminal access; it expires after 30 days unused (90 days at most)."
     );
@@ -16323,7 +16721,7 @@ var authWhoamiHandler = async (_options, context) => {
   if (!token) {
     throw new CliError({
       type: "auth_error",
-      message: "No Firebase ID token configured. Use `auth login --firebase-id-token <token>` or set BEEMMVISION_FIREBASE_ID_TOKEN.",
+      message: "No Firebase ID token configured. Run `beemmvision auth login` or set BEEMMVISION_FIREBASE_ID_TOKEN.",
       exitCode: EXIT_CODES.AUTH
     });
   }
@@ -16382,7 +16780,7 @@ var authRefreshHandler = async (_options, context) => {
 };
 var registerAuthCommands = (program, context) => {
   const authCommand = program.command("auth").description("Manage CLI Firebase authentication state");
-  authCommand.command("login").description("Store a Firebase ID token in the local CLI config, or start browser login when no token is provided").option("--token <token>", "Firebase ID token to store locally").option("--firebase-id-token <token>", "Firebase ID token to store locally").option("--no-open", "Do not attempt to open the browser automatically").option("--timeout-seconds <seconds>", "Browser login timeout in seconds", (value) => Number(value)).option("--force", "Force re-login even if already authenticated").action(async (rawOptions) => {
+  authCommand.command("login").description("Store a Firebase ID token in the local CLI config, or start browser login when no token is provided").option("--token <token>", `Firebase ID token to store locally. ${DEPRECATED_TOKEN_OPTION_HELP}`).option("--firebase-id-token <token>", `Firebase ID token to store locally. ${DEPRECATED_TOKEN_OPTION_HELP}`).option("--no-open", "Do not attempt to open the browser automatically").option("--timeout-seconds <seconds>", "Browser login timeout in seconds", (value) => Number(value)).option("--force", "Force re-login even if already authenticated").action(async (rawOptions) => {
     context.commandName = "auth.login";
     const routedFirebaseIdToken = context.runtimeConfig.firebaseIdTokenSource === "cli" ? context.runtimeConfig.firebaseIdToken : void 0;
     const firebaseIdToken = rawOptions.token ?? rawOptions.firebaseIdToken ?? routedFirebaseIdToken;
@@ -16450,9 +16848,22 @@ var registerAuthCommands = (program, context) => {
         cliGrantId,
         cliGrantSecret
       } = await session.waitForToken();
+      const checked = await confirmReceivedSessionWithGoogle(
+        { firebaseIdToken: firebaseIdTokenFromBrowser, refreshToken, apiKey },
+        context.env
+      );
+      if (!checked.ok) {
+        throw new CliError({
+          type: "auth_error",
+          message: (checked.reason === "account_mismatch" ? "Connexion refus\xE9e : la session re\xE7ue ne correspond pas au compte que Google lui associe. " : "Connexion refus\xE9e : Google n'a pas confirm\xE9 la session re\xE7ue. ") + "Rien n'a \xE9t\xE9 enregistr\xE9, ta session pr\xE9c\xE9dente reste en place. Relance `beemmvision auth login`.",
+          exitCode: EXIT_CODES.AUTH
+        });
+      }
+      const verifiedIdToken = checked.firebaseIdToken;
+      await confirmReceivedAccount(verifiedIdToken, context);
       const parsedOptions = AuthLoginOptionsSchema.parse({
-        firebaseIdToken: firebaseIdTokenFromBrowser,
-        refreshToken,
+        firebaseIdToken: verifiedIdToken,
+        refreshToken: checked.refreshToken,
         apiKey,
         appCheckToken,
         cliGrantId,
@@ -16460,7 +16871,7 @@ var registerAuthCommands = (program, context) => {
       });
       const result = await authLoginHandler(parsedOptions, context);
       console.log("[auth.login] Browser authentication completed successfully.");
-      const tokenAudience = getFirebaseTokenAudience(firebaseIdTokenFromBrowser);
+      const tokenAudience = getFirebaseTokenAudience(verifiedIdToken);
       context.response = createSuccessResponse("auth.login", {
         ...result,
         authUrl: session.authUrl,
@@ -16561,8 +16972,10 @@ var registerConfigCommands = (program, context) => {
     const raw = ConfigRawOptionsSchema.parse(rawOptions);
     const appBaseUrl = raw.appBaseUrl || raw.appBaseURL;
     const routedFunctionsBaseUrl = context.runtimeConfig.functionsBaseUrlSource === "cli" ? context.runtimeConfig.functionsBaseUrl : void 0;
+    const functionsBaseUrl = routedFunctionsBaseUrl || raw.functionsBaseUrl || raw.functionsBaseURL;
     const normalized = {
-      functionsBaseUrl: routedFunctionsBaseUrl || raw.functionsBaseUrl || raw.functionsBaseURL,
+      // D5 : https, ou http sur le loopback seulement ; chemin garde.
+      functionsBaseUrl: functionsBaseUrl ? normalizeFunctionsBaseUrl(functionsBaseUrl) : void 0,
       // Seule l'origine est persistee, et seulement si elle est sure : elle
       // resservira a chaque `auth login` (SEC-CLI-002).
       appBaseUrl: appBaseUrl ? normalizeAppBaseUrl(appBaseUrl) : void 0
@@ -16681,7 +17094,7 @@ var doctorHandler = async (options, context) => {
     {
       id: "functions-base-url",
       ok: Boolean(context.runtimeConfig.functionsBaseUrl),
-      message: context.runtimeConfig.functionsBaseUrl ? `Functions base URL configured via ${context.runtimeConfig.functionsBaseUrlSource}: ${context.runtimeConfig.functionsBaseUrl}` : "Missing Functions base URL for callable transport."
+      message: context.runtimeConfig.functionsBaseUrl ? `Functions base URL configured via ${context.runtimeConfig.functionsBaseUrlSource}: ${context.runtimeConfig.functionsBaseUrl}` : context.runtimeConfig.functionsBaseUrlError ?? "Missing Functions base URL for callable transport."
     },
     {
       id: "app-base-url",
@@ -18367,11 +18780,19 @@ var createOutputController = (options) => {
     }
     writeHumanToTerminal(chunk, stream);
   };
+  const writeWarning = (chunk) => {
+    if (options.jsonMode) {
+      writeStderr(sanitizeForTerminal(chunk));
+      return;
+    }
+    writeHumanToTerminal(sanitizeForTerminal(chunk), "stderr");
+  };
   return {
     jsonMode: options.jsonMode,
     logs,
     writeHuman,
     writeStyled,
+    writeWarning,
     createSpinner({ text: rawText, stream = "stdout" }) {
       const text = sanitizeForTerminal(rawText);
       if (options.jsonMode) {
@@ -18468,8 +18889,9 @@ var applyCliRoutingOptions = (base, cliOptions) => {
     next.transportMode = normalizeTransportMode(cliOptions.transport);
   }
   if (cliOptions.functionsBaseUrl) {
-    next.functionsBaseUrl = cliOptions.functionsBaseUrl;
+    next.functionsBaseUrl = normalizeFunctionsBaseUrl(cliOptions.functionsBaseUrl);
     next.functionsBaseUrlSource = "cli";
+    delete next.functionsBaseUrlError;
   }
   if (cliOptions.firebaseIdToken) {
     next.firebaseIdToken = cliOptions.firebaseIdToken;
@@ -18484,7 +18906,15 @@ var parseRuntimeConfig = async (cliOptions = {}, env = process.env, options = {}
   );
   const cliFunctionsBaseUrl = cliOptions.functionsBaseUrl;
   const envFunctionsBaseUrl = readCliEnvVar(env, "FUNCTIONS_BASE_URL");
-  const functionsBaseUrl = cliFunctionsBaseUrl || envFunctionsBaseUrl || storedConfig.functionsBaseUrl || DEFAULT_FUNCTIONS_BASE_URL;
+  const requestedFunctionsBaseUrl = cliFunctionsBaseUrl || envFunctionsBaseUrl || storedConfig.functionsBaseUrl || DEFAULT_FUNCTIONS_BASE_URL;
+  let functionsBaseUrl;
+  let functionsBaseUrlError;
+  try {
+    functionsBaseUrl = normalizeFunctionsBaseUrl(requestedFunctionsBaseUrl);
+  } catch (error) {
+    if (!(error instanceof CliError)) throw error;
+    functionsBaseUrlError = error.message;
+  }
   const functionsBaseUrlSource = cliFunctionsBaseUrl ? "cli" : envFunctionsBaseUrl ? "env" : storedConfig.functionsBaseUrl ? "config" : "default";
   const cliFirebaseIdToken = cliOptions.firebaseIdToken;
   const envFirebaseIdToken = readCliEnvVar(env, "FIREBASE_ID_TOKEN");
@@ -18494,7 +18924,7 @@ var parseRuntimeConfig = async (cliOptions = {}, env = process.env, options = {}
   const appBaseUrlSource = envAppBaseUrl ? "env" : storedConfig.appBaseUrl ? "config" : "default";
   const firebaseIdToken = cliFirebaseIdToken || envFirebaseIdToken || storedFirebaseIdToken || void 0;
   const firebaseIdTokenSource = cliFirebaseIdToken ? "cli" : envFirebaseIdToken ? "env" : storedFirebaseIdToken ? "stored" : "missing";
-  if (options.renewAttestation !== false && firebaseIdTokenSource === "stored" && firebaseIdToken && transportMode !== "mock") {
+  if (options.renewAttestation !== false && firebaseIdTokenSource === "stored" && firebaseIdToken && functionsBaseUrl && transportMode !== "mock") {
     await renewAppCheckAttestationIfNeeded({ env, functionsBaseUrl, firebaseIdToken });
   }
   return {
@@ -18505,6 +18935,7 @@ var parseRuntimeConfig = async (cliOptions = {}, env = process.env, options = {}
     currentProjectId: loadStoredProjectId(env),
     appBaseUrl,
     functionsBaseUrlSource,
+    ...functionsBaseUrlError ? { functionsBaseUrlError } : {},
     appBaseUrlSource,
     // Relu APRES `getValidFirebaseIdToken` et le renouvellement d'attestation,
     // qui peuvent avoir reecrit le fichier de session.
@@ -19430,6 +19861,13 @@ var resolveWorkflowTransport = (runtimeConfig) => {
   if (runtimeConfig.transportMode === "mock") {
     return new MockWorkflowTransport();
   }
+  if (runtimeConfig.functionsBaseUrlError) {
+    throw new CliError({
+      type: "validation_error",
+      message: runtimeConfig.functionsBaseUrlError,
+      exitCode: EXIT_CODES.VALIDATION
+    });
+  }
   const hasCallableConfig = Boolean(runtimeConfig.functionsBaseUrl && runtimeConfig.firebaseIdToken);
   if (runtimeConfig.transportMode === "callable") {
     if (!runtimeConfig.functionsBaseUrl) {
@@ -19615,7 +20053,7 @@ var createProgram = (context, captureCommanderOutput) => {
       return command.options.some((option) => !option.hidden) ? term : term.replace(" [options]", "");
     }
   });
-  program.name("beemmvision").version("0.4.3").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", "Firebase ID token used by callable transport").showHelpAfterError().configureOutput({
+  program.name("beemmvision").version("0.4.4").description("CLI Beemm Vision pilotable par des agents IA pour g\xE9rer projets, workflows et templates.").option("--json", "Emit machine-readable JSON output").option("--transport <transport>", "Transport mode: auto, mock, callable", "auto").option("--functions-base-url <url>", "Base URL for Firebase Functions HTTP endpoints").option("--firebase-id-token <token>", `Firebase ID token used by callable transport. ${DEPRECATED_TOKEN_OPTION_HELP}`).showHelpAfterError().configureOutput({
     // Both streams are tapped, because Commander picks the stream itself:
     // `--help` writes to stdout, while a bare command group and `help
     // <unknown>` write the very same help to stderr. The capture is only
